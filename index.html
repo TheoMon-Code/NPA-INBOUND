@@ -1,5 +1,13 @@
 <title>MON Inbound</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,500&family=IBM+Plex+Mono:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,500&family=IBM+Plex+Mono:wght@500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap">
+<link rel="manifest" id="pwa-manifest" href="data:application/manifest+json;base64,eyJuYW1lIjoiTU9OIEluYm91bmQiLCJzaG9ydF9uYW1lIjoiTU9OIEluYm91bmQiLCJzdGFydF91cmwiOiIuIiwiZGlzcGxheSI6InN0YW5kYWxvbmUiLCJiYWNrZ3JvdW5kX2NvbG9yIjoiIzBBMTAxRiIsInRoZW1lX2NvbG9yIjoiIzBBMkU4NiIsImljb25zIjpbeyJzcmMiOiJkYXRhOmltYWdlL3BuZztiYXNlNjQsaVZCT1J3MEtHZ29BQUFBTlNVaEVVZ0FBQU1BQUFBREFDQVlBQUFCUzNHd0hBQUFGcjBsRVFWUjRuTzNjelhVYVN4UkY0WktYUnlJRGs1RUlndGdVQkNFUkFtTjVJR29KTlhUWGYxWGZPdnViUFZ1V01kemRkUnY4L1BiKzcrUExBYUwrakg0QXdFZ0VBR2tFQUdrRUFHa0VBR2tFQUdrRUFHa0VBR2tFQUdrRUFHa0VBR2tFQUdrRUFHa0VBR2tFQUdrRUFHa0VBR2tFQUdrRUFHa0VBR2tFQUdrRUFHa0VBR2tFQUdrRUFHa0VBR2tFQUdrRUFHa0VBR2tFQUdrRUFHa0VBR2tFQUdsL1J6OEFaYmZyNWZQeHZ3L0gwM25VWTFIRkNUREk3WG9aL1JEZ0NHQ0l0ZUVuaXY1WWdUcUtHWEQvTllmanFmWERnU09BTG5LdTdJVFFCd0UwVkdPbElZUzJ1QWRvcFBZK3ovMUJHNXdBbGJVY1ZFNkQrZ2lna3A1WGFFS29oeFdvME8xNkdiYWVzQmFWSTRBQ3VRTjRPSjZxWGIxSEJqZ0RWcUFNSllNZjgvTzhiZG9QSjBDQ2txdHR5bUNXRERFblFocE9nQWdsQTVVN3pDV25nZjkxbkFaaEJCRFE0NG9mODMxWWk5b2dnQldqQi8vVjl5MDVEZnozd0cvY0F5ejAydk56djMvcC9RRis0d1M0RzdIbmwvNStyRVhsQ01EdGI5MUovZjBKSVovMENwUzc3dFQ4SUtzRzFxSjhraWVBcFhVbkZxZEJIcWtBWmh6OEpVSklJN01DN2VIdjdmVEVwOGx4cGo4QnJON2cxc0NueVdIVEJxQ3c3c1JpTFZvM1hRQU0vam8rVFg0MjFUMkEycDZmZzArVGY1dmlCRkRlODNPeEZuMHpIUURyVGpuMUVFd0d3T0RYcDNwL1lPNGVnRDIvSGNYN0F6TW5BSHQrUDBwcmtia1RJSVdWRjJHdkZKNC9NeWRBQ29VWHJwZlNUNVAzYnFvQUdQeDJaZzFobWhXSTRlOWp0amNUcGdrQXlFRUFrRVlBa0VZQWtFWUFrRVlBa0VZQWtFWUFrRVlBa0VZQWtFWUFrRVlBa0VZQWtFWUFrRVlBa0VZQWtFWUFrRVlBa0VZQWtFWUFrRVlBa0VZQWtFWUFrRVlBa0VZQWtFWUFrRGJWdncxcXhlMTYrZHo2OGNQeGRPNzdpSFJ4QW5SMHUxNCsxNFovK1hVOUhnOElvSnZVb1k2TkJXVllnUnJiR3VMbHF2UHFhMW1MMmlLQVJsSUcvL0hIdVQvb2l4V29zdERxRWhyZ3cvRjAzdm9hMXFLNk9BRXFDUTFtNnBYYmZ6MXJVVnNFVUVISkZUK0VFTm9pZ0FJdEIvL1Y5K1Arb0Q0Q3lOQno4Rjk5NzYwUWlDQU5BU1NvdmVmbllpMnFod0FpN0dYdzEzNWZRc2pIMjZBQm9YVm5Ed01XZXR1VXQwN1hjUUtzR0xYbjUrTCtJQThCTEZnYi9DWFdvalFFY0xmWFBUOFhJY1NSRDJDMndWOGloRzNTTjhFV2JuQnI0VWI1TmNrVHdQcWVuNHNiNVdkU0FhZ08vaEpyMFErSkFHYmY4M01Sd3VRQk1QaHhsUCtpM2JRM3dVbzN1RFdvL284NDA1MEE3UGxsMU5haXQvZC9IMStqSDBTTTIvVVMraElHdjRIQWxYLzFlVDBjVHcwZVRYMHpyRUNmanVGdkp2RDhiVDczRmxoZWdiakI3U1QwK1lIN2ZpMU1QdDlXQStDS1AwQWdCUDlqcHA1L2F3RUU5MUYvcjJCbEI3WGs0VDdNRDduNUVFd0VrSE1qUmdqMWJMd0JjWGJHN3dHczN3UUhyeklSN3g1aFE4VHpkM2JQcjRPSnE3OXp0dDRHZmJ6U1pEM0JuQWJ4Q2k0Y3B2NUNuWWtWeUh1NENjdjY5YXhGWVNVbjV2MTVOVFA4emhrNkFWNnA4R0xoVHZXNU5CMkFwL3JpMVpMNy9NM3czRTBSZ0VjSWFaUUgzNXNxQU9mSzMvV1o2Y1ZkdzRYaXgzUUJlTHpJejNoT25rMGJnTWVML28xMTU3WHBBM0JPZXkxaThMZEpCT0FwblFaS2Y5WVNVZ0Y0TXcvSHpIKzJGaVFEOEdZYkZ0YWRkTklCT0RkSEJBeCtQdmtBUElzaFdIek1lME1BQ3hhR3lzSmp0SUlBWHRqejI2YXNPM1VSd0lZOVhXa1ovRFlJSU1MSUVQWVU0WXdJSUZMdnRZakI3NE1BRXZVWVROYWRmZ2dnVTRzUUdQeitDS0JRalJCWWQ4WWhnQXBHL05NckRINGRCRkJSanhBWS9Mb0lvSUVXSVRENGJWai9sK0YycWZhd012enRjQUkweGczdXZoRkFKeWtoTVBqOUVFQm5XeUV3K1AxeEQ5RFoycEF6L0dOd0FneDB1MTRZL01FSUFOSllnU0NOQUNDTkFDQ05BQ0NOQUNDTkFDQ05BQ0NOQUNDTkFDQ05BQ0NOQUNDTkFDQ05BQ0NOQUNDTkFDQ05BQ0NOQUNDTkFDQ05BQ0NOQUNDTkFDQ05BQ0NOQUNDTkFDQ05BQ0NOQUNDTkFDQ05BQ0NOQUNDTkFDQ05BQ0NOQUNDTkFDRHRQMCtiRk5oUnc4clJBQUFBQUVsRlRrU3VRbUNDIiwic2l6ZXMiOiIxOTJ4MTkyIiwidHlwZSI6ImltYWdlL3BuZyJ9LHsic3JjIjoiZGF0YTppbWFnZS9wbmc7YmFzZTY0LGlWQk9SdzBLR2dvQUFBQU5TVWhFVWdBQUFnQUFBQUlBQ0FZQUFBRDBlTlQ2QUFBU0tFbEVRVlI0bk8zZHlYVWN5Um1GMFZBZnJVUVBSSTlFSTlvMkdnR1RZQUxYMG9KZElvakdVRU1PTCtMZHU5UVIyVUJWWnZ4ZlJTVEFmL3pyMy8vNTd3QUFxdnh4OWhjQUFCeFBBQUJBSVFFQUFJVUVBQUFVRWdBQVVFZ0FBRUFoQVFBQWhRUUFBQlFTQUFCUVNBQUFRQ0VCQUFDRkJBQUFGQklBQUZCSUFBQkFJUUVBQUlVRUFBQVVFZ0FBVUVnQUFFQWhBUUFBaFFRQUFCUVNBQUJRU0FBQVFDRUJBQUNGQkFBQUZCSUFBRkJJQUFCQUlRRUFBSVVFQUFBVUVnQUFVRWdBQUVBaEFRQUFoUVFBQUJRU0FBQlFTQUFBUUNFQkFBQ0ZCQUFBRkJJQUFGQklBQUJBSVFFQUFJVUVBQUFVRWdBQVVFZ0FBRUFoQVFBQWhRUUFBQlFTQUFCUVNBQUFRQ0VCQUFDRkJBQUFGQklBQUZCSUFBQkFJUUVBQUlVRUFBQVVFZ0FBVUVnQUFFQWhBUUFBaFFRQUFCUVNBQUJRU0FBQVFDRUJBQUNGQkFBQUZCSUFBRkJJQUFCQUlRRUFBSVVFQUFBVUVnQUFVRWdBQUVBaEFRQUFoUVFBQUJRU0FBQlFTQUFBUUNFQkFBQ0ZCQUFBRkJJQUFGQklBQUJBSVFFQUFJVUVBQUFVRWdBQVVFZ0FBRUFoQVFBQWhRUUFBQlFTQUFCUVNBQUFRQ0VCQUFDRkJBQUFGQklBQUZCSUFBQkFJUUVBQUlVRUFBQVVFZ0FBVUVnQUFFQWhBUUFBaGY1NTloY0FIT2ZIODlQM2EvNS9YNzUrKzNQdnJ3VTRseDBBQUNna0FBQ2drQUNBRWorZW44NytFb0FnbmdHQXhkMHorQzkvNXN2WGIxdC9PVUFJQVFDTDJ1SVR2eENBZFRrQ2dBVnR2ZDN2K0FEV1l3Y0FGckxub0xZYkFHc1JBTENBSXoraEN3RllneU1BbU5pUDU2ZlR0dWNkQzhEY0JBQk1LbUVBbnhrZ3dHTWNBY0JrRWdldVl3R1lqd0NBU1NRTy90ZUVBTXpERVFDRW0zR2JmYmF2RnhvSkFBZzI4eUNkTVZ5Z2lTTUFDTFRTNEhRc0FKa0VBQVJaYWZDL0pnUWdpeU1BQ0xIeThIK3A1ZnVFZEhZQTRHU05BOUZ1QUp4UEFNQkpHZ2YvYTBJQXp1TUlBQTdtNmZpLzgzckE4UVFBSE1pZ2U1OHdnbU01QW9BREdHelhjeXdBeHhBQXNDT0QvMzVDQVBibENBQjJZRHQ3TzE1SDJJY0FnSTBaV05zVFZMQTlBUUFiU1I5U0syeWxwNy9HTUJNQkFBK2FZU2pkT3Z6VFl5SDk5WVlaZUFnUUhwQStpQjRaNUpjL20vbzlla2dRSGlNQTRBNnBRL0ZpeTZFb0JHQk5BZ0J1a0RvRUwvWWNnbCsrZm92Ky9vVUEzTVl6QUhDRkZjLzU3LzF2cEEvWTlQY0pVdGdCZ0Ura0Q1UXpCckpqQVppZkFJQjNwQTYzaTRUaEpnUmdYbzRBNEJYYi9iZEwrM3BlUzM4LzRReDJBT0F2TXd5SjVFRnJOd0RtSWdCZzVBNnRpNW1HbGhDQU9RZ0FxcVVPcVl1Wmg1UWZHNFJzbmdHZ2tuUCtZL2l4UWNobEI0QXFNeXoyNlFQekhvNEZJSThBb0VicThMbG9HRDVDQUhJNEFtQjU2ZHY5TTJ5VGJ5MzkrMDIrWG1BcmRnQlkxZ3lMZVBvZzNKUGRBRGlYQUdCSnFVUGx3bEQ1UlFqQU9RUUFTMGtkSWhlR3lQdjgyQ0FjeXpNQUxDSDluSDhNZytNYU16d1BrWDZkd2JYc0FEQzFHUmJqOUlHV3lMRUE3RThBTUszVTRYQmhPRHhPQ01CK0JBRFRTUjBHRjRiQjlqd2ZBTnZ6REFEVGNNN2Z6Zk1Cc0MwN0FNU2JZVkZOSDB3cmNTd0EyN0FEUUxUVVJmNWloaytscTBwLzNXZllzYUtiSFFBaXBTK2M2Y09uUmZwdXdCZy92emJYQzRrRUFGR1NGL0lMaTNtZTlCQndMRUFpQVVDRTFJWDdKWXQzUGlFQTEvTU1BS2RMWGF3dm5QUFBKLzM5OG53QUNld0FjSnIwQlRCOWlQQ3g5TjJBTVR3ZndMa0VBSWRMWHBBdkxNcnJTQThCeHdLY1JRQndxTlJGK01JaXZDNGhBTC96REFDSFNEL3pkTTdmSS8xOVRyNVBXSXNkQUhZMXcyS1dQaERZbnQwQUVBRHNKSFZoZmNuaWloQ2dtU01BTnBlNm1GN1k3dWUxOU9zaC9RaU5PZGtCWURQcEMxVDZJcys1MG5jRHh2QmpnMnhMQVBDdzVBWHp3cUxKdGRKRHdMRUFXeEVBM0MxMWdYekpJc205aEFDcjh3d0FkMGxkRkMrYzg3T1Y5T3NvL1Y0a2x4MEFicEsrMktRdjFzekpiZ0FyRWdCY0pYWGhlOG5peDk2RUFDdHhCTUNuVWhlN0M5djlIQzM5ZXZOamcxekREZ0R2U2w5QTBoZGgxcGErR3pDR0h4dmtZd0tBdjBsZTBNWXcrTW1TSGdLT0JYaVBBT0QvVWhld2x5eGlwQklDek1ZekFJd3hjaGV0QytmOHpDTDlPdlY4QUJkMkFNcWxMd1RwaXltOEpYMDNZQXpQQnlBQWFpVXZUQmNXSjJhWEhnS09CYm9KZ0RLcEM5RkxGaU5XOCtYcnQraDdUd2gwOGd4QWtlUUZhQXpuL0t4dGh1czdmWTFnVzNZQUNxVGYxT21MSW16SnNRQXBCTURDVWhlWWx5d3l0QklDbkUwQUxDaDFRWG5Kb2dJL2VUNkFzM2dHWURISkM4a1ljNXlEd3RGbXVDL1MxeFp1WndkZ0VlazNaL3JpQmdrY0MzQWtPd0Rzem1JQnQzSFBjQVE3QU96R0lnYjNTOThOWUg0Q2dNMFovTEFkSWNCZUhBR3dLY01mOWpIRGc0TE1SUUN3Q1lzVEhNTjl4bFljQWZBUWl4RWN6N0VBV3hBQTNNWGdoL01KQVI3aENJQ2JHZjZReFJFYzl4QUFYTTBpQTluY245ekNFUUNmc3FqQVBCd0xjQzBCd0xzTWZwaVhFT0F6amdBQW9KQUFBSUJDQWdBQUNna0FBQ2drQUFDZ2tBQUFnRUlDQUFBS0NRQUFLQ1FBQUtDUUFBQ0FRZ0lBQUFvSkFBQW9KQUFBb0pBQUFJQkNBZ0FBQ2drQUFDZ2tBQUNna0FBQWdFSUNBQUFLQ1FBQUtDUUFBS0NRQUFDQVFnSUFBQW9KQUFBb0pBQUFvSkFBQUlCQ0FnQUFDZ2tBQUNna0FBQ2drQUFBZ0VJQ0FBQUtDUUFBS0NRQUFLQ1FBQUNBUWdJQUFBb0pBQUFvSkFBQW9KQUFBSUJDQWdBQUNna0FBQ2drQUFDZ2tBQUFnRUlDQUFBS0NRQUFLQ1FBQUtDUUFBQ0FRZ0lBQUFvSkFBQW9KQUFBb0pBQUFJQkNBZ0FBQ2drQUFDZ2tBQUNna0FBQWdFSUNBQUFLQ1FBQUtDUUFBS0NRQUFDQVFnSUFBQW9KQUFBb0pBQUFvSkFBQUlCQ0FnQUFDZ2tBQUNna0FBQ2drQUFBZ0VJQ0FBQUtDUUFBS0NRQUFLRFFQOC8rQW9EOS9YaCsrbjdQLy8vTDEyOS83dk1WQVdlekF3Q0x1M1g0di82emoveDVJSmNkQUZqVWxvUGJqZ0NzeHc0QUxHYlBUKzEyQTJBZGRnQmdFVWNOWjdzQnNBWTdBTENBTXo2WmV6NEE1bVlIQUNhV01JRHRDTUNjQkFCTWFJdkIvM3BnUC9wMy9uaCsraTRDWUI0Q0FDYXkxU2YrdHdiMTVYOTc5TWNHMy92N2dTd0NBQ2F4eDZmK2ovNC9RZ0RXSmdBZzNGR0QvNjAvczhXeHdMMy9mV0JmQWdCQ25UWDQzL3J6bmcrQTlRZ0FDTFBuT2YramY1ZGpBVmlIQUlBZ0NaLzZyL203aFFETVR3QkFnUFRCLzlaL3kvTUJNRGNCQUNlYWJmQy85ZC8xZkFETVNRREFDUkxQK1IvOUdod0x3RndFQUJ4czVrLzlIeEVDTUJjQkFBZFpkZkMvNXZrQW1JTUFnSjIxRFA2WFBCOEErUVFBN0dTbGMvNTdPUmFBWEFJQWR0RDRxZjhqUWdEeUNBRFlrTUgvTWM4SFFBNEJBQnN3K0svbitRRElJQURnQWM3NTcrZFlBTTRsQU9CT1B2VnZRd2pBT2Y0NCt3dUEyZng0ZnZyKzZQRC84dlhibjRiVjc3WjRQYmJha1lFR2RnRGdTajd4Nzg5dUFCeEhBTUFublBNZlR3akEvZ1FBZk1Dbi9uTUpBZGlQWndEZ0RjNzVzM2crQUxabkJ3QmU4SWsvbDkwQTJKWUFnT0djZnlaQ0FMYmhDSUI2VzMzcU4weU90ZFd4Z0tNQld0a0JvSmJ0L3ZuNXRjSndQd0ZBSFlOL1BZNEY0SFlDZ0JyTytkY25CT0I2bmdHZ2duUCtMcDRQZ00vWkFXQnB0dnQ3ZVQ0QVBpWUFXSkxCejRWakFYaWJBR0FwenZsNWp4Q0EzM2tHZ0dVNDUrY2FuZytBbit3QU1EM2IvZHpLOHdFZ0FKaVl3YytqSEF2UVRBQXdIZWY4YkUwSTBNZ3pBRXpGT1Q5Nzhud0FUZXdBTUFYYi9SekY4d0cwRUFCRU0vZzVpMk1CVmljQWlPU2NueFJDZ0ZWNUJvQTR6dmxKNVBrQVZtTUhnQmkyKzBubitRQldJZ0E0bmNIUGJCd0xzQUlCd0dtYzh6TTdJY0RNUEFQQUtaenpzNUt0bmcvWTRtdUJhOWtCNEZDMisxbVYzUUJtSXdBNGhNRlBDeUhBTEFRQXUzTE9UeXNoUURyUEFMQWI1L3pnK1FCeTJRRmdjN2I3NFhkMkEwZ2tBTmlNd1E4ZkV3SWtjUVRBdzdiNjlhWVdORnI0dGNJa0VBQTh4RGsvM0dlcjYxNEVjQzlIQU56RkozN1lobU1CemlJQXVJbkJEL3NRQWh6TkVRQlhjYzRQeC9COEFFZXhBOENuREg0NDFwYi83UEFZdzczSG0vN3hyMy8vNTc5bmZ4RTg3c2Z6MHg1L3JjRVBBVGI2TkwvWnZmamw2N2V0L2lwT1pBZUF0eGo4RUdTakhZSExuM1Z2TXNid0RBQy8rejRNZjRpMTBiMjF5WDNPL093QWNHSHd3d1MyZWo1Zy9Mem4zYlBGQkFBR1AweklzUUNQRWdDOURINVlnQkRnWHA0QjZPT2NIeGJrK1FCdUpRQzYrTDM5c0xDLzdzMnRRb0RGT1FMb0VQVXp4TUQyWHYwdWtNdjk2bGlBZHdtQXRXMCsrQytMakY4RUFqaysrRVZnUW9CM0NZQTFiYlY5OSs0Tkx3VGdmRGY4QnRBL3grUHJnaEJZakFCWXo2SGIvVUlBam5mbnIvN2VZamZnOHVkRndBTDhXd0NMU1BoZDRTSUE5clh4di9uaHA0SEtDWURKSlF6KzE0UUFiRytuZi9CcmpEdER3UENmbng4RG5Od0dOK0htTi9HUDU2YzlGeXVvY3NEOVpKQ1g4Z3hBcjkxdmVzOEh3UDBPanVpYm5nL3c2WDhOZGdBV2NPUE51TlV2Q3JtYTNRQzR6WW4zek9IckErZXhBOURqMUp2YWJnQjhMaWlXMzkwUjhPbC9IWFlBRnZISlRSbHp3M28rQVA0dStMNklXVHZZbmgyQXRjWGV2RCtlbit3R1VDOTA2UC9tNWI4MjZOUC9XdndZNEdMZXVrblRGeGtoUUNQM0pXY1RBRVVzT0hBKzl5RXBCRUNaOU1WbkRBc1FhM0x2a1VZQWxFcGZqQ3hFckNMOVhodkQvZFpLQUpSTFg1d3NUTXpNL1VVeUFVRDhJaldHaFlxNXBOOVQ3aWZHRUFDOFlOR0N4NlRmUTJPNGovaEZBUEEzNll1WUJZeEU3aHRtSXdCNGx3VU5QdWMrWVZZQ2dBK2xMMjVqV09BNFIvcTk0YjdnTXdLQXExanM0S2YwZTJFTTl3UFhFUURjSkgzeHMvQ3hKOWMvS3hFQTNNVkNTQlBYT3lzU0FOek5vc2pxMHEveE1Wem4zRThBOExEMFJkSUN5YTNTcitreFhOYzhUZ0N3bWZSRjA0TEpOVnpIdEJBQWJDcDk4UnpEQXNyYjBxOWQxeTFiRXdEc3dtTEtMTkt2MVRGY3IreERBTENyOU1YVnd0b3IvZG9jdy9YSnZnUUFoMGhmYkMyMFhWeVBJQUE0a0VXWHM3a0c0UmNCd09Fc3dod3QvWm9idzNYSDhRUUFwMGxmbEMzSWEzQ2R3ZHNFQUtkS1g1ekhzRURQS3YzYWNsMXhOZ0ZBQklzMVcwbS9sc1p3UFpGQkFCQWxmZkcyY09kS3YzYkdjUDJRUlFBUUtYMHh0NUJuY2IzQTdRUUFzZElYOVRFczdHZEx2MFpjSHlRVEFNU3p5UE5hK2pVeGh1dUNmQUtBYWFRditoYjgvYVZmQTJPNERwaUhBR0FxQmtDdjlQZmUrODVzQkFCVE1neDZlSzloSHdLQXFSa082MHAvYjhmdy9qSTNBY0FTMG9lRlFYRzk5UGR5RE84bmF4QUFMTVBnbUYvNmUrajlZeVVDZ09VWUl2UHhuc0h4QkFETE1sVHlwYjlIWTNpZldKY0FZSG5wUTZaMXdIaGY0RndDZ0FxR1RRN3ZCV1FRQUZReGZNNlQvdHFQc2ZickQ2OEpBQ3FsRDZPVkJsSDZhejNHV3E4M1hFc0FVTXRnMmwvNmF6ejc2d3VQRUFEVU02UzI1eldGZkFJQS9tSm9QUzc5TlJ4amp0Y1JqaUFBNEpYMElaWTR3Tkpmc3pFeVh6YzRrd0NBTjZRUHRLUmg1cldDT1FrQStJRGg5ajZ2RGN4TkFNQVZETHRmMGwrTE1ReC91SVlBZ0NzWmZQbXZnY0VQMXhNQWNLUEdJZGo0UGNQcUJBRGNxV0VvTm55UDBFb0F3SU5XSEpMcDM5TVloajg4U2dEQUJsWWFtT25maThFUDJ4QUFzS0daaCtmTVh6dHdPd0VBTzVocG1LWi9yV01ZL3JBSEFRQTdtV0d3cGpQNFlUOENBSFltQkc1bjhNUCtCQUFjUkFoOHp1Q0g0d2dBT0pnUWVKdmhEOGNTQUhBQ0VmQ0x3US9uRUFCd291WVFNUGpoWEFJQUFqU0ZnTUVQR2Y0NCt3c0Flb1ppeS9jSk03QURBR0ZXM0EwdytDR1BBSUJRSzRTQXdRKzVCQUNFbXpVRURIL0lKZ0JnQWpORmdNRVBjeEFBTUpIa0VERDRZUzRDQUNhVUZBSUdQOHhKQU1ERXpnNEJ3eC9tSlFCZ2NtZEVnTUVQOHhNQXNJZ2pRc0RnaDNVSUFGak1IaUZnOE1ONi9DcGdXTXpXdzlyd2h6WFpBWUNGUGJJYllQREQyZ1FBRkxnbEJBeCs2Q0FBb01oSElXRHdReGZQQUVDUjk0YTg0UTk5N0FCQXFSL1BUd1kvRkJNQUFGRElFUUFBRkJJQUFGQklBQUJBSVFFQUFJVUVBQUFVRWdBQVVFZ0FBRUFoQVFBQWhRUUFBQlFTQUFCUVNBQUFRQ0VCQUFDRkJBQUFGQklBQUZCSUFBQkFJUUVBQUlVRUFBQVVFZ0FBVUVnQUFFQWhBUUFBaFFRQUFCUVNBQUJRU0FBQVFDRUJBQUNGQkFBQUZCSUFBRkJJQUFCQUlRRUFBSVVFQUFBVUVnQUFVRWdBQUVBaEFRQUFoUVFBQUJRU0FBQlFTQUFBUUNFQkFBQ0ZCQUFBRkJJQUFGQklBQUJBSVFFQUFJVUVBQUFVRWdBQVVFZ0FBRUFoQVFBQWhRUUFBQlFTQUFCUVNBQUFRQ0VCQUFDRkJBQUFGQklBQUZCSUFBQkFJUUVBQUlVRUFBQVVFZ0FBVUVnQUFFQWhBUUFBaFFRQUFCUVNBQUJRU0FBQVFDRUJBQUNGQkFBQUZCSUFBRkJJQUFCQUlRRUFBSVVFQUFBVUVnQUFVRWdBQUVBaEFRQUFoUVFBQUJRU0FBQlFTQUFBUUNFQkFBQ0ZCQUFBRkJJQUFGQklBQUJBSVFFQUFJVUVBQUFVRWdBQVVFZ0FBRUFoQVFBQWhRUUFBQlFTQUFCUVNBQUFRQ0VCQUFDRkJBQUFGQklBQUZCSUFBQkFJUUVBQUlVRUFBQVVFZ0FBVUVnQUFFQ2gvd0ZRQ1QyNEJpYmpEZ0FBQUFCSlJVNUVya0pnZ2c9PSIsInNpemVzIjoiNTEyeDUxMiIsInR5cGUiOiJpbWFnZS9wbmcifV19">
+<link rel="apple-touch-icon" id="pwa-touch-icon" href="data:image/png;base64,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">
+<link rel="icon" id="pwa-icon" href="data:image/png;base64,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">
+<meta name="theme-color" id="pwa-theme-color" content="#0A2E86">
+<meta name="mobile-web-app-capable" id="pwa-mobile-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" id="pwa-apple-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" id="pwa-apple-status-bar" content="black-translucent">
+<meta name="apple-mobile-web-app-title" id="pwa-apple-title" content="MON Inbound">
 <style id="app-styles">
 :root{
   --paper:#EEF2FA; --surface:#FFFFFF; --surface-2:#E3E9F7; --surface-3:#D7E0F3;
@@ -42,7 +50,7 @@ html,body{margin:0;padding:0}
 body{
   background:var(--paper);
   color:var(--ink);
-  font-family:"IBM Plex Sans",system-ui,-apple-system,sans-serif;
+  font-family:"IBM Plex Sans","IBM Plex Sans Thai",system-ui,-apple-system,sans-serif;
   -webkit-font-smoothing:antialiased;
   min-height:100dvh;
 }
@@ -51,8 +59,9 @@ img{max-width:100%}
 button{font:inherit;color:inherit}
 input{font:inherit;color:inherit}
 ::selection{background:var(--brand-soft)}
-.mono{font-family:"IBM Plex Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
-.display{font-family:"Archivo",system-ui,sans-serif}
+.mono{font-family:"IBM Plex Mono","IBM Plex Sans Thai",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+.display{font-family:"Archivo","IBM Plex Sans Thai",system-ui,sans-serif}
+.title-lg{font-family:"Archivo","IBM Plex Sans Thai",sans-serif;font-weight:800;font-size:17px}
 
 .shell{
   max-width:480px;
@@ -92,6 +101,8 @@ input{font:inherit;color:inherit}
   border-radius:999px; display:inline-block;
 }
 .rolebadge:active{background:rgba(255,255,255,.28)}
+.rolebadge.langtoggle{background:rgba(255,255,255,.28);font-family:"IBM Plex Mono",monospace;letter-spacing:.5px}
+.rolebadge.langtoggle:active{background:rgba(255,255,255,.42)}
 .clockbox{text-align:right}
 .clock{font-family:"IBM Plex Mono";font-weight:600;font-size:16px;letter-spacing:.5px}
 .clockdate{font-size:10.5px;color:#BFD0FF;margin-top:2px}
@@ -129,13 +140,20 @@ input{font:inherit;color:inherit}
 .kpis::-webkit-scrollbar{display:none}
 .kpi{
   flex:none; min-width:92px; background:var(--surface); border:1px solid var(--line);
-  border-radius:12px; padding:9px 12px;
+  border-radius:12px; padding:9px 12px; box-shadow:0 1px 2px var(--shadow);
+  transition:background .2s,border-color .2s;
 }
 .kpi .v{font-family:"IBM Plex Mono";font-weight:600;font-size:19px;line-height:1.1}
 .kpi .l{font-size:10.5px;color:var(--ink-dim);margin-top:2px;white-space:nowrap}
+.kpi.bad{background:var(--bad-soft);border-color:transparent}
 .kpi.bad .v{color:var(--bad)}
+.kpi.bad .l{color:var(--bad);opacity:.8}
+.kpi.warn{background:var(--warn-soft);border-color:transparent}
 .kpi.warn .v{color:var(--warn)}
+.kpi.warn .l{color:var(--warn);opacity:.8}
+.kpi.good{background:var(--good-soft);border-color:transparent}
 .kpi.good .v{color:var(--good)}
+.kpi.good .l{color:var(--good);opacity:.8}
 
 /* list */
 .list{padding:4px 16px 100px;display:flex;flex-direction:column;gap:10px;flex:1}
@@ -143,6 +161,7 @@ input{font:inherit;color:inherit}
   margin-top:30px;text-align:center;color:var(--ink-faint);font-size:13.5px;
   display:flex;flex-direction:column;align-items:center;gap:8px;
 }
+.empty-icon{font-size:38px;opacity:.7}
 .section-label{
   font-size:11px;font-weight:700;letter-spacing:1.6px;text-transform:uppercase;
   color:var(--ink-faint);margin:10px 2px 0;
@@ -151,8 +170,9 @@ input{font:inherit;color:inherit}
   display:flex; text-align:left; width:100%; background:var(--surface);
   border:1px solid var(--line); border-radius:var(--radius); overflow:hidden;
   cursor:pointer; -webkit-tap-highlight-color:transparent;
+  box-shadow:0 1px 3px var(--shadow); transition:transform .1s,background .15s;
 }
-.card:active{background:var(--surface-2)}
+.card:active{background:var(--surface-2); transform:scale(.99)}
 .stripe{width:5px;flex:none}
 .stripe.pending{background:var(--ink-faint)}
 .stripe.urgent{background:var(--bad)}
@@ -238,9 +258,9 @@ input{font:inherit;color:inherit}
 .done-summary div span{font-size:10.5px;color:var(--ink-dim)}
 .btn{
   width:100%;border:none;border-radius:13px;padding:15px 16px;font-weight:700;font-size:15.5px;
-  margin-top:14px;text-align:center;
+  margin-top:14px;text-align:center; transition:transform .1s,opacity .1s;
 }
-.btn:active{opacity:.85}
+.btn:active{opacity:.85; transform:scale(.98)}
 .btn.primary{background:var(--brand);color:#fff}
 .btn.go{background:var(--good);color:#fff}
 .btn.stop{background:var(--warn);color:#1c1204}
@@ -280,6 +300,13 @@ input{font:inherit;color:inherit}
 .roleopt b{display:block;font-size:15px}
 .roleopt span{display:block;font-size:12px;color:var(--ink-dim);margin-top:3px}
 .rolecard .sheet-close{position:absolute;top:14px;right:14px}
+.langtoggle-card{
+  position:absolute; top:14px; left:14px;
+  font-size:10.5px; font-weight:700; letter-spacing:.3px;
+  background:var(--surface-2); color:var(--ink-dim); border:none;
+  padding:5px 10px; border-radius:999px; font-family:"IBM Plex Mono",monospace;
+}
+.langtoggle-card:active{background:var(--surface-3)}
 
 /* toast */
 .toast{
@@ -287,7 +314,13 @@ input{font:inherit;color:inherit}
   background:var(--ink); color:var(--paper); padding:12px 16px; border-radius:12px;
   font-size:13.5px; font-weight:500; box-shadow:0 10px 24px var(--shadow);
   animation:rise .18s ease-out;
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
 }
+.toast-retry{
+  flex:none; border:none; background:rgba(255,255,255,.18); color:inherit;
+  font-weight:700; font-size:12.5px; padding:6px 12px; border-radius:8px;
+}
+.toast-retry:active{background:rgba(255,255,255,.3)}
 @keyframes rise{from{transform:translateY(10px);opacity:0}to{transform:translateY(0);opacity:1}}
 </style>
 <div id="app"></div>
@@ -308,13 +341,36 @@ var GRACE_MIN = 20;
 var ROLE_KEY = "mon-inbound-role";
 var DAY_LABELS = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 var MONTH_LABELS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-var ROLE_LABELS = { admin:"Admin", driver:"MHE Driver" };
+var DAY_LABELS_TH = ["วันอาทิตย์","วันจันทร์","วันอังคาร","วันพุธ","วันพฤหัสบดี","วันศุกร์","วันเสาร์"];
+var MONTH_LABELS_TH = ["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
 
 var CSS_TEXT = document.getElementById("app-styles").textContent;
+// Manifest/icon/theme-color tags (installable "Add to Home Screen" support) —
+// captured live so their markup (incl. the embedded icons) never has to be
+// duplicated in this script's source; reused verbatim on every republish.
+var PWA_HEAD_IDS = ["pwa-manifest","pwa-touch-icon","pwa-icon","pwa-theme-color","pwa-mobile-capable","pwa-apple-capable","pwa-apple-status-bar","pwa-apple-title"];
+var PWA_HEAD_TEXT = PWA_HEAD_IDS.map(function(id){
+  var el = document.getElementById(id);
+  return el ? el.outerHTML : "";
+}).join("");
 
 /* ---------- role (per-device, kept in this browser only) ---------- */
 function loadRole(){ try{ return localStorage.getItem(ROLE_KEY); }catch(e){ return null; } }
 function saveRoleLocal(r){ try{ localStorage.setItem(ROLE_KEY, r); }catch(e){} }
+
+/* ---------- display language (per device): most of the floor staff read
+   Thai only, so Thai is the default; management can switch to English with
+   the small EN/TH pill in the header. Not a login — purely a display choice,
+   remembered per phone. ---------- */
+var LANG_KEY = "mon-inbound-lang";
+function loadLang(){ try{ return localStorage.getItem(LANG_KEY) || "th"; }catch(e){ return "th"; } }
+function saveLangLocal(l){ try{ localStorage.setItem(LANG_KEY, l); }catch(e){} }
+
+/* ---------- remembered name (per device, for the optional "who did this"
+   field on start/finish — not a login, just saves retyping it). ---------- */
+var NAME_KEY = "mon-inbound-name";
+function loadSavedName(){ try{ return localStorage.getItem(NAME_KEY) || ""; }catch(e){ return ""; } }
+function saveNameLocal(n){ try{ localStorage.setItem(NAME_KEY, n); }catch(e){} }
 
 /* ---------- standalone fallback (outside the Claude artifact host, e.g. Netlify):
    there is no shared publish, so the truck data is kept in THIS browser's
@@ -355,7 +411,9 @@ function mapSheetRowToTruck(row){
     startedAt: row.actualArrival ? new Date(row.actualArrival).toISOString() : null,
     finishedAt: row.actualDeparture ? new Date(row.actualDeparture).toISOString() : null,
     startPhotoUrl: row.startPhotoUrl || "",
-    finishPhotoUrl: row.finishPhotoUrl || ""
+    finishPhotoUrl: row.finishPhotoUrl || "",
+    startedBy: row.startedBy || "",
+    finishedBy: row.finishedBy || ""
   };
 }
 function sheetsAction(action, payload){
@@ -366,7 +424,12 @@ function sheetsAction(action, payload){
     body: JSON.stringify(payload),
     headers: { "Content-Type": "text/plain;charset=utf-8" }
   }).then(function(res){ return res.json(); }).then(function(json){
-    if(json && json.ok === false) throw new Error(json.error || "Sheet update failed");
+    if(json && json.ok === false){
+      var e = new Error(json.error || "Sheet update failed");
+      e.conflict = !!json.conflict;
+      e.code = json.code || null;
+      throw e;
+    }
     return json;
   });
 }
@@ -399,6 +462,8 @@ var ui = {
   pinSettingsOpen: false,
   pinSettingsError: null,
   photoPrompt: null,
+  retryAction: null,
+  lang: loadLang(),
   syncStatus: (sheetsEnabled() || window.claude) ? "connecting" : "local"
 };
 ui.roleGateOpen = !ui.role;
@@ -420,6 +485,9 @@ function shortDate(key){
   return pad2(p[2])+"/"+pad2(p[1]);
 }
 function longDate(d){
+  if(ui.lang === "th"){
+    return DAY_LABELS_TH[d.getDay()]+"ที่ "+d.getDate()+" "+MONTH_LABELS_TH[d.getMonth()]+" "+(d.getFullYear()+543);
+  }
   return DAY_LABELS[d.getDay()]+" "+MONTH_LABELS[d.getMonth()]+" "+d.getDate();
 }
 function clockStr(d){ return pad2(d.getHours())+":"+pad2(d.getMinutes())+":"+pad2(d.getSeconds()); }
@@ -430,7 +498,7 @@ function dateTimeOf(dateKeyStr, hm){
 }
 function fmtHM(mins){
   mins = Math.max(0, Math.round(mins));
-  if(mins < 60) return mins + " min";
+  if(mins < 60) return mins + " " + tr("unit_min");
   var h = Math.floor(mins/60), m = mins%60;
   return h + "h" + pad2(m);
 }
@@ -447,10 +515,135 @@ function esc(str){
   });
 }
 
+/* ---------- bilingual strings (English / Thai) ---------- */
+var STRINGS = {
+  selectRole:{en:"Select role",th:"เลือกบทบาท"},
+  roleAdmin:{en:"Admin",th:"แอดมิน"},
+  roleDriver:{en:"MHE Driver",th:"พนักงาน MHE"},
+  roleAdminDesc:{en:"Set arrival times, add trucks, manage the schedule — PIN required",th:"ตั้งเวลาเข้า เพิ่มรถบรรทุก จัดการตารางงาน — ต้องใช้รหัส PIN"},
+  roleDriverDesc:{en:"Start and finish unloading at the dock — no login needed",th:"เริ่มและจบการขนถ่ายที่ท่าเทียบ — ไม่ต้องเข้าสู่ระบบ"},
+  changePin:{en:"Change admin PIN",th:"เปลี่ยนรหัส PIN แอดมิน"},
+  sync_local:{en:"Local mode",th:"โหมดในเครื่อง"},
+  sync_connecting:{en:"Connecting…",th:"กำลังเชื่อมต่อ…"},
+  sync_saving:{en:"Saving…",th:"กำลังบันทึก…"},
+  sync_synced:{en:"Synced",th:"ซิงค์แล้ว"},
+  sync_error:{en:"Not saved",th:"บันทึกไม่สำเร็จ"},
+  todaysTrucks:{en:"Today's trucks",th:"รถบรรทุกวันนี้"},
+  tabYesterday:{en:"Yesterday",th:"เมื่อวาน"},
+  tabToday:{en:"Today",th:"วันนี้"},
+  tabTomorrow:{en:"Tomorrow",th:"พรุ่งนี้"},
+  kpiToday:{en:"Today",th:"วันนี้"},
+  kpiCompleted:{en:"Completed",th:"เสร็จแล้ว"},
+  kpiInProgress:{en:"In progress",th:"กำลังดำเนินการ"},
+  kpiLate:{en:"Late",th:"ล่าช้า"},
+  kpiAvgTime:{en:"Avg. time",th:"เวลาเฉลี่ย"},
+  noTrucksToday:{en:"No trucks scheduled for this day",th:"ไม่มีรถบรรทุกในวันนี้"},
+  status_pending:{en:"ETA not set",th:"ยังไม่ระบุเวลา"},
+  status_urgent:{en:"ETA needed",th:"ต้องระบุเวลา"},
+  status_scheduled:{en:"Scheduled",th:"มีกำหนดการ"},
+  status_late:{en:"Late",th:"ล่าช้า"},
+  status_unloading:{en:"Unloading",th:"กำลังขนถ่าย"},
+  status_done:{en:"Done",th:"เสร็จสิ้น"},
+  unit_min:{en:"min",th:"นาที"},
+  pill_eta:{en:"ETA",th:"ETA"},
+  etaLabel:{en:"Theoretical arrival time",th:"เวลาที่คาดว่าจะมาถึง"},
+  updateTime:{en:"Update time",th:"อัปเดตเวลา"},
+  saveTime:{en:"Save time",th:"บันทึกเวลา"},
+  scheduledArrivalTime:{en:"Scheduled arrival time",th:"เวลาที่นัดหมายมาถึง"},
+  waitingEta:{en:"Waiting for the arrival time from the planning team.",th:"กำลังรอเวลาที่มาถึงจากทีมวางแผน"},
+  startUnloading:{en:"Start Unloading",th:"เริ่มขนถ่าย"},
+  finishUnloading:{en:"Finish Unloading",th:"เสร็จสิ้นการขนถ่าย"},
+  cancelStartLink:{en:"Cancel start",th:"ยกเลิกการเริ่ม"},
+  lblStart:{en:"Start",th:"เริ่ม"},
+  lblEnd:{en:"End",th:"จบ"},
+  lblDuration:{en:"Duration",th:"ระยะเวลา"},
+  reopenUnloading:{en:"Reopen unloading",th:"เปิดการขนถ่ายอีกครั้ง"},
+  shipmentDetails:{en:"Shipment details",th:"รายละเอียดสินค้า"},
+  detProduct:{en:"Product",th:"สินค้า"},
+  detPoNo:{en:"PO No.",th:"เลขที่ PO"},
+  detSkuNo:{en:"SKU No.",th:"เลขที่ SKU"},
+  detQuantity:{en:"Quantity",th:"จำนวน"},
+  detContNo:{en:"Container No.",th:"เลขที่ตู้คอนเทนเนอร์"},
+  detSealNo:{en:"Seal No.",th:"เลขที่ซีล"},
+  detContType:{en:"Container type",th:"ประเภทตู้คอนเทนเนอร์"},
+  detClosingDate:{en:"Closing date",th:"วันปิดงาน"},
+  detRemark:{en:"Remark",th:"หมายเหตุ"},
+  confirmDeleteQ:{en:"Confirm delete?",th:"ยืนยันการลบ?"},
+  deleteThisTruck:{en:"Delete this truck",th:"ลบรถบรรทุกนี้"},
+  newTruck:{en:"New Truck",th:"เพิ่มรถบรรทุกใหม่"},
+  fieldCarrier:{en:"Carrier",th:"บริษัทขนส่ง"},
+  fieldPlant:{en:"Plant",th:"โรงงาน"},
+  fieldPoRef:{en:"PO reference (optional)",th:"เลขที่ PO (ถ้ามี)"},
+  fieldArrivalDate:{en:"Arrival date",th:"วันที่มาถึง"},
+  fieldEta:{en:"Theoretical time (optional)",th:"เวลาโดยประมาณ (ถ้ามี)"},
+  phCarrier:{en:"e.g. Aurora Freight Line",th:"เช่น Aurora Freight Line"},
+  phPlant:{en:"e.g. Plant 1",th:"เช่น Plant 1"},
+  phRef:{en:"e.g. PO-10021",th:"เช่น PO-10021"},
+  addTruckBtn:{en:"Add Truck",th:"เพิ่มรถบรรทุก"},
+  addTruckAria:{en:"Add a truck",th:"เพิ่มรถบรรทุก"},
+  adminPinTitle:{en:"Admin PIN",th:"รหัส PIN แอดมิน"},
+  enterPinSub:{en:"Enter the admin PIN to manage schedules and trucks.",th:"กรอกรหัส PIN แอดมินเพื่อจัดการตารางงานและรถบรรทุก"},
+  incorrectPin:{en:"Incorrect PIN. Try again.",th:"รหัส PIN ไม่ถูกต้อง กรุณาลองอีกครั้ง"},
+  unlockAdmin:{en:"Unlock Admin",th:"ปลดล็อกแอดมิน"},
+  back:{en:"Back",th:"ย้อนกลับ"},
+  whoUsingDevice:{en:"Who's using this device?",th:"ใครกำลังใช้เครื่องนี้?"},
+  chooseRoleSub:{en:"Choose a role for this phone. You can switch it later from the header.",th:"เลือกบทบาทสำหรับเครื่องนี้ เปลี่ยนภายหลังได้จากด้านบน"},
+  changePinTitle:{en:"Admin PIN",th:"เปลี่ยนรหัส PIN"},
+  curPin:{en:"Current PIN",th:"รหัส PIN ปัจจุบัน"},
+  newPin:{en:"New PIN",th:"รหัส PIN ใหม่"},
+  confirmNewPin:{en:"Confirm new PIN",th:"ยืนยันรหัส PIN ใหม่"},
+  pinErrCurrent:{en:"Current PIN is incorrect.",th:"รหัส PIN ปัจจุบันไม่ถูกต้อง"},
+  pinErrLength:{en:"New PIN must be at least 4 digits.",th:"รหัส PIN ใหม่ต้องมีอย่างน้อย 4 หลัก"},
+  pinErrMismatch:{en:"New PIN and confirmation don't match.",th:"รหัส PIN ใหม่และการยืนยันไม่ตรงกัน"},
+  updatePinBtn:{en:"Update PIN",th:"อัปเดตรหัส PIN"},
+  pinUpdatedToast:{en:"PIN updated.",th:"อัปเดตรหัส PIN แล้ว"},
+  viewArrivalPhoto:{en:"📷 View arrival photo",th:"📷 ดูภาพถ่ายตอนมาถึง"},
+  viewCompletionPhoto:{en:"📷 View completion photo",th:"📷 ดูภาพถ่ายตอนเสร็จสิ้น"},
+  confirmArrival:{en:"Confirm arrival",th:"ยืนยันการมาถึง"},
+  confirmCompletion:{en:"Confirm completion",th:"ยืนยันการเสร็จสิ้น"},
+  yourNameOptional:{en:"Your name (optional)",th:"ชื่อของคุณ (ถ้ามี)"},
+  namePlaceholder:{en:"e.g. Somchai",th:"เช่น สมชาย"},
+  photoOptional:{en:"Photo (optional)",th:"ภาพถ่าย (ถ้ามี)"},
+  photoHint:{en:"Take a photo as proof, or skip this step.",th:"ถ่ายภาพเป็นหลักฐาน หรือข้ามขั้นตอนนี้ก็ได้"},
+  retakePhoto:{en:"Retake photo",th:"ถ่ายใหม่"},
+  takePhoto:{en:"Take photo",th:"ถ่ายภาพ"},
+  skipContinue:{en:"Skip and continue",th:"ข้ามและดำเนินการต่อ"},
+  retry:{en:"Retry",th:"ลองใหม่"},
+  chooseATime:{en:"Choose a time.",th:"กรุณาเลือกเวลา"},
+  timeSaved:{en:"Time saved.",th:"บันทึกเวลาแล้ว"},
+  truckDeleted:{en:"Truck deleted.",th:"ลบรถบรรทุกแล้ว"},
+  fillRequiredFields:{en:"Please fill in at least carrier, plant and date.",th:"กรุณากรอกอย่างน้อย บริษัทขนส่ง โรงงาน และวันที่"},
+  truckAdded:{en:"Truck added.",th:"เพิ่มรถบรรทุกแล้ว"},
+  couldNotSaveNow:{en:"Could not save right now.",th:"ไม่สามารถบันทึกได้ในขณะนี้"},
+  couldNotReadPhoto:{en:"Could not read that photo.",th:"ไม่สามารถอ่านภาพถ่ายนั้นได้"},
+  couldNotSaveSheet:{en:"Could not save to the sheet.",th:"ไม่สามารถบันทึกลงชีตได้"},
+  conflictRefreshedDefault:{en:"This truck was already updated elsewhere — refreshed.",th:"รถบรรทุกคันนี้ถูกอัปเดตจากที่อื่นแล้ว — รีเฟรชข้อมูลใหม่แล้ว"},
+  conflict_already_started:{en:"This truck was already started elsewhere — refreshed.",th:"รถบรรทุกคันนี้ถูกเริ่มขนถ่ายจากที่อื่นแล้ว — รีเฟรชข้อมูลใหม่แล้ว"},
+  conflict_already_finished:{en:"This truck was already finished elsewhere — refreshed.",th:"รถบรรทุกคันนี้เสร็จสิ้นจากที่อื่นแล้ว — รีเฟรชข้อมูลใหม่แล้ว"},
+  conflict_not_started_yet:{en:"This truck has not been started yet — refreshed.",th:"รถบรรทุกคันนี้ยังไม่เริ่มขนถ่าย — รีเฟรชข้อมูลใหม่แล้ว"},
+  conflict_not_in_started_state:{en:"This truck is no longer in the \"started\" state — refreshed.",th:"รถบรรทุกคันนี้ไม่อยู่ในสถานะ \"เริ่มแล้ว\" อีกต่อไป — รีเฟรชข้อมูลใหม่แล้ว"},
+  conflict_not_in_completed_state:{en:"This truck is no longer in the \"completed\" state — refreshed.",th:"รถบรรทุกคันนี้ไม่อยู่ในสถานะ \"เสร็จสิ้น\" อีกต่อไป — รีเฟรชข้อมูลใหม่แล้ว"}
+};
+function tr(key){
+  var entry = STRINGS[key];
+  if(!entry) return key;
+  return entry[ui.lang] || entry.en || key;
+}
+function roleLabel(r){ return r === "admin" ? tr("roleAdmin") : tr("roleDriver"); }
+function lateHintAdminText(mins){ return ui.lang==="th" ? ("ล่าช้ากว่ากำหนด "+mins+" นาที") : ("Running "+mins+" min late against the scheduled time."); }
+function lateHintDriverText(mins){ return ui.lang==="th" ? ("ล่าช้ากว่ากำหนด "+mins+" นาที") : ("Running "+mins+" min late."); }
+function canStartOnText(dateStr){ return ui.lang==="th" ? ("เริ่มขนถ่ายได้ในวันที่ "+dateStr) : ("Unloading can start on "+dateStr+"."); }
+function startedAtText(hhmm){ return ui.lang==="th" ? ("เริ่มเมื่อ "+hhmm) : ("Started at "+hhmm); }
+function startedByText(name){ return ui.lang==="th" ? ("เริ่มโดย "+name) : ("Started by "+name); }
+function finishedByText(name){ return ui.lang==="th" ? ("เสร็จสิ้นโดย "+name) : ("Finished by "+name); }
+
 /* ---------- arrival/completion photos (only meaningful when a Google Sheet
    is connected — see sheetsEnabled() — since that's the only backend here
    that can actually keep a file long-term). Photos are resized client-side
    before upload so they stay small on a mobile connection. ---------- */
+function buzz(ms){
+  try{ if(navigator.vibrate) navigator.vibrate(ms || 25); }catch(e){}
+}
 function readAndCompressImage(file, maxDim, quality){
   return new Promise(function(resolve, reject){
     var reader = new FileReader();
@@ -490,20 +683,20 @@ function lateMinutes(t, now){
   var eta = dateTimeOf(t.date, t.eta);
   return Math.floor((now.getTime()-eta.getTime())/60000);
 }
-var LABELS = {
-  pending:"ETA not set", urgent:"ETA needed", scheduled:"Scheduled",
-  late:"Late", unloading:"Unloading", done:"Done"
+var STATUS_KEYS = {
+  pending:"status_pending", urgent:"status_urgent", scheduled:"status_scheduled",
+  late:"status_late", unloading:"status_unloading", done:"status_done"
 };
 
 /* ---------- rendering ---------- */
 function effectiveTab(){ return ui.role === "driver" ? "today" : ui.tab; }
 function pill(derived, t, now){
-  var txt = LABELS[derived];
-  if(derived === "scheduled") txt = "ETA " + t.eta;
-  if(derived === "late") txt = "Late · " + lateMinutes(t, now) + " min";
-  if(derived === "unloading") txt = "Unloading · " + fmtElapsed(now - new Date(t.startedAt));
+  var txt = tr(STATUS_KEYS[derived]);
+  if(derived === "scheduled") txt = tr("pill_eta") + " " + t.eta;
+  if(derived === "late") txt = tr("status_late") + " · " + lateMinutes(t, now) + " " + tr("unit_min");
+  if(derived === "unloading") txt = tr("status_unloading") + " · " + fmtElapsed(now - new Date(t.startedAt));
   if(derived === "done" && t.startedAt && t.finishedAt){
-    txt = "Done · " + fmtHM((new Date(t.finishedAt)-new Date(t.startedAt))/60000);
+    txt = tr("status_done") + " · " + fmtHM((new Date(t.finishedAt)-new Date(t.startedAt))/60000);
   }
   return '<span class="pill '+derived+'">'+esc(txt)+"</span>";
 }
@@ -537,11 +730,11 @@ function kpiHtml(trucks, now){
   var late = today.filter(function(t){ return derive(t, now) === "late" || derive(t, now) === "urgent"; }).length;
   var avg = done.length ? done.reduce(function(sum,t){ return sum + (new Date(t.finishedAt)-new Date(t.startedAt))/60000; }, 0)/done.length : null;
   var items = [
-    {v: today.length, l:"Today", cls:""},
-    {v: done.length, l:"Completed", cls:"good"},
-    {v: working, l:"In progress", cls: working ? "warn" : ""},
-    {v: late, l:"Late", cls: late ? "bad" : ""},
-    {v: avg==null ? "—" : fmtHM(avg), l:"Avg. time", cls:""}
+    {v: today.length, l:tr("kpiToday"), cls:""},
+    {v: done.length, l:tr("kpiCompleted"), cls:"good"},
+    {v: working, l:tr("kpiInProgress"), cls: working ? "warn" : ""},
+    {v: late, l:tr("kpiLate"), cls: late ? "bad" : ""},
+    {v: avg==null ? "—" : fmtHM(avg), l:tr("kpiAvgTime"), cls:""}
   ];
   return items.map(function(k){
     return '<div class="kpi '+k.cls+'"><div class="v mono">'+k.v+'</div><div class="l">'+k.l+"</div></div>";
@@ -549,7 +742,7 @@ function kpiHtml(trucks, now){
 }
 function tabsHtml(trucks){
   var keys = { yesterday: addDays(todayKey(),-1), today: todayKey(), tomorrow: addDays(todayKey(),1) };
-  var labels = { yesterday:"Yesterday", today:"Today", tomorrow:"Tomorrow" };
+  var labels = { yesterday:tr("tabYesterday"), today:tr("tabToday"), tomorrow:tr("tabTomorrow") };
   return Object.keys(keys).map(function(k){
     var n = trucks.filter(function(t){ return t.date === keys[k]; }).length;
     return '<button class="tab'+(ui.tab===k?" active":"")+'" data-tab="'+k+'">'+
@@ -561,7 +754,7 @@ function listHtml(trucks, now){
   var dayTrucks = trucks.filter(function(t){ return t.date === keys[effectiveTab()]; });
   dayTrucks.sort(function(a,b){ return sortWeight(a,now) - sortWeight(b,now); });
   if(!dayTrucks.length){
-    return '<div class="empty">🚚<div>No trucks scheduled for this day</div></div>';
+    return '<div class="empty"><span class="empty-icon">🚚</span><div>'+tr("noTrucksToday")+'</div></div>';
   }
   return dayTrucks.map(function(t){ return cardHtml(t, now); }).join("");
 }
@@ -578,44 +771,44 @@ function sheetHtml(now){
 
   if(d==="pending" || d==="urgent" || d==="scheduled" || d==="late"){
     if(isAdmin){
-      body += '<div class="sheet-section"><div class="label">Theoretical arrival time</div>'+
+      body += '<div class="sheet-section"><div class="label">'+tr("etaLabel")+'</div>'+
         '<input class="field" type="time" id="etaInput" value="'+(t.eta||"")+'">'+
-        '<button class="btn primary" data-save-eta="'+esc(t.id)+'">'+(t.eta?"Update time":"Save time")+'</button></div>';
-      if(d==="late") body += '<div class="hint" style="color:var(--bad);text-align:center;margin-top:10px">Running '+lateMinutes(t,now)+' min late against the scheduled time.</div>';
+        '<button class="btn primary" data-save-eta="'+esc(t.id)+'">'+(t.eta?tr("updateTime"):tr("saveTime"))+'</button></div>';
+      if(d==="late") body += '<div class="hint" style="color:var(--bad);text-align:center;margin-top:10px">'+lateHintAdminText(lateMinutes(t,now))+'</div>';
       if(t.date === todayKey() && t.eta){
-        body += '<button class="btn go" data-start="'+esc(t.id)+'">Start Unloading</button>';
+        body += '<button class="btn go" data-start="'+esc(t.id)+'">'+tr("startUnloading")+'</button>';
       } else if(t.date !== todayKey()){
-        body += '<div class="hint" style="text-align:center;margin-top:12px">Unloading can start on '+shortDate(t.date)+'.</div>';
+        body += '<div class="hint" style="text-align:center;margin-top:12px">'+canStartOnText(shortDate(t.date))+'</div>';
       }
     } else {
       if(!t.eta){
-        body += '<div class="hint" style="text-align:center;margin-top:10px">Waiting for the arrival time from the planning team.</div>';
+        body += '<div class="hint" style="text-align:center;margin-top:10px">'+tr("waitingEta")+'</div>';
       } else {
-        body += '<div class="timer" style="font-size:30px">'+t.eta+'</div><div class="timer-sub">Scheduled arrival time</div>';
-        if(d==="late") body += '<div class="hint" style="color:var(--bad);text-align:center;margin-top:6px">Running '+lateMinutes(t,now)+' min late.</div>';
+        body += '<div class="timer" style="font-size:30px">'+t.eta+'</div><div class="timer-sub">'+tr("scheduledArrivalTime")+'</div>';
+        if(d==="late") body += '<div class="hint" style="color:var(--bad);text-align:center;margin-top:6px">'+lateHintDriverText(lateMinutes(t,now))+'</div>';
         if(t.date === todayKey()){
-          body += '<button class="btn go" data-start="'+esc(t.id)+'">Start Unloading</button>';
+          body += '<button class="btn go" data-start="'+esc(t.id)+'">'+tr("startUnloading")+'</button>';
         } else {
-          body += '<div class="hint" style="text-align:center;margin-top:12px">Unloading can start on '+shortDate(t.date)+'.</div>';
+          body += '<div class="hint" style="text-align:center;margin-top:12px">'+canStartOnText(shortDate(t.date))+'</div>';
         }
       }
     }
   } else if(d==="unloading"){
     var elapsed = now - new Date(t.startedAt);
     body += '<div class="timer big-work" id="liveTimer">'+fmtElapsed(elapsed)+'</div>'+
-      '<div class="timer-sub">Started at '+new Date(t.startedAt).toTimeString().slice(0,5)+'</div>'+
-      '<button class="btn stop" data-finish="'+esc(t.id)+'">Finish Unloading</button>'+
-      '<button class="linklike" data-cancel="'+esc(t.id)+'">Cancel start</button>'+
+      '<div class="timer-sub">'+startedAtText(new Date(t.startedAt).toTimeString().slice(0,5))+'</div>'+
+      '<button class="btn stop" data-finish="'+esc(t.id)+'">'+tr("finishUnloading")+'</button>'+
+      '<button class="linklike" data-cancel="'+esc(t.id)+'">'+tr("cancelStartLink")+'</button>'+
       photoLinksHtml(t);
   } else if(d==="done"){
     var durMin = (new Date(t.finishedAt)-new Date(t.startedAt))/60000;
     body += '<div class="done-summary">'+
-      '<div><b>'+new Date(t.startedAt).toTimeString().slice(0,5)+'</b><span>Start</span></div>'+
-      '<div><b>'+new Date(t.finishedAt).toTimeString().slice(0,5)+'</b><span>End</span></div>'+
-      '<div><b>'+fmtHM(durMin)+'</b><span>Duration</span></div>'+
+      '<div><b>'+new Date(t.startedAt).toTimeString().slice(0,5)+'</b><span>'+tr("lblStart")+'</span></div>'+
+      '<div><b>'+new Date(t.finishedAt).toTimeString().slice(0,5)+'</b><span>'+tr("lblEnd")+'</span></div>'+
+      '<div><b>'+fmtHM(durMin)+'</b><span>'+tr("lblDuration")+'</span></div>'+
       '</div>'+
       photoLinksHtml(t);
-    if(isAdmin) body += '<button class="linklike" data-reopen="'+esc(t.id)+'">Reopen unloading</button>';
+    if(isAdmin) body += '<button class="linklike" data-reopen="'+esc(t.id)+'">'+tr("reopenUnloading")+'</button>';
   }
 
   body += deleteControl(t.id);
@@ -640,130 +833,142 @@ function detailRow(label, val){
 }
 function shipmentDetailsHtml(t){
   var rows =
-    detailRow("Product", t.details)+
-    detailRow("PO No.", t.poNo)+
-    detailRow("SKU No.", t.skuNo)+
-    detailRow("Quantity", t.qtt)+
-    detailRow("Container No.", t.contNo)+
-    detailRow("Seal No.", t.sealNo)+
-    detailRow("Container type", t.contType)+
-    detailRow("Closing date", t.closingDate)+
-    detailRow("Remark", t.remark);
+    detailRow(tr("detProduct"), t.details)+
+    detailRow(tr("detPoNo"), t.poNo)+
+    detailRow(tr("detSkuNo"), t.skuNo)+
+    detailRow(tr("detQuantity"), t.qtt)+
+    detailRow(tr("detContNo"), t.contNo)+
+    detailRow(tr("detSealNo"), t.sealNo)+
+    detailRow(tr("detContType"), t.contType)+
+    detailRow(tr("detClosingDate"), t.closingDate)+
+    detailRow(tr("detRemark"), t.remark);
   if(!rows) return "";
-  return '<div class="sheet-section"><div class="label">Shipment details</div><div class="detailgrid">'+rows+'</div></div>';
+  return '<div class="sheet-section"><div class="label">'+tr("shipmentDetails")+'</div><div class="detailgrid">'+rows+'</div></div>';
 }
 function deleteControl(id){
   if(ui.role !== "admin" || sheetsEnabled()) return "";
   if(ui.confirmDelete === id){
-    return '<button class="linklike danger" data-delete-confirm="'+esc(id)+'">Confirm delete?</button>';
+    return '<button class="linklike danger" data-delete-confirm="'+esc(id)+'">'+tr("confirmDeleteQ")+'</button>';
   }
-  return '<button class="linklike danger" data-delete="'+esc(id)+'">Delete this truck</button>';
+  return '<button class="linklike danger" data-delete="'+esc(id)+'">'+tr("deleteThisTruck")+'</button>';
 }
 function addSheetHtml(){
   var d = ui.addDefaultDate || todayKey();
   return '<div class="scrim" data-scrim="1"><div class="sheet">'+
     '<div class="sheet-handle"></div>'+
-    '<div class="sheet-head"><div><div class="sheet-id" style="font-family:Archivo;font-weight:800;font-size:17px">New Truck</div></div>'+
+    '<div class="sheet-head"><div><div class="sheet-id title-lg">'+tr("newTruck")+'</div></div>'+
     '<button class="sheet-close" data-close="1">✕</button></div>'+
     '<div class="formgrid">'+
-      '<div><div class="label">Carrier</div><input class="field" id="f-carrier" placeholder="e.g. Aurora Freight Line"></div>'+
-      '<div><div class="label">Plant</div><input class="field" id="f-plant" placeholder="e.g. Plant 1"></div>'+
-      '<div><div class="label">PO reference (optional)</div><input class="field" id="f-ref" placeholder="e.g. PO-10021"></div>'+
-      '<div><div class="label">Arrival date</div><input class="field" type="date" id="f-date" value="'+d+'"></div>'+
-      '<div><div class="label">Theoretical time (optional)</div><input class="field" type="time" id="f-eta"></div>'+
+      '<div><div class="label">'+tr("fieldCarrier")+'</div><input class="field" id="f-carrier" placeholder="'+tr("phCarrier")+'"></div>'+
+      '<div><div class="label">'+tr("fieldPlant")+'</div><input class="field" id="f-plant" placeholder="'+tr("phPlant")+'"></div>'+
+      '<div><div class="label">'+tr("fieldPoRef")+'</div><input class="field" id="f-ref" placeholder="'+tr("phRef")+'"></div>'+
+      '<div><div class="label">'+tr("fieldArrivalDate")+'</div><input class="field" type="date" id="f-date" value="'+d+'"></div>'+
+      '<div><div class="label">'+tr("fieldEta")+'</div><input class="field" type="time" id="f-eta"></div>'+
     '</div>'+
-    '<button class="btn primary" data-create="1">Add Truck</button>'+
+    '<button class="btn primary" data-create="1">'+tr("addTruckBtn")+'</button>'+
   '</div></div>';
 }
 function roleGateHtml(){
   if(!ui.roleGateOpen) return "";
   var canClose = !!ui.role;
   var closeBtn = canClose ? '<button class="sheet-close" data-role-close="1">✕</button>' : '';
+  // The role gate sits above everything, including the header's own EN/TH
+  // pill, so it needs its own reachable language toggle too — this matters
+  // most on first launch, before a role (and its default language) is set.
+  var langBtn = '<button class="langtoggle-card" data-toggle-lang="1" aria-label="Language / ภาษา">'+(ui.lang==="th"?"EN":"TH")+'</button>';
   if(ui.roleGateStep === "pin"){
-    return '<div class="rolegate"><div class="rolecard">'+closeBtn+
-      '<div class="rolecard-title">Admin PIN</div>'+
-      '<div class="rolecard-sub">Enter the admin PIN to manage schedules and trucks.</div>'+
+    return '<div class="rolegate"><div class="rolecard">'+langBtn+closeBtn+
+      '<div class="rolecard-title">'+tr("adminPinTitle")+'</div>'+
+      '<div class="rolecard-sub">'+tr("enterPinSub")+'</div>'+
       '<input class="field" style="margin-top:14px;text-align:center;letter-spacing:6px;font-family:\'IBM Plex Mono\';font-size:20px" type="password" inputmode="numeric" autocomplete="off" maxlength="8" id="pinInput" placeholder="••••">'+
       (ui.roleGateError ? '<div class="hint" style="color:var(--bad);text-align:center;margin-top:8px">'+esc(ui.roleGateError)+'</div>' : '')+
-      '<button class="btn primary" data-pin-submit="1">Unlock Admin</button>'+
-      '<button class="linklike" data-role-back="1">Back</button>'+
+      '<button class="btn primary" data-pin-submit="1">'+tr("unlockAdmin")+'</button>'+
+      '<button class="linklike" data-role-back="1">'+tr("back")+'</button>'+
     '</div></div>';
   }
-  return '<div class="rolegate"><div class="rolecard">'+closeBtn+
-    '<div class="rolecard-title">Who\'s using this device?</div>'+
-    '<div class="rolecard-sub">Choose a role for this phone. You can switch it later from the header.</div>'+
-    '<button class="roleopt" data-role-step="pin"><b>Admin</b><span>Set arrival times, add trucks, manage the schedule — PIN required</span></button>'+
-    '<button class="roleopt" data-pick-role="driver"><b>MHE Driver</b><span>Start and finish unloading at the dock — no login needed</span></button>'+
+  return '<div class="rolegate"><div class="rolecard">'+langBtn+closeBtn+
+    '<div class="rolecard-title">'+tr("whoUsingDevice")+'</div>'+
+    '<div class="rolecard-sub">'+tr("chooseRoleSub")+'</div>'+
+    '<button class="roleopt" data-role-step="pin"><b>'+tr("roleAdmin")+'</b><span>'+tr("roleAdminDesc")+'</span></button>'+
+    '<button class="roleopt" data-pick-role="driver"><b>'+tr("roleDriver")+'</b><span>'+tr("roleDriverDesc")+'</span></button>'+
   '</div></div>';
 }
 function pinSettingsHtml(){
   return '<div class="scrim" data-scrim="1"><div class="sheet">'+
     '<div class="sheet-handle"></div>'+
-    '<div class="sheet-head"><div><div class="sheet-id" style="font-family:Archivo;font-weight:800;font-size:17px">Admin PIN</div></div>'+
+    '<div class="sheet-head"><div><div class="sheet-id title-lg">'+tr("changePinTitle")+'</div></div>'+
     '<button class="sheet-close" data-close="1">✕</button></div>'+
     '<div class="formgrid">'+
-      '<div><div class="label">Current PIN</div><input class="field" type="password" inputmode="numeric" autocomplete="off" id="pin-current" placeholder="••••"></div>'+
-      '<div><div class="label">New PIN</div><input class="field" type="password" inputmode="numeric" autocomplete="off" id="pin-new" placeholder="••••"></div>'+
-      '<div><div class="label">Confirm new PIN</div><input class="field" type="password" inputmode="numeric" autocomplete="off" id="pin-confirm" placeholder="••••"></div>'+
+      '<div><div class="label">'+tr("curPin")+'</div><input class="field" type="password" inputmode="numeric" autocomplete="off" id="pin-current" placeholder="••••"></div>'+
+      '<div><div class="label">'+tr("newPin")+'</div><input class="field" type="password" inputmode="numeric" autocomplete="off" id="pin-new" placeholder="••••"></div>'+
+      '<div><div class="label">'+tr("confirmNewPin")+'</div><input class="field" type="password" inputmode="numeric" autocomplete="off" id="pin-confirm" placeholder="••••"></div>'+
     '</div>'+
     (ui.pinSettingsError ? '<div class="hint" style="color:var(--bad);text-align:center;margin-top:8px">'+esc(ui.pinSettingsError)+'</div>' : '')+
-    '<button class="btn primary" data-save-pin="1">Update PIN</button>'+
+    '<button class="btn primary" data-save-pin="1">'+tr("updatePinBtn")+'</button>'+
   '</div></div>';
 }
 function photoLinksHtml(t){
   var rows = "";
-  if(t.startPhotoUrl) rows += '<a class="linklike" href="'+esc(t.startPhotoUrl)+'" target="_blank" rel="noopener">📷 View arrival photo</a>';
-  if(t.finishPhotoUrl) rows += '<a class="linklike" href="'+esc(t.finishPhotoUrl)+'" target="_blank" rel="noopener">📷 View completion photo</a>';
+  if(t.startPhotoUrl) rows += '<a class="linklike" href="'+esc(t.startPhotoUrl)+'" target="_blank" rel="noopener">'+tr("viewArrivalPhoto")+(t.startedBy?" — "+esc(t.startedBy):"")+'</a>';
+  if(t.finishPhotoUrl) rows += '<a class="linklike" href="'+esc(t.finishPhotoUrl)+'" target="_blank" rel="noopener">'+tr("viewCompletionPhoto")+(t.finishedBy?" — "+esc(t.finishedBy):"")+'</a>';
+  if(!t.startPhotoUrl && t.startedBy) rows += '<div class="hint" style="text-align:center;margin-top:8px">'+esc(startedByText(t.startedBy))+'</div>';
+  if(!t.finishPhotoUrl && t.finishedBy) rows += '<div class="hint" style="text-align:center;margin-top:8px">'+esc(finishedByText(t.finishedBy))+'</div>';
   return rows;
 }
 function photoPromptHtml(){
   if(!ui.photoPrompt) return "";
   var p = ui.photoPrompt;
   var isStart = p.action === "start";
-  var title = isStart ? "Arrival photo (optional)" : "Completion photo (optional)";
-  var confirmLabel = isStart ? "Start Unloading" : "Finish Unloading";
+  var title = isStart ? tr("confirmArrival") : tr("confirmCompletion");
+  var confirmLabel = isStart ? tr("startUnloading") : tr("finishUnloading");
   return '<div class="scrim photoscrim" data-scrim="1"><div class="sheet">'+
     '<div class="sheet-handle"></div>'+
-    '<div class="sheet-head"><div><div class="sheet-id" style="font-family:Archivo;font-weight:800;font-size:17px">'+esc(title)+'</div></div>'+
+    '<div class="sheet-head"><div><div class="sheet-id title-lg">'+esc(title)+'</div></div>'+
     '<button class="sheet-close" data-photo-cancel="1">✕</button></div>'+
-    (p.dataUrl ? '<img class="photo-preview" src="'+p.dataUrl+'">' : '<div class="hint" style="text-align:center;margin-top:10px">Take a photo as proof, or skip this step.</div>')+
-    '<label class="photo-pick" for="photoInput">'+(p.dataUrl?"Retake photo":"Take photo")+'</label>'+
+    '<div class="label" style="margin-top:14px">'+tr("yourNameOptional")+'</div>'+
+    '<input class="field" id="photoNameInput" placeholder="'+tr("namePlaceholder")+'" value="'+esc(p.name||"")+'" style="margin-top:6px">'+
+    '<div class="label" style="margin-top:16px">'+tr("photoOptional")+'</div>'+
+    (p.dataUrl ? '<img class="photo-preview" src="'+p.dataUrl+'">' : '<div class="hint" style="margin-top:6px">'+tr("photoHint")+'</div>')+
+    '<label class="photo-pick" for="photoInput">'+(p.dataUrl?tr("retakePhoto"):tr("takePhoto"))+'</label>'+
     '<input type="file" accept="image/*" capture="environment" id="photoInput" style="display:none">'+
     '<button class="btn '+(isStart?"go":"stop")+'" data-photo-confirm="1">'+esc(confirmLabel)+'</button>'+
-    '<button class="linklike" data-photo-skip="1">Skip photo and continue</button>'+
+    '<button class="linklike" data-photo-skip="1">'+tr("skipContinue")+'</button>'+
   '</div></div>';
 }
 function toastHtml(){
   if(!ui.toast) return "";
-  return '<div class="toast">'+esc(ui.toast)+"</div>";
+  var retry = ui.retryAction ? '<button class="toast-retry" data-toast-retry="1">'+tr("retry")+'</button>' : "";
+  return '<div class="toast"><span>'+esc(ui.toast)+"</span>"+retry+"</div>";
 }
 function syncDotClass(){
   return { local:"local", connecting:"local", saving:"saving", synced:"", error:"err" }[ui.syncStatus] || "";
 }
 function syncLabel(){
-  return { local:"Local mode", connecting:"Connecting…", saving:"Saving…", synced:"Synced", error:"Not saved" }[ui.syncStatus] || "";
+  return { local:tr("sync_local"), connecting:tr("sync_connecting"), saving:tr("sync_saving"), synced:tr("sync_synced"), error:tr("sync_error") }[ui.syncStatus] || "";
 }
 
 function render(){
   var now = new Date();
   var showTabs = ui.role === "admin";
+  document.documentElement.setAttribute("lang", ui.lang === "th" ? "th" : "en");
   var html =
     '<div class="topbar">'+
       '<div class="brand-row">'+markSvg()+
         '<div class="brand-word"><b>MON</b><span>INBOUND</span>'+
         '<div class="rolebadgerow">'+
-          '<button class="rolebadge" data-role-switch="1">'+(ui.role?ROLE_LABELS[ui.role]:"Select role")+' ⇵</button>'+
-          (ui.role==="admin" ? '<button class="rolebadge" data-open-pin-settings="1" aria-label="Change admin PIN">⚙</button>' : '')+
+          '<button class="rolebadge" data-role-switch="1">'+(ui.role?roleLabel(ui.role):tr("selectRole"))+' ⇵</button>'+
+          (ui.role==="admin" ? '<button class="rolebadge" data-open-pin-settings="1" aria-label="'+tr("changePin")+'">⚙</button>' : '')+
+          '<button class="rolebadge langtoggle" data-toggle-lang="1" aria-label="Language / ภาษา">'+(ui.lang==="th"?"EN":"TH")+'</button>'+
         '</div>'+
         '</div></div>'+
       '<div class="clockbox"><div class="clock" id="clockEl">'+clockStr(now)+'</div>'+
       '<div class="clockdate">'+longDate(now)+'</div>'+
       '<div class="syncrow"><span class="syncdot '+syncDotClass()+'"></span>'+syncLabel()+'</div></div>'+
     '</div>'+
-    (showTabs ? '<div class="tabs">'+tabsHtml(state.trucks)+'</div>' : '<div class="dayheading">Today\'s trucks</div>')+
+    (showTabs ? '<div class="tabs">'+tabsHtml(state.trucks)+'</div>' : '<div class="dayheading">'+tr("todaysTrucks")+'</div>')+
     '<div class="kpis">'+kpiHtml(state.trucks, now)+'</div>'+
     '<div class="list">'+listHtml(state.trucks, now)+'</div>'+
-    (ui.role === "admin" && !sheetsEnabled() ? '<button class="fab" data-add="1" aria-label="Add a truck">+</button>' : '')+
+    (ui.role === "admin" && !sheetsEnabled() ? '<button class="fab" data-add="1" aria-label="'+tr("addTruckAria")+'">+</button>' : '')+
     sheetHtml(now)+
     roleGateHtml()+
     photoPromptHtml()+
@@ -805,19 +1010,23 @@ function buildFullDocument(newState){
     '<meta charset="UTF-8">'+
     '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">'+
     '<title>MON Inbound</title>'+
-    '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,500&family=IBM+Plex+Mono:wght@500;600;700&display=swap">'+
+    '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,500&family=IBM+Plex+Mono:wght@500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap">'+
+    PWA_HEAD_TEXT+
     '<style id="app-styles">'+CSS_TEXT+"</style>";
   var stateJson = JSON.stringify(newState).replace(/</g, "\\u003c");
   var body =
     '<div id="app"></div>'+
     '<script id="app-data" type="application/json">'+stateJson+"<"+"/script>"+
     "<script>"+APP_JS_SOURCE+"<"+"/script>";
-  return "<!doctype html>\n<html lang=\"en\">\n<head>"+head+"</head>\n<body>"+body+"</body>\n</html>";
+  return "<!doctype html>\n<html lang=\""+(ui.lang==="th"?"th":"en")+"\">\n<head>"+head+"</head>\n<body>"+body+"</body>\n</html>";
 }
-function showToast(msg){
+function showToast(msg, sticky){
   ui.toast = msg;
   render();
-  setTimeout(function(){ ui.toast = null; render(); }, 2600);
+  if(!sticky){
+    var mine = msg;
+    setTimeout(function(){ if(ui.toast === mine){ ui.toast = null; ui.retryAction = null; render(); } }, 2600);
+  }
 }
 function persist(mutator){
   mutator();
@@ -836,27 +1045,42 @@ function persist(mutator){
     if(code === "conflict"){ return; }
     ui.syncStatus = "error";
     render();
-    showToast("Could not save right now.");
+    showToast(tr("couldNotSaveNow"));
   });
 }
 /* Truck lifecycle actions (ETA, start/finish/cancel/reopen unload) go through
    here so that, when a Google Sheet is connected, they write to the sheet
    instead of publishing/localStorage. Everything else (role, admin PIN,
    add/delete truck) keeps using persist() above unchanged. */
+function runSheetsCall(sheetsCall){
+  ui.syncStatus = "saving";
+  ui.retryAction = null;
+  render();
+  sheetsCall().then(function(){
+    return loadFromSheets();
+  }).catch(function(err){
+    if(err && err.conflict){
+      /* Someone else already changed this truck's state (double-tap from two
+         phones, etc.) — retrying the same action would just fail again, so
+         instead pull the real current state from the sheet. */
+      ui.syncStatus = "synced";
+      var conflictKey = err.code ? "conflict_"+err.code : null;
+      showToast((conflictKey && STRINGS[conflictKey]) ? tr(conflictKey) : tr("conflictRefreshedDefault"));
+      loadFromSheets();
+      return;
+    }
+    ui.syncStatus = "error";
+    ui.retryAction = function(){ runSheetsCall(sheetsCall); };
+    render();
+    showToast((err && err.message) || tr("couldNotSaveSheet"), true);
+  });
+}
 function persistTruck(mutator, sheetsCall){
   if(sheetsEnabled()){
     mutator();
     render();
     if(!sheetsCall) return;
-    ui.syncStatus = "saving";
-    render();
-    sheetsCall().then(function(){
-      return loadFromSheets();
-    }).catch(function(err){
-      ui.syncStatus = "error";
-      render();
-      showToast("Could not save to the sheet.");
-    });
+    runSheetsCall(sheetsCall);
     return;
   }
   persist(mutator);
@@ -891,7 +1115,7 @@ function submitPin(){
   if(v && v === state.adminCode){
     pickRole("admin");
   } else {
-    ui.roleGateError = "Incorrect PIN. Try again.";
+    ui.roleGateError = tr("incorrectPin");
     render();
     focusPin();
   }
@@ -900,16 +1124,16 @@ function savePin(){
   var cur = (document.getElementById("pin-current")||{}).value || "";
   var next = (document.getElementById("pin-new")||{}).value || "";
   var confirm = (document.getElementById("pin-confirm")||{}).value || "";
-  if(cur !== state.adminCode){ ui.pinSettingsError = "Current PIN is incorrect."; render(); return; }
-  if(!next || next.length < 4){ ui.pinSettingsError = "New PIN must be at least 4 digits."; render(); return; }
-  if(next !== confirm){ ui.pinSettingsError = "New PIN and confirmation don't match."; render(); return; }
+  if(cur !== state.adminCode){ ui.pinSettingsError = tr("pinErrCurrent"); render(); return; }
+  if(!next || next.length < 4){ ui.pinSettingsError = tr("pinErrLength"); render(); return; }
+  if(next !== confirm){ ui.pinSettingsError = tr("pinErrMismatch"); render(); return; }
   persist(function(){ state.adminCode = next; });
   ui.pinSettingsOpen = false;
-  showToast("PIN updated.");
+  showToast(tr("pinUpdatedToast"));
 }
 function saveEta(id){
   var v = document.getElementById("etaInput").value;
-  if(!v){ showToast("Choose a time."); return; }
+  if(!v){ showToast(tr("chooseATime")); return; }
   var t = findTruck(id);
   var etaIso = t ? dateTimeOf(t.date, v).toISOString() : null;
   persistTruck(function(){
@@ -917,17 +1141,18 @@ function saveEta(id){
     t.status = "scheduled";
   }, sheetsEnabled() ? function(){ return sheetsAction("setEta", {id:id, etaIso:etaIso}); } : null);
   ui.openId = null;
-  showToast("Time saved.");
+  showToast(tr("timeSaved"));
 }
-function startUnload(id, photoBase64){
+function startUnload(id, photoBase64, by){
   var timestampIso = new Date().toISOString();
   persistTruck(function(){
     var t = findTruck(id);
     t.status = "unloading";
     t.startedAt = timestampIso;
-  }, sheetsEnabled() ? function(){ return sheetsAction("start", {id:id, timestampIso:timestampIso, photoBase64: photoBase64 || null}); } : null);
+    if(by) t.startedBy = by;
+  }, sheetsEnabled() ? function(){ return sheetsAction("start", {id:id, timestampIso:timestampIso, photoBase64: photoBase64 || null, by: by || null}); } : null);
 }
-function finishUnload(id, photoBase64){
+function finishUnload(id, photoBase64, by){
   var t = findTruck(id);
   var timestampIso = new Date().toISOString();
   var durationStr = null;
@@ -938,7 +1163,8 @@ function finishUnload(id, photoBase64){
   persistTruck(function(){
     t.status = "done";
     t.finishedAt = timestampIso;
-  }, sheetsEnabled() ? function(){ return sheetsAction("finish", {id:id, timestampIso:timestampIso, duration:durationStr, photoBase64: photoBase64 || null}); } : null);
+    if(by) t.finishedBy = by;
+  }, sheetsEnabled() ? function(){ return sheetsAction("finish", {id:id, timestampIso:timestampIso, duration:durationStr, photoBase64: photoBase64 || null, by: by || null}); } : null);
 }
 function cancelUnload(id){
   persistTruck(function(){
@@ -959,7 +1185,7 @@ function deleteTruck(id){
     state.trucks = state.trucks.filter(function(t){ return t.id !== id; });
   });
   ui.openId = null; ui.confirmDelete = null;
-  showToast("Truck deleted.");
+  showToast(tr("truckDeleted"));
 }
 function createTruck(){
   var carrier = document.getElementById("f-carrier").value.trim();
@@ -967,7 +1193,7 @@ function createTruck(){
   var ref = document.getElementById("f-ref").value.trim();
   var date = document.getElementById("f-date").value;
   var eta = document.getElementById("f-eta").value;
-  if(!carrier || !plant || !date){ showToast("Please fill in at least carrier, plant and date."); return; }
+  if(!carrier || !plant || !date){ showToast(tr("fillRequiredFields")); return; }
   persist(function(){
     state.seq += 1;
     state.trucks.push({
@@ -979,7 +1205,7 @@ function createTruck(){
     });
   });
   ui.addOpen = false;
-  showToast("Truck added.");
+  showToast(tr("truckAdded"));
 }
 
 /* ---------- event delegation ---------- */
@@ -992,6 +1218,12 @@ document.getElementById("app").addEventListener("click", function(e){
   if(el.closest("[data-role-back]")){ ui.roleGateStep = "choose"; ui.roleGateError = null; render(); return; }
   if(el.closest("[data-pin-submit]")){ submitPin(); return; }
   if(el.closest("[data-role-close]")){ ui.roleGateOpen = false; render(); return; }
+  if(el.closest("[data-toggle-lang]")){
+    ui.lang = ui.lang === "th" ? "en" : "th";
+    saveLangLocal(ui.lang);
+    render();
+    return;
+  }
   if(el.closest("[data-role-switch]")){
     ui.roleGateOpen = true; ui.roleGateStep = "choose"; ui.roleGateError = null;
     ui.openId = null; ui.addOpen = false; render(); return;
@@ -1014,26 +1246,34 @@ document.getElementById("app").addEventListener("click", function(e){
   var startEl = el.closest("[data-start]");
   if(startEl){
     var startId = startEl.getAttribute("data-start");
-    if(sheetsEnabled()){ ui.photoPrompt = {action:"start", id:startId, dataUrl:null}; render(); }
+    buzz();
+    if(sheetsEnabled()){ ui.photoPrompt = {action:"start", id:startId, dataUrl:null, name:loadSavedName()}; render(); }
     else { startUnload(startId); }
     return;
   }
   var finishEl = el.closest("[data-finish]");
   if(finishEl){
     var finishId = finishEl.getAttribute("data-finish");
-    if(sheetsEnabled()){ ui.photoPrompt = {action:"finish", id:finishId, dataUrl:null}; render(); }
+    buzz();
+    if(sheetsEnabled()){ ui.photoPrompt = {action:"finish", id:finishId, dataUrl:null, name:loadSavedName()}; render(); }
     else { finishUnload(finishId); }
     return;
   }
   if(el.closest("[data-photo-cancel]")){ ui.photoPrompt = null; render(); return; }
   if(el.closest("[data-photo-skip]")){
     var skipped = ui.photoPrompt; ui.photoPrompt = null;
-    if(skipped){ if(skipped.action==="start") startUnload(skipped.id); else finishUnload(skipped.id); }
+    var skipName = (document.getElementById("photoNameInput")||{}).value || "";
+    if(skipName) saveNameLocal(skipName);
+    buzz();
+    if(skipped){ if(skipped.action==="start") startUnload(skipped.id, null, skipName); else finishUnload(skipped.id, null, skipName); }
     return;
   }
   if(el.closest("[data-photo-confirm]")){
     var confirmed = ui.photoPrompt; ui.photoPrompt = null;
-    if(confirmed){ if(confirmed.action==="start") startUnload(confirmed.id, confirmed.dataUrl); else finishUnload(confirmed.id, confirmed.dataUrl); }
+    var confirmName = (document.getElementById("photoNameInput")||{}).value || "";
+    if(confirmName) saveNameLocal(confirmName);
+    buzz();
+    if(confirmed){ if(confirmed.action==="start") startUnload(confirmed.id, confirmed.dataUrl, confirmName); else finishUnload(confirmed.id, confirmed.dataUrl, confirmName); }
     return;
   }
   var cancelEl = el.closest("[data-cancel]");
@@ -1048,6 +1288,13 @@ document.getElementById("app").addEventListener("click", function(e){
   if(createEl){ createTruck(); return; }
   var tabEl = el.closest("[data-tab]");
   if(tabEl){ ui.tab = tabEl.getAttribute("data-tab"); render(); return; }
+  if(el.closest("[data-toast-retry]")){
+    var retry = ui.retryAction;
+    ui.toast = null; ui.retryAction = null;
+    render();
+    if(retry) retry();
+    return;
+  }
 });
 document.getElementById("app").addEventListener("keydown", function(e){
   if(e.key === "Enter" && e.target && e.target.id === "pinInput"){ submitPin(); }
@@ -1098,6 +1345,17 @@ if(sheetsEnabled()){
   setInterval(function(){
     if(!isInputSheetOpen()) loadFromSheets();
   }, SHEETS_POLL_MS);
+  /* Also refresh right away when someone comes back to the app (phone woken
+     up, tab switched back to) instead of waiting for the next poll tick —
+     a driver reopening the app should see the latest state immediately. */
+  var lastVisRefresh = 0;
+  document.addEventListener("visibilitychange", function(){
+    if(document.visibilityState !== "visible") return;
+    if(isInputSheetOpen()) return;
+    if(Date.now() - lastVisRefresh < 3000) return;
+    lastVisRefresh = Date.now();
+    loadFromSheets();
+  });
 } else if(!(window.claude && window.claude.use)){
   /* Not running inside a Claude artifact host (e.g. deployed standalone,
      such as on Netlify) — hydrate from this browser's own saved copy, if any,

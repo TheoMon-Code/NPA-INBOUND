@@ -24,6 +24,16 @@
  * needed) and its link is written into two columns this script adds to the
  * sheet itself, also only the first time they're needed: "Start Photo URL"
  * and "Finish Photo URL". You don't need to add these columns by hand.
+ *
+ * Optional name of who started/finished a truck (typed once on the phone,
+ * remembered there after) is written the same lazy way, into "Started By"
+ * and "Finished By".
+ *
+ * Concurrency guard: before start/finish/cancelStart/reopen actually write,
+ * doPost re-reads "Truck State" and refuses (with conflict:true) if it isn't
+ * in the state that action expects — e.g. two phones tapping "Start" on the
+ * same truck within the same second. The app treats conflict:true specially:
+ * instead of retrying, it reloads the sheet to show the real current state.
  */
 
 // ===== CONFIG =====
@@ -74,12 +84,14 @@ function doGet(e) {
     var lastRow = sheet.getLastRow();
     if (lastRow <= 1) return jsonOut_({ trucks: [] });
 
-    // Photo columns are optional and only exist once a photo has actually
-    // been uploaded (see getOrCreatePhotoCol_ in doPost) — read them
-    // leniently so sheets that never got a photo don't error out.
+    // These columns are optional and only exist once they've actually been
+    // needed (see getOrCreateCol_ in doPost) — read them leniently so a
+    // sheet that never received a photo or a name doesn't error out.
     var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
     var startPhotoCol = headers.indexOf('Start Photo URL');
     var finishPhotoCol = headers.indexOf('Finish Photo URL');
+    var startedByCol = headers.indexOf('Started By');
+    var finishedByCol = headers.indexOf('Finished By');
 
     var numRows = lastRow - 1;
     var numCols = sheet.getLastColumn();
@@ -114,7 +126,9 @@ function doGet(e) {
         skuNo: row[idx['SKU No.']] || '',
         details: row[idx['Details']] || '',
         startPhotoUrl: startPhotoCol !== -1 ? (row[startPhotoCol] || '') : '',
-        finishPhotoUrl: finishPhotoCol !== -1 ? (row[finishPhotoCol] || '') : ''
+        finishPhotoUrl: finishPhotoCol !== -1 ? (row[finishPhotoCol] || '') : '',
+        startedBy: startedByCol !== -1 ? (row[startedByCol] || '') : '',
+        finishedBy: finishedByCol !== -1 ? (row[finishedByCol] || '') : ''
       });
     }
     return jsonOut_({ trucks: trucks });
@@ -142,35 +156,68 @@ function doPost(e) {
     if (targetRow === -1) return jsonOut_({ ok: false, error: 'Reference ID not found: ' + payload.id });
 
     var action = payload.action;
+
+    // Concurrency guard: two phones acting on the same truck at nearly the
+    // same time (double-tap, or two people at the dock) shouldn't silently
+    // overwrite each other. Check the truck's current state right before
+    // writing and refuse if it's not what this action expects — the app
+    // then reloads the real state instead of retrying blindly.
+    var stateCol = idx['Truck State'] + 1;
+    var currentState = String(sheet.getRange(targetRow, stateCol).getValue() || 'pending');
+    var CONFLICT = {
+      start: { need: ['pending', ''], already: 'This truck was already started elsewhere.', code: 'already_started' },
+      finish: {
+        need: ['arrived'],
+        already: currentState === 'completed' ? 'This truck was already finished elsewhere.' : 'This truck has not been started yet.',
+        code: currentState === 'completed' ? 'already_finished' : 'not_started_yet'
+      },
+      cancelStart: { need: ['arrived'], already: 'This truck is no longer in the "started" state.', code: 'not_in_started_state' },
+      reopen: { need: ['completed'], already: 'This truck is no longer in the "completed" state.', code: 'not_in_completed_state' }
+    };
+    // "error" is an English fallback message (e.g. for logs); the app
+    // translates using "code" when it recognizes it, so the driver/admin
+    // always sees this in whichever display language (EN/TH) they're using.
+    if (CONFLICT[action] && CONFLICT[action].need.indexOf(currentState) === -1) {
+      return jsonOut_({ ok: false, conflict: true, error: CONFLICT[action].already, code: CONFLICT[action].code });
+    }
+
     if (action === 'setEta') {
       sheet.getRange(targetRow, idx['LON/POS D/T'] + 1).setValue(new Date(payload.etaIso));
     } else if (action === 'start') {
       sheet.getRange(targetRow, idx['Act Arrival D/T'] + 1).setValue(new Date(payload.timestampIso));
-      sheet.getRange(targetRow, idx['Truck State'] + 1).setValue('arrived');
+      sheet.getRange(targetRow, stateCol).setValue('arrived');
       if (payload.photoBase64) {
         var startUrl = savePhoto_(payload.id, 'start', payload.photoBase64);
         if (startUrl) {
-          var startCol = getOrCreatePhotoCol_(sheet, 'Start Photo URL');
+          var startCol = getOrCreateCol_(sheet, 'Start Photo URL');
           sheet.getRange(targetRow, startCol).setValue(startUrl);
         }
       }
+      if (payload.by) {
+        var startedByCol = getOrCreateCol_(sheet, 'Started By');
+        sheet.getRange(targetRow, startedByCol).setValue(String(payload.by));
+      }
     } else if (action === 'finish') {
       sheet.getRange(targetRow, idx['Act Dept D/T'] + 1).setValue(new Date(payload.timestampIso));
-      sheet.getRange(targetRow, idx['Truck State'] + 1).setValue('completed');
+      sheet.getRange(targetRow, stateCol).setValue('completed');
       if (payload.duration) sheet.getRange(targetRow, idx['Dur. (Hr:Min)'] + 1).setValue(payload.duration);
       if (payload.photoBase64) {
         var finishUrl = savePhoto_(payload.id, 'finish', payload.photoBase64);
         if (finishUrl) {
-          var finishCol = getOrCreatePhotoCol_(sheet, 'Finish Photo URL');
+          var finishCol = getOrCreateCol_(sheet, 'Finish Photo URL');
           sheet.getRange(targetRow, finishCol).setValue(finishUrl);
         }
       }
+      if (payload.by) {
+        var finishedByCol = getOrCreateCol_(sheet, 'Finished By');
+        sheet.getRange(targetRow, finishedByCol).setValue(String(payload.by));
+      }
     } else if (action === 'cancelStart') {
       sheet.getRange(targetRow, idx['Act Arrival D/T'] + 1).clearContent();
-      sheet.getRange(targetRow, idx['Truck State'] + 1).setValue('pending');
+      sheet.getRange(targetRow, stateCol).setValue('pending');
     } else if (action === 'reopen') {
       sheet.getRange(targetRow, idx['Act Dept D/T'] + 1).clearContent();
-      sheet.getRange(targetRow, idx['Truck State'] + 1).setValue('arrived');
+      sheet.getRange(targetRow, stateCol).setValue('arrived');
     } else {
       return jsonOut_({ ok: false, error: 'Unknown action: ' + action });
     }
@@ -210,8 +257,9 @@ function savePhoto_(id, action, dataUrl) {
 }
 
 // Returns the 1-based column number for `name`, creating it at the end of
-// the header row the first time it's needed.
-function getOrCreatePhotoCol_(sheet, name) {
+// the header row the first time it's needed. Used for the photo-URL columns
+// and the optional "Started By" / "Finished By" columns.
+function getOrCreateCol_(sheet, name) {
   var lastCol = sheet.getLastColumn();
   var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
   var i = headers.indexOf(name);

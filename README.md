@@ -60,6 +60,23 @@ L'app ne modifie que 5 colonnes existantes : `LON/POS D/T` (ETA), `Act Arrival D
 
 Quand un Sheet est connecté, "Start Unloading" et "Finish Unloading" proposent d'abord de prendre une photo (ou de passer). Les photos sont enregistrées dans un dossier Drive ("MON Inbound Photos") créé automatiquement au premier envoi, dans le Drive du compte qui a déployé le script — rien à préparer à l'avance. Les liens sont écrits dans deux colonnes que le script ajoute lui-même au Sheet dès qu'elles servent : "Start Photo URL" et "Finish Photo URL".
 
+### Bilingue thaï / anglais
+
+L'interface est bilingue. Une petite pastille "TH／EN" en haut (dans l'écran de choix du rôle, et dans l'en-tête une fois un rôle choisi) permet de basculer la langue d'affichage à tout moment — ce n'est pas un compte, juste une préférence mémorisée sur l'appareil. Par défaut l'app démarre en **thaï** (la majorité des utilisateurs au quai ne lisent pas l'anglais) ; le management peut basculer en anglais en un tap. La date dans l'en-tête suit aussi la convention thaïe en mode thaï (jour de semaine + année bouddhiste, ex. "วันพุธที่ 2 กันยายน 2569"). Tous les textes de l'app (statuts, boutons, formulaires, messages d'erreur) sont traduits ; le nom de marque "MON Inbound" reste inchangé dans les deux langues.
+
+### Retouche visuelle
+
+Les tuiles de statistiques (Complétés / En cours / En retard) ont maintenant un fond teinté (vert / orange / rouge) au lieu d'un simple encadré, pour reprendre l'effet des tuiles colorées de ton dashboard TV. Cartes et boutons ont un léger relief (ombre douce) et une animation de pression au tap pour un rendu plus premium.
+
+### Autres améliorations
+
+- **Installable sur l'écran d'accueil (PWA légère)** : sur mobile, le navigateur propose "Ajouter à l'écran d'accueil" (icône, couleur de thème) — pas de service worker, pas de fichier séparé, tout est intégré dans `index.html`.
+- **Nom de la personne (optionnel)** : au moment de démarrer/terminer un déchargement (mode Sheet), un champ "Your name" propose de s'identifier. Le nom est mémorisé sur l'appareil (pas de compte) et réutilisé aux prochaines actions. Il est écrit dans le Sheet dans deux colonnes créées automatiquement : "Started By" et "Finished By".
+- **Retour vibratoire** : léger vibreur au tap sur les actions principales (Start/Finish, confirmer/passer la photo) — juste un repère tactile, désactivé silencieusement si l'appareil ne le supporte pas.
+- **Nouvelle tentative en cas d'échec réseau** : si l'enregistrement dans le Sheet échoue (coupure réseau, etc.), un bouton "Retry" apparaît dans le message d'erreur et relance exactement la même action.
+- **Protection contre les doubles actions simultanées** : si deux personnes agissent sur le même camion en même temps (ex. deux chauffeurs tapent "Start" en même temps), le script refuse la deuxième action et l'app se resynchronise automatiquement avec le Sheet plutôt que d'écraser l'état.
+- **Rafraîchissement au retour sur l'app** : quand le téléphone se réveille ou qu'on revient sur l'onglet, les données se resynchronisent avec le Sheet automatiquement.
+
 ## Pour l'équipe IT
 
 Tout le code est commenté. Points d'entrée utiles si vous adaptez l'app :
