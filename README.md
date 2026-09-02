@@ -68,6 +68,10 @@ L'interface est bilingue. Une petite pastille "TH／EN" en haut (dans l'écran d
 
 Les tuiles de statistiques (Complétés / En cours / En retard) ont maintenant un fond teinté (vert / orange / rouge) au lieu d'un simple encadré, pour reprendre l'effet des tuiles colorées de ton dashboard TV. Cartes et boutons ont un léger relief (ombre douce) et une animation de pression au tap pour un rendu plus premium.
 
+### Correctif affichage mobile (viewport)
+
+Le fichier `index.html` déployé n'avait pas de balise `<meta name="viewport">` dans son vrai `<head>` (elle n'existait que dans le code utilisé pour la republication interne, jamais dans le fichier statique servi par Netlify). Résultat sur téléphone : Safari/Chrome mobile affichait la page comme une vue desktop dézoomée pour la faire tenir à l'écran, au lieu de l'afficher à la vraie échelle mobile. Le fichier est maintenant un document HTML5 complet et valide (`<!doctype html><html><head>` avec la balise viewport `width=device-width, initial-scale=1` `</head><body>...</body></html>`), donc l'app s'affiche désormais à taille réelle, comme une vraie app mobile. Vérifié avec un test automatisé à la taille d'un écran d'iPhone.
+
 ### Autres améliorations
 
 - **Installable sur l'écran d'accueil (PWA légère)** : sur mobile, le navigateur propose "Ajouter à l'écran d'accueil" (icône, couleur de thème) — pas de service worker, pas de fichier séparé, tout est intégré dans `index.html`.
