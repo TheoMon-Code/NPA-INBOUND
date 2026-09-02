@@ -11,10 +11,10 @@ mon-inbound/
 ├── index.html                 # l'app entière (HTML + CSS + JS, un seul fichier) — à déployer sur Netlify
 ├── README.md                  # ce fichier
 └── google-apps-script/
-    └── Code.gs                # backend optionnel : à coller dans l'éditeur Apps Script du Google Sheet
+    └── Code.gs                # backend optionnel : script Apps Script STANDALONE (pas lié au Sheet), voir plus bas
 ```
 
-`index.html` est autonome : aucune dépendance, aucun build, aucun `package.json`. C'est le seul fichier que Netlify doit servir. `Code.gs` n'est PAS déployé par Netlify — il se colle directement dans l'éditeur Apps Script lié au Google Sheet (voir plus bas), c'est un système séparé.
+`index.html` est autonome : aucune dépendance, aucun build, aucun `package.json`. C'est le seul fichier que Netlify doit servir. `Code.gs` n'est PAS déployé par Netlify et n'est PAS collé dans l'éditeur Apps Script lié au Sheet (Extensions → Apps Script) — voir pourquoi et comment dans la section suivante, c'est un système séparé.
 
 ## Déployer le site sur Netlify
 
@@ -40,13 +40,16 @@ Le rôle est choisi une fois par téléphone (stocké localement sur l'appareil,
 
 Fichier concerné : `google-apps-script/Code.gs`.
 
-1. Ouvrir le Google Sheet → Extensions → Apps Script.
-2. Coller le contenu de `google-apps-script/Code.gs` (remplacer ce qu'il y a déjà).
-3. Vérifier/ajuster `SHEET_GID` en haut du fichier (l'id de l'onglet, visible dans l'URL du Sheet après `#gid=`).
+**Important : ce script est volontairement autonome ("standalone"), pas collé dans Extensions → Apps Script du Sheet.** Si le Sheet a déjà un script qui lui est lié (c'est le cas ici : "PP + SHIFT"), ce script possède déjà ses propres `doGet`/`doPost` — un projet ne peut en avoir qu'un seul de chaque. Coller `Code.gs` par-dessus casserait ce qui existe déjà. En le gardant standalone (il accède au Sheet par son ID plutôt que d'y être "attaché"), aucun risque de collision.
+
+1. Aller sur https://script.google.com → New project.
+2. Coller le contenu de `google-apps-script/Code.gs` (remplacer le code par défaut).
+3. Vérifier `SHEET_ID` et `SHEET_GID` en haut du fichier (déjà pré-remplis pour le Sheet "NPA - INBOUND" ; `SHEET_GID` est l'id de l'onglet, visible dans l'URL du Sheet après `#gid=`).
 4. Déployer → Nouveau déploiement → type "Web app" → Exécuter en tant que "Moi" → Accès "Tout le monde" → Déployer.
-5. Copier l'URL `/exec` obtenue.
-6. Dans `index.html`, remplir la constante `SHEETS_WEBAPP_URL` (en haut du `<script>`) avec cette URL.
-7. Commit + push → Netlify redéploie automatiquement.
+5. Autoriser les permissions demandées (utiliser un compte Google qui a au moins un accès en modification sur le Sheet). Un écran "Google n'a pas vérifié cette application" peut apparaître la première fois — c'est normal pour un script perso non publié : cliquer "Paramètres avancés" puis "Accéder à [nom du projet] (dangereux)".
+6. Copier l'URL `/exec` obtenue.
+7. Dans `index.html`, remplir la constante `SHEETS_WEBAPP_URL` (en haut du `<script>`) avec cette URL.
+8. Commit + push → Netlify redéploie automatiquement.
 
 Colonnes du Sheet attendues (repérées par nom d'en-tête, l'ordre n'a pas d'importance) :
 `Reference ID, Order Date, IM/EX/TR, Truck No., Plant, LON/POS D/T, Act Arrival D/T, Act Dept D/T, Dur. (Hr:Min), LOF Location, Truck State, OBD, Cont No., Seal No., Cont Type, Closing Date, Remark, PO No., QTT, SKU No., Details`

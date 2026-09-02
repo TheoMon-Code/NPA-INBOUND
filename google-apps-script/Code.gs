@@ -27,6 +27,14 @@
  */
 
 // ===== CONFIG =====
+// This is a STANDALONE script (not bound to the spreadsheet via Extensions >
+// Apps Script) — on purpose, so it can't collide with any other script
+// already bound to this sheet (same project can only have one doGet/doPost).
+// It reaches the sheet by ID instead.
+//
+// The spreadsheet id — the long id in the sheet's URL, right after /d/ and
+// before /edit.
+var SHEET_ID = '1UZYK6lUa9qzZGC7lcYSkQdIxWntgo05qhMzdThkHqkc';
 // The tab id (gid) of "NPA - INBOUND" — taken from the sheet's URL
 // (...#gid=802647500). If you ever duplicate/rename the tab, update this.
 var SHEET_GID = 802647500;
@@ -40,7 +48,7 @@ var COLS = [
 ];
 
 function getSheet_() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ss = SpreadsheetApp.openById(SHEET_ID);
   var sheets = ss.getSheets();
   for (var i = 0; i < sheets.length; i++) {
     if (sheets[i].getSheetId() === SHEET_GID) return sheets[i];
@@ -233,21 +241,38 @@ function fmtDateTime_(v) {
 
 /**
  * ===== HOW TO DEPLOY =====
- * 1. Open the "NPA - INBOUND" Google Sheet.
- * 2. Extensions -> Apps Script.
- * 3. Delete whatever is in Code.gs and paste this entire file in its place.
+ * This is a STANDALONE project — it is NOT pasted into the "Extensions >
+ * Apps Script" editor of the Sheet, on purpose: if that sheet already has a
+ * bound script (as this one does — "PP + SHIFT"), that project already has
+ * its own doGet/doPost, and a project can only have one of each. Pasting
+ * this file in there would silently break whatever that script already
+ * does. Keeping this one standalone means it can never collide with it.
+ *
+ * 1. Go to https://script.google.com -> New project.
+ * 2. Delete the placeholder code and paste this entire file in its place.
+ * 3. Rename the project (top left, e.g. "MON Inbound bridge") — optional,
+ *    just for clarity in your Drive.
  * 4. Click Deploy -> New deployment.
  * 5. Type: "Web app".
  * 6. Execute as: "Me".
  * 7. Who has access: "Anyone" (required — the app calls this anonymously;
  *    it does not expose anything beyond what doGet/doPost return above).
- * 8. Click Deploy, authorize the permissions Google asks for (it's your
- *    own script acting on your own sheet).
+ * 8. Click Deploy, authorize the permissions Google asks for. The first
+ *    time, Google shows an "unverified app" warning because this is your
+ *    own script that hasn't been published — click "Advanced" then
+ *    "Go to [project name] (unsafe)" to continue; it's safe, that warning
+ *    just means the script hasn't gone through Google's public-app review
+ *    (irrelevant for a script only you deployed for your own sheet).
  * 9. Copy the "Web app URL" it gives you (ends in /exec).
  * 10. Paste that URL into SHEETS_WEBAPP_URL near the top of index.html,
  *     then redeploy the site on Netlify.
  *
+ * Note: the account you use in step 1-4 needs at least edit access to the
+ * "NPA - INBOUND" spreadsheet (SHEET_ID above) — use the same Google
+ * account that already has access to it.
+ *
  * If you rename or restructure columns later, only the COLS list and
  * SHEET_GID above ever need to change — nothing else in this file
- * hardcodes a column position.
+ * hardcodes a column position. If the sheet itself is ever copied to a new
+ * spreadsheet, update SHEET_ID too.
  */

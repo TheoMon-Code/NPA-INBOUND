@@ -1065,7 +1065,11 @@ document.getElementById("app").addEventListener("change", function(e){
   }
 });
 
-/* ---------- seed (only used the very first time app-data is empty) ---------- */
+/* ---------- optional demo data ----------
+   Not called automatically (see init below) — the app starts empty by
+   default so nobody sees placeholder trucks by mistake. Kept here in case
+   you want a quick visual demo before a Google Sheet is connected: just
+   call seedIfEmpty() in the init block below to turn it back on. ---------- */
 function seedIfEmpty(){
   if(state.trucks && state.trucks.length) return;
   var y = addDays(todayKey(),-1), tk = todayKey(), tm = addDays(todayKey(),1);
@@ -1086,7 +1090,6 @@ function seedIfEmpty(){
 }
 
 /* ---------- init ---------- */
-seedIfEmpty();
 if(sheetsEnabled()){
   /* Google Sheet is the shared source of truth for truck data: load it now
      and keep polling it, skipping a refresh while someone has an input open
