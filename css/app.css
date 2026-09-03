@@ -78,7 +78,15 @@ input{font:inherit;color:inherit}
 .topbar{
   background:linear-gradient(160deg,var(--brand-surface),#0B6BB8 65%,var(--brand-surface));
   color:#fff;
-  padding:14px 16px 12px;
+  /* padding-top adds env(safe-area-inset-top) so this header's own content
+     (brand, clock, date) never sits under the phone's status bar / notch
+     when the app is installed to the home screen (manifest "display":
+     "standalone" takes over that area, unlike a normal browser tab) --
+     without this, the status bar overlaps the first ~14px of the header,
+     which is exactly the "bandeau bleu coupé en haut" reported on a real
+     phone. env() resolves to 0 on a device with no notch/status-bar overlay,
+     so this is a no-op there. */
+  padding:calc(14px + env(safe-area-inset-top)) 16px 12px;
   display:flex;
   align-items:flex-start;
   justify-content:space-between;
