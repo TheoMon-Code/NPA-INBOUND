@@ -1,88 +1,126 @@
 # MON Inbound
 
-App mobile web (un seul fichier, sans build) pour planifier et suivre le déchargement des camions : la veille, quelqu'un saisit l'heure théorique d'arrivée (ETA) ; le lendemain, la personne au dock ouvre l'app, tape sur le camion, "Start Unloading", puis "Finish Unloading" une fois terminé.
+App mobile web (sans build, sans framework) pour planifier et suivre le déchargement des camions : la veille, quelqu'un saisit l'heure théorique d'arrivée (ETA) ; le lendemain, la personne au dock ouvre l'app, tape sur le camion, "Start Unloading", puis "Finish Unloading" une fois terminé. Les photos prises par les chauffeurs MHE sont stockées dans Supabase.
 
-Prototype réalisé comme exemple pour le département IT — pensé pour être repris et adapté librement.
+Prototype réalisé comme exemple pour le département ISD — pensé pour être repris et adapté librement.
 
 ## Structure du repo
 
 ```
 mon-inbound/
-├── index.html                 # l'app entière (HTML + CSS + JS, un seul fichier) — à déployer sur Netlify
+├── index.html                 # coquille HTML : <head>, #app, balises <script> — à déployer sur Netlify
+├── manifest.webmanifest       # manifeste PWA (installable sur l'écran d'accueil)
+├── icons/
+│   ├── favicon.png            # icône d'onglet / apple-touch-icon
+│   ├── icon-192.png           # icône PWA 192×192
+│   └── icon-512.png           # icône PWA 512×512
+├── css/
+│   └── app.css                # toute la feuille de style (inchangée, juste extraite)
+├── js/
+│   ├── config.js              # constantes : URL/clé Supabase, intervalles, libellés de calendrier
+│   ├── dateUtils.js           # helpers de date/formatage, sans aucune dépendance
+│   ├── storage.js             # localStorage : rôle, langue, nom retenu, données locales de secours
+│   ├── i18n.js                # dictionnaire bilingue TH/EN + tr(key)
+│   ├── state.js               # state (persisté) + ui (affichage) — les deux objets partagés
+│   ├── status.js              # calcul du statut dérivé d'un camion (pending/late/done/…)
+│   ├── api.js                 # couche Supabase : REST (PostgREST) + Storage, sans SDK
+│   ├── importPlan.js          # feature "Import inbound plan" (Excel/CSV → camions)
+│   ├── photoUtils.js          # vibreur + redimensionnement/compression des photos
+│   ├── render.js              # tout le HTML de l'app (aucun framework, un render() par changement)
+│   ├── actions.js             # toutes les actions déclenchées par l'utilisateur
+│   ├── ticking.js             # horloge live + timer d'un déchargement en cours
+│   ├── events.js              # un seul écouteur de clic/clavier/changement, routé par data-*
+│   ├── seedData.js            # jeu de données de démo optionnel (non appelé par défaut)
+│   └── main.js                # point d'entrée : câble tout et démarre l'app
 ├── README.md                  # ce fichier
-└── google-apps-script/
-    └── Code.gs                # backend optionnel : script Apps Script STANDALONE (pas lié au Sheet), voir plus bas
+└── supabase-schema.sql        # à exécuter une fois dans l'éditeur SQL de ton projet Supabase
 ```
 
-`index.html` est autonome : aucune dépendance, aucun build, aucun `package.json`. C'est le seul fichier que Netlify doit servir. `Code.gs` n'est PAS déployé par Netlify et n'est PAS collé dans l'éditeur Apps Script lié au Sheet (Extensions → Apps Script) — voir pourquoi et comment dans la section suivante, c'est un système séparé.
+Toujours **zéro build, zéro `package.json`, zéro bundler** : `index.html` charge `js/main.js` avec `<script type="module">`, et le navigateur résout tout seul les `import`/`export` entre les fichiers — exactement comme avant, juste réparti dans plusieurs fichiers au lieu d'un seul. Netlify (ou n'importe quel hébergeur de fichiers statiques) sert ce dossier tel quel, sans aucune étape de compilation.
+
+Seule dépendance externe : [SheetJS](https://sheetjs.com/) chargée depuis un CDN (cdnjs), utilisée uniquement par l'écran "Import inbound plan" (voir plus bas) — le reste de l'app ne dépend de rien d'externe.
 
 ## Déployer le site sur Netlify
 
-1. Pousser ce repo sur GitHub.
+1. Pousser ce repo sur GitHub (avec tous ses dossiers `js/`, `css/`, `icons/`).
 2. Sur Netlify : "Add new site" → "Import an existing project" → choisir ce repo GitHub.
 3. Build command : laisser vide. Publish directory : `/` (racine du repo, là où se trouve `index.html`).
 4. Déployer. Chaque futur `git push` redéploie automatiquement.
 
 ## Les deux rôles
 
-- **Admin** : protégé par un code PIN (par défaut `1234`, modifiable dans l'app via l'icône ⚙ à côté du badge de rôle). Peut saisir/modifier l'ETA, ajouter/supprimer des camions (sauf en mode Google Sheet, voir plus bas), changer le PIN.
-- **MHE Driver** : aucune connexion. Voit les camions du jour, démarre/termine le déchargement.
+- **Admin** : protégé par un code PIN (par défaut `1234`, modifiable dans l'app via l'icône ⚙ à côté du badge de rôle). Peut saisir/modifier l'ETA, ajouter/supprimer des camions, importer le planning, changer le PIN.
+- **MHE Driver** : aucune connexion. Voit les camions du jour, démarre/termine le déchargement, ajoute des photos. Peut renseigner son nom une fois (pastille "👤 Name" à côté du badge de rôle) — mémorisé sur l'appareil, pas un compte.
 
 Le rôle est choisi une fois par téléphone (stocké localement sur l'appareil, pas de compte).
 
-## Trois modes de stockage des données (détectés automatiquement)
+## Deux modes de stockage des données (détectés automatiquement)
 
-1. **Google Sheet connecté** (recommandé pour un usage réel) — voir la section suivante.
-2. **Claude Artifact** (aperçu live pendant le développement) — synchronisation via republication de l'artifact.
-3. **Local (`localStorage`)** — fallback si ni Sheet ni Claude Artifact : les données restent dans le navigateur de l'appareil. C'est le mode actif par défaut si tu déploies `index.html` tel quel sur Netlify sans rien configurer d'autre.
+1. **Supabase connecté** (recommandé, voir plus bas) — tous les téléphones voient les mêmes camions et les mêmes photos.
+2. **Local (`localStorage`)** — fallback tant que Supabase n'est pas configuré : les données restent dans le navigateur de cet appareil uniquement. C'est le mode actif par défaut si `SUPABASE_URL`/`SUPABASE_ANON_KEY` sont vides dans `js/config.js` — pratique pour prévisualiser le rendu pendant que le projet Supabase se met en place.
 
-## Connecter un Google Sheet (optionnel mais recommandé)
+## Connecter Supabase
 
-Fichier concerné : `google-apps-script/Code.gs`.
+Fichier concerné : `supabase-schema.sql`.
 
-**Important : ce script est volontairement autonome ("standalone"), pas collé dans Extensions → Apps Script du Sheet.** Si le Sheet a déjà un script qui lui est lié (c'est le cas ici : "PP + SHIFT"), ce script possède déjà ses propres `doGet`/`doPost` — un projet ne peut en avoir qu'un seul de chaque. Coller `Code.gs` par-dessus casserait ce qui existe déjà. En le gardant standalone (il accède au Sheet par son ID plutôt que d'y être "attaché"), aucun risque de collision.
+1. Créer un compte / projet sur https://supabase.com si ce n'est pas déjà fait.
+2. Dans le projet → **SQL Editor** → New query → coller tout le contenu de `supabase-schema.sql` → Run. Ça crée les deux tables (`trucks`, `photos`), les autorise en lecture/écriture pour la clé publique de l'app (voir la note de sécurité en haut du fichier SQL — c'est un prototype sans login, donc pas de vraie sécurité côté données), et crée le bucket de stockage `inbound-photos` pour les photos.
+3. Dans le projet → **Settings** → **API** : copier l'**URL** du projet et la clé **anon public**.
+4. Dans `js/config.js`, tout en haut du fichier, renseigner :
+   ```js
+   export const SUPABASE_URL = "https://xxxxxxxx.supabase.co";
+   export const SUPABASE_ANON_KEY = "eyJ...";
+   ```
+5. Commit + push → Netlify redéploie automatiquement.
 
-1. Aller sur https://script.google.com → New project.
-2. Coller le contenu de `google-apps-script/Code.gs` (remplacer le code par défaut).
-3. Vérifier `SHEET_ID` et `SHEET_GID` en haut du fichier (déjà pré-remplis pour le Sheet "NPA - INBOUND" ; `SHEET_GID` est l'id de l'onglet, visible dans l'URL du Sheet après `#gid=`).
-4. Déployer → Nouveau déploiement → type "Web app" → Exécuter en tant que "Moi" → Accès "Tout le monde" → Déployer.
-5. Autoriser les permissions demandées (utiliser un compte Google qui a au moins un accès en modification sur le Sheet). Un écran "Google n'a pas vérifié cette application" peut apparaître la première fois — c'est normal pour un script perso non publié : cliquer "Paramètres avancés" puis "Accéder à [nom du projet] (dangereux)".
-6. Copier l'URL `/exec` obtenue.
-7. Dans `index.html`, remplir la constante `SHEETS_WEBAPP_URL` (en haut du `<script>`) avec cette URL.
-8. Commit + push → Netlify redéploie automatiquement.
+Une fois branché, ajouter un camion se fait directement depuis l'app (bouton "+", rôle Admin). Pour importer le planning en masse (le fichier Excel du manager), voir la section suivante.
 
-Colonnes du Sheet attendues (repérées par nom d'en-tête, l'ordre n'a pas d'importance) :
-`Reference ID, Order Date, IM/EX/TR, Truck No., Plant, LON/POS D/T, Act Arrival D/T, Act Dept D/T, Dur. (Hr:Min), LOF Location, Truck State, OBD, Cont No., Seal No., Cont Type, Closing Date, Remark, PO No., QTT, SKU No., Details`
+### Importer le planning (Excel/CSV) — rôle Admin
 
-L'app ne modifie que 5 colonnes existantes : `LON/POS D/T` (ETA), `Act Arrival D/T`, `Act Dept D/T`, `Dur. (Hr:Min)`, `Truck State` (valeurs écrites : `arrived` au démarrage, `completed` à la fin). Tout le reste est affiché en lecture seule sur la fiche du camion. En mode Sheet, le bouton d'ajout et la suppression de camion sont désactivés (les lignes existent déjà dans le Sheet).
+Pastille "📥" à côté du badge de rôle (Admin uniquement) → "Import inbound plan". Le manager choisit directement son fichier Excel existant (ex. "Incoming plan AMATA.xlsx") — rien n'est envoyé nulle part avant confirmation, tout est lu dans le navigateur (librairie [SheetJS](https://sheetjs.com/), chargée depuis un CDN). Toute la logique de cette feature vit dans `js/importPlan.js`.
 
-### Photos d'arrivée / de fin (optionnel, mode Sheet uniquement)
+Le fichier réel de MON (`Incoming plan AMATA`) a été utilisé comme référence pour construire ce parseur ; il gère ses particularités :
+- Les en-têtes de colonnes sont en thaï/anglais et détectés par mot-clé (pas par position) — la ligne d'en-tête elle-même est repérée automatiquement même quand il y a des lignes vides/titres au-dessus.
+- Les feuilles "master log" grossissent indéfiniment (des années d'historique dans un seul onglet) : un filtre "à partir de cette date" (par défaut aujourd'hui) écarte l'historique pour ne garder que les camions à venir.
+- Chaque feuille du classeur est proposée à cocher ; par défaut sont pré-cochées les feuilles dont le nom contient "incoming" (insensible à la casse) hors variante "รปภ" (vue simplifiée pour la sécurité, redondante avec la feuille complète) — donc typiquement "RM PM incoming" + "Indirect incoming", pas "MON+PALLET" (qui est de l'export, hors périmètre de cette app) ni "Master data".
+- Les doublons (même PO + même date + même heure + même transporteur) déjà présents dans l'app ne sont pas réimportés — on peut réimporter le même fichier mis à jour sans dupliquer les camions déjà créés.
+- Le type de matière (RM/PM, colonne de gauche) est préservé comme préfixe dans le champ "Produit" (ex. "[RM] Poultry Meal…") ; le champ Plant est renseigné automatiquement à "AMATA" (nom du site dans ce fichier) — à ajuster si le classeur change de site.
 
-Quand un Sheet est connecté, "Start Unloading" et "Finish Unloading" proposent d'abord de prendre une photo (ou de passer). Les photos sont enregistrées dans un dossier Drive ("MON Inbound Photos") créé automatiquement au premier envoi, dans le Drive du compte qui a déployé le script — rien à préparer à l'avance. Les liens sont écrits dans deux colonnes que le script ajoute lui-même au Sheet dès qu'elles servent : "Start Photo URL" et "Finish Photo URL".
+Un écran d'aperçu montre le nombre de camions prêts à importer avant toute écriture — rien n'est créé sans avoir cliqué sur "Importer".
 
-### Bilingue thaï / anglais
+**Aucune colonne n'est perdue** : en plus des champs ci-dessus (transporteur, PO, quantité, produit, date, heure, remarque), *toutes* les colonnes du fichier source sont sauvegardées telles quelles dans une colonne `raw` (JSON), y compris celles sans champ dédié dans l'app (pesée, poids brut, ponctualité, pénalités de retard…). Il faut avoir exécuté la mise à jour du schéma pour que cette colonne existe (voir `supabase-schema.sql` — `alter table public.trucks add column if not exists raw jsonb;`, à exécuter une fois si tu avais déjà lancé le script avant). Si elle n'existe pas encore, l'import fonctionne quand même (juste sans ce filet de sécurité) et te le signale dans le message de confirmation. Une fois présente, chaque camion importé affiche une section repliable "Toutes les données du fichier source" dans sa fiche.
 
-L'interface est bilingue. Une petite pastille "TH／EN" en haut (dans l'écran de choix du rôle, et dans l'en-tête une fois un rôle choisi) permet de basculer la langue d'affichage à tout moment — ce n'est pas un compte, juste une préférence mémorisée sur l'appareil. Par défaut l'app démarre en **thaï** (la majorité des utilisateurs au quai ne lisent pas l'anglais) ; le management peut basculer en anglais en un tap. La date dans l'en-tête suit aussi la convention thaïe en mode thaï (jour de semaine + année bouddhiste, ex. "วันพุธที่ 2 กันยายน 2569"). Tous les textes de l'app (statuts, boutons, formulaires, messages d'erreur) sont traduits ; le nom de marque "MON Inbound" reste inchangé dans les deux langues.
+### Photos (mode test)
 
-### Retouche visuelle
+Quand Supabase est connecté, une section "Photos" apparaît sur la fiche de chaque camion : un chauffeur MHE (ou l'admin) peut ajouter jusqu'à 6 photos, à tout moment, dans n'importe quel ordre — ce n'est pas lié aux boutons Start/Finish. Les photos sont redimensionnées/compressées dans le navigateur (max 1280px, JPEG qualité ~0.72, voir `js/photoUtils.js`) avant l'envoi pour rester légères en 4G, puis stockées dans le bucket Supabase `inbound-photos` (public, lecture directe par URL). Chaque photo garde une trace de qui l'a ajoutée (le nom renseigné côté chauffeur, optionnel).
 
-Les tuiles de statistiques (Complétés / En cours / En retard) ont maintenant un fond teinté (vert / orange / rouge) au lieu d'un simple encadré, pour reprendre l'effet des tuiles colorées de ton dashboard TV. Cartes et boutons ont un léger relief (ombre douce) et une animation de pression au tap pour un rendu plus premium.
+C'est explicitement en **mode test** : la clé anon donne un accès public en lecture/écriture au bucket et aux tables (voir la note de sécurité dans `supabase-schema.sql`) — largement suffisant pour un mockup, mais à ne pas considérer comme sécurisé pour de la donnée sensible.
 
-### Correctif affichage mobile (viewport)
+## Bilingue thaï / anglais
 
-Le fichier `index.html` déployé n'avait pas de balise `<meta name="viewport">` dans son vrai `<head>` (elle n'existait que dans le code utilisé pour la republication interne, jamais dans le fichier statique servi par Netlify). Résultat sur téléphone : Safari/Chrome mobile affichait la page comme une vue desktop dézoomée pour la faire tenir à l'écran, au lieu de l'afficher à la vraie échelle mobile. Le fichier est maintenant un document HTML5 complet et valide (`<!doctype html><html><head>` avec la balise viewport `width=device-width, initial-scale=1` `</head><body>...</body></html>`), donc l'app s'affiche désormais à taille réelle, comme une vraie app mobile. Vérifié avec un test automatisé à la taille d'un écran d'iPhone.
+L'interface est bilingue (dictionnaire complet dans `js/i18n.js`). Une petite pastille "TH／EN" en haut (dans l'écran de choix du rôle, et dans l'en-tête une fois un rôle choisi) permet de basculer la langue d'affichage à tout moment — ce n'est pas un compte, juste une préférence mémorisée sur l'appareil. Par défaut l'app démarre en **thaï** (la majorité des utilisateurs au quai ne lisent pas l'anglais) ; le management peut basculer en anglais en un tap. La date dans l'en-tête suit aussi la convention thaïe en mode thaï (jour de semaine + année bouddhiste, ex. "วันพุธที่ 3 กันยายน 2569"). Tous les textes de l'app (statuts, boutons, formulaires, messages d'erreur) sont traduits ; le nom de marque "MON Inbound" reste inchangé dans les deux langues.
 
-### Autres améliorations
+## Design
 
-- **Installable sur l'écran d'accueil (PWA légère)** : sur mobile, le navigateur propose "Ajouter à l'écran d'accueil" (icône, couleur de thème) — pas de service worker, pas de fichier séparé, tout est intégré dans `index.html`.
-- **Nom de la personne (optionnel)** : au moment de démarrer/terminer un déchargement (mode Sheet), un champ "Your name" propose de s'identifier. Le nom est mémorisé sur l'appareil (pas de compte) et réutilisé aux prochaines actions. Il est écrit dans le Sheet dans deux colonnes créées automatiquement : "Started By" et "Finished By".
-- **Retour vibratoire** : léger vibreur au tap sur les actions principales (Start/Finish, confirmer/passer la photo) — juste un repère tactile, désactivé silencieusement si l'appareil ne le supporte pas.
-- **Nouvelle tentative en cas d'échec réseau** : si l'enregistrement dans le Sheet échoue (coupure réseau, etc.), un bouton "Retry" apparaît dans le message d'erreur et relance exactement la même action.
-- **Protection contre les doubles actions simultanées** : si deux personnes agissent sur le même camion en même temps (ex. deux chauffeurs tapent "Start" en même temps), le script refuse la deuxième action et l'app se resynchronise automatiquement avec le Sheet plutôt que d'écraser l'état.
-- **Rafraîchissement au retour sur l'app** : quand le téléphone se réveille ou qu'on revient sur l'onglet, les données se resynchronisent avec le Sheet automatiquement.
+Refonte complète du visuel : couleur de marque alignée sur le bleu MON (`#004990`), tuiles de statistiques teintées (vert / orange / rouge), cartes et boutons avec relief et animation de pression au tap, bouton d'ajout (FAB) en accent ambre pour bien ressortir. Pensé pour un vrai rendu d'app mobile (viewport correct, pas de "vue PC dézoomée") plutôt qu'un site web responsive générique. Tout est dans `css/app.css`.
 
-## Pour l'équipe IT
+## Autres fonctionnalités
 
-Tout le code est commenté. Points d'entrée utiles si vous adaptez l'app :
-- `index.html` : un seul `<script>`, logique organisée en sections (constantes, état, rendu, actions, événements). La fonction `render()` reconstruit tout le HTML de l'app à chaque changement d'état — pas de framework.
-- `google-apps-script/Code.gs` : `doGet` (lecture) / `doPost` (écriture), colonnes repérées par nom via `COLS` (facile à adapter si les colonnes du Sheet changent).
+- **Installable sur l'écran d'accueil (PWA)** : `manifest.webmanifest` + les icônes dans `icons/` — sur mobile, le navigateur propose "Ajouter à l'écran d'accueil".
+- **Retour vibratoire** : léger vibreur au tap sur Start/Finish (`js/photoUtils.js`, fonction `buzz()`).
+- **Nouvelle tentative en cas d'échec réseau** : si l'enregistrement échoue (coupure réseau, etc.), un bouton "Retry" apparaît dans le message d'erreur et relance exactement la même action.
+- **Protection contre les doubles actions simultanées** : si deux personnes agissent sur le même camion en même temps (ex. deux chauffeurs tapent "Start" en même temps), la deuxième action est refusée côté Supabase (mise à jour conditionnelle : "ne modifie que si l'état n'a pas changé entre-temps") et l'app se resynchronise automatiquement plutôt que d'écraser l'état.
+- **Rafraîchissement au retour sur l'app** : quand le téléphone se réveille ou qu'on revient sur l'onglet, les données se resynchronisent avec Supabase automatiquement.
+
+## Pour l'équipe ISD
+
+Le code est réparti par responsabilité (voir la structure du repo ci-dessus), sans framework — pas de build à maintenir, juste des modules ES natifs que le navigateur charge directement :
+
+- **`js/state.js`** : les deux objets partagés par toute l'app — `state` (les camions + le code admin, persistés) et `ui` (tout ce qui concerne l'écran en cours, jamais persisté). Toutes les autres modules les importent et les mutent directement (`ui.tab = "today"`, etc.) — c'est le seul endroit qui les définit.
+- **`js/render.js`** : la fonction `render()` reconstruit tout le HTML de l'app à chaque changement d'état et l'écrit dans `#app` — pas de framework, pas de diffing.
+- **`js/actions.js`** : toute mutation déclenchée par l'utilisateur (ETA, start/finish/reopen, ajout/suppression de camion, photos, PIN). Les appels réseau passent par `js/api.js` : `sbRest()` (table `trucks`/`photos` via l'API REST de Supabase, PostgREST) et `sbUploadPhoto()`/`sbDeletePhoto()` (API Storage) — pas de SDK à installer.
+- **`js/events.js`** : le seul point où les clics/claviers/changements du DOM sont écoutés, routés par attribut `data-*` vers la fonction de `actions.js` ou `importPlan.js` correspondante.
+- **`supabase-schema.sql`** : les deux tables, leurs policies, et le bucket de stockage.
+- Le formulaire "New Truck" dans l'app ne couvre que les champs essentiels (transporteur, plant, référence PO, date, ETA) ; les champs plus détaillés (SKU, quantité, conteneur…) peuvent être renseignés directement dans Supabase (Table Editor) si besoin, ou le formulaire peut être étendu facilement dans `addSheetHtml()` (`js/render.js`) / `createTruck()` (`js/actions.js`).
+- Import Excel/CSV : tout `js/importPlan.js`, fonctions préfixées `import*` (détection d'en-tête `importFindHeaderRow()`, association des colonnes `importDetectColumnMap()`/`IMPORT_FIELD_MATCHERS`, extraction `importExtractRows()`). Le mapping de colonnes est piloté par mots-clés, pas par position — pour l'adapter à un autre format de fichier, il suffit d'ajouter des variantes de libellés dans `IMPORT_FIELD_MATCHERS`. L'écran lui-même (`importSheetHtml()`) est dans `js/render.js`.
+- Traductions : tout est dans `js/i18n.js` (`STRINGS` + `tr(key)`) — ajouter une clé là-bas suffit pour qu'elle soit disponible partout ailleurs via `tr("maCle")`.
