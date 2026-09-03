@@ -7,6 +7,7 @@
    Supabase afterwards so every phone stays consistent. */
 import { pad2, addDays, todayKey } from "./dateUtils.js";
 import { tr } from "./i18n.js";
+import { MAX_PHOTOS_PER_TRUCK } from "./config.js";
 import { state, ui } from "./state.js";
 import {
   supabaseEnabled, sbRest, sbPatchTruckConditional, sbCreateTruck,
@@ -281,20 +282,58 @@ export function createTruck(){
   showToast(tr("truckAdded"));
 }
 
-/* ---------- photos ---------- */
-export function addPhoto(truckId, file){
+/* ---------- photos ----------
+   Uploads one photo, end to end (compress -> Storage -> photos row ->
+   re-sync). Returns a promise so addPhotos() below can chain several of
+   these one after another instead of firing them all at once. */
+function uploadOnePhoto(truckId, file, truckLabel){
   var by = loadSavedName();
-  showToast(tr("uploadingPhoto"), true);
-  readAndCompressImage(file, 1280, 0.72).then(function(dataUrl){
+  return readAndCompressImage(file, 1280, 0.72).then(function(dataUrl){
     return fetch(dataUrl).then(function(r){ return r.blob(); });
   }).then(function(blob){
-    return sbUploadPhoto(truckId, blob, by);
+    return sbUploadPhoto(truckId, blob, by, truckLabel);
   }).then(function(){
     return loadFromSupabase();
-  }).then(function(){
-    buzz(30);
-    showToast(tr("photoUploaded"));
-  }).catch(function(){
+  });
+}
+
+/* Takes whatever the file picker returned — one photo or several picked at
+   once (the input has `multiple` set, see render.js) — and uploads them one
+   at a time, capped at MAX_PHOTOS_PER_TRUCK total for that truck. Extra
+   files beyond the cap are silently skipped with a toast explaining why,
+   rather than uploaded and then hidden by the UI. */
+export function addPhotos(truckId, files){
+  var list = Array.prototype.slice.call(files || []);
+  if(!list.length) return;
+  var truck = findTruck(truckId);
+  // Same identifier shown on the truck's card (PO number, falling back to
+  // the generated reference/id) — passed through so each photo's filename
+  // in Supabase Storage is recognizable, not just a random string.
+  var truckLabel = truck ? (truck.poNo || truck.ref || truck.id) : "";
+  var already = (truck && truck.photos) ? truck.photos.length : 0;
+  var remaining = Math.max(0, MAX_PHOTOS_PER_TRUCK - already);
+  var accepted = list.slice(0, remaining);
+  var skippedCount = list.length - accepted.length;
+  if(!accepted.length){
+    showToast(tr("photosLimitReached").replace("{max}", MAX_PHOTOS_PER_TRUCK));
+    return;
+  }
+  showToast(tr("uploadingPhoto"), true);
+  function next(i){
+    if(i >= accepted.length){
+      buzz(30);
+      var msg = accepted.length > 1
+        ? tr("photosUploadedMulti").replace("{n}", accepted.length)
+        : tr("photoUploaded");
+      if(skippedCount > 0){
+        msg += " " + tr("photosLimitSkipped").replace("{n}", skippedCount).replace("{max}", MAX_PHOTOS_PER_TRUCK);
+      }
+      showToast(msg);
+      return Promise.resolve();
+    }
+    return uploadOnePhoto(truckId, accepted[i], truckLabel).then(function(){ return next(i+1); });
+  }
+  next(0).catch(function(){
     showToast(tr("photoUploadFailed"));
   });
 }

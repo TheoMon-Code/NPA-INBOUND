@@ -13,6 +13,9 @@ export const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiO
 export const SUPABASE_BUCKET = "inbound-photos";
 export const SUPABASE_POLL_MS = 15000;
 export const GRACE_MIN = 20;
+// Some trucks genuinely need more than a handful of proof photos — this is
+// the only place that number lives, so raising it later is a one-line change.
+export const MAX_PHOTOS_PER_TRUCK = 20;
 
 /* localStorage keys (all per-device, never synced anywhere) */
 export const ROLE_KEY = "mon-inbound-role";

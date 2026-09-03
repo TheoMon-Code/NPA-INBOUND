@@ -10,7 +10,7 @@ import {
   pickRole, submitPin, focusPin, savePin, saveName,
   openSheet, openAdd, closeSheet, saveEta, startUnload, finishUnload,
   cancelUnload, reopenUnload, deleteTruck, createTruck,
-  addPhoto, removePhoto
+  addPhotos, removePhoto
 } from "./actions.js";
 import { openImportPlan, runImportPreview, runImportConfirm, handleImportFile } from "./importPlan.js";
 
@@ -111,11 +111,17 @@ export function initEvents(){
 
   app.addEventListener("change", function(e){
     if(e.target && e.target.id === "photoAddInput"){
-      var file = e.target.files && e.target.files[0];
+      // input.files is a *live* FileList tied to the input's value: clearing
+      // e.target.value below (needed so picking the same file twice in a row
+      // still fires "change") empties this exact same object in place, not
+      // just future reads of it. Snapshotting into a plain array first is
+      // what makes the files survive that reset -- capturing the reference
+      // alone is not enough, since it's the same underlying object.
+      var files = Array.prototype.slice.call(e.target.files || []);
       var truckId = ui.pendingPhotoTruckId;
       e.target.value = "";
       ui.pendingPhotoTruckId = null;
-      if(file && truckId) addPhoto(truckId, file);
+      if(files.length && truckId) addPhotos(truckId, files);
     }
     if(e.target && e.target.id === "importFileInput"){
       var importFile = e.target.files && e.target.files[0];

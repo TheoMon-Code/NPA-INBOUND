@@ -115,10 +115,13 @@ export const STRINGS = {
   conflict_not_in_completed_state:{en:"This truck is no longer in the \"completed\" state — refreshed.",th:"รถบรรทุกคันนี้ไม่อยู่ในสถานะ \"เสร็จสิ้น\" อีกต่อไป — รีเฟรชข้อมูลใหม่แล้ว"},
   photosTitle:{en:"Photos",th:"รูปภาพ"},
   addPhoto:{en:"Add photo",th:"เพิ่มรูปภาพ"},
-  photosHint:{en:"Up to 6 photos as proof — any order, any time.",th:"เพิ่มรูปภาพได้สูงสุด 6 รูปเป็นหลักฐาน — ไม่จำกัดลำดับหรือเวลา"},
+  photosHint:{en:"Up to {n} photos as proof — any order, any time, pick several at once.",th:"เพิ่มรูปภาพได้สูงสุด {n} รูปเป็นหลักฐาน — ไม่จำกัดลำดับหรือเวลา เลือกได้ทีละหลายรูป"},
   photosNeedSupabase:{en:"Connect Supabase to enable photo uploads (see README).",th:"เชื่อมต่อ Supabase เพื่อเปิดใช้งานการอัปโหลดรูปภาพ (ดู README)"},
   photoUploadFailed:{en:"Could not upload the photo.",th:"ไม่สามารถอัปโหลดรูปภาพได้"},
   photoUploaded:{en:"Photo added.",th:"เพิ่มรูปภาพแล้ว"},
+  photosUploadedMulti:{en:"{n} photos added.",th:"เพิ่มรูปภาพแล้ว {n} รูป"},
+  photosLimitSkipped:{en:"{n} photo(s) not added — this truck is at its {max}-photo limit.",th:"มี {n} รูปที่ไม่ได้เพิ่ม — รถบรรทุกคันนี้ครบ {max} รูปแล้ว"},
+  photosLimitReached:{en:"This truck already has the maximum of {max} photos.",th:"รถบรรทุกคันนี้มีรูปภาพครบ {max} รูปแล้ว"},
   photoDeleted:{en:"Photo removed.",th:"ลบรูปภาพแล้ว"},
   photoRemoveFailed:{en:"Could not remove the photo.",th:"ไม่สามารถลบรูปภาพได้"},
   uploadingPhoto:{en:"Uploading photo…",th:"กำลังอัปโหลดรูปภาพ…"},
@@ -148,7 +151,15 @@ export const STRINGS = {
   importDoneToast:{en:"Imported {n} trucks.",th:"นำเข้ารถบรรทุก {n} คันแล้ว"},
   importSaveFailed:{en:"Import failed partway through — check your connection and try again (trucks already imported won't be duplicated).",th:"นำเข้าล้มเหลวระหว่างทาง — ตรวจสอบการเชื่อมต่อแล้วลองใหม่ (รายการที่นำเข้าไปแล้วจะไม่ซ้ำ)"},
   importRawColumnMissing:{en:"(The extra source columns weren't saved — ask ISD to run the \"raw\" column update in supabase-schema.sql.)",th:"(ข้อมูลคอลัมน์อื่น ๆ ยังไม่ถูกบันทึก — แจ้งทีม ISD ให้รันคำสั่งเพิ่มคอลัมน์ \"raw\" ใน supabase-schema.sql)"},
-  allSourceFields:{en:"All imported fields (from the source file)",th:"ข้อมูลทั้งหมดจากไฟล์ต้นฉบับ"}
+  importLotsColumnMissing:{en:"(Some trucks have several lots, but that detail wasn't saved — ask ISD to run the \"lots\" column update in supabase-schema.sql.)",th:"(รถบางคันมีหลายล็อต แต่รายละเอียดนี้ยังไม่ถูกบันทึก — แจ้งทีม ISD ให้รันคำสั่งเพิ่มคอลัมน์ \"lots\" ใน supabase-schema.sql)"},
+  allSourceFields:{en:"All imported fields (from the source file)",th:"ข้อมูลทั้งหมดจากไฟล์ต้นฉบับ"},
+  // A single import row can turn out to be several lots for the very same
+  // physical truck (same PO + date + time + carrier in the source file,
+  // just a different line item) — these two strings surface that instead
+  // of silently keeping only the first lot.
+  multiLotBadge:{en:"{n} lots",th:"{n} ล็อต"},
+  lotsSectionTitle:{en:"Lots on this truck ({n})",th:"ล็อตในคันนี้ ({n})"},
+  lotUnnamed:{en:"(no description)",th:"(ไม่มีคำอธิบาย)"}
 };
 
 export function tr(key){

@@ -192,6 +192,33 @@ function importParseSheet(workbook, sheetName){
 function importDedupeKey(poNo, date, eta, carrier){
   return (poNo||"")+"|"+(date||"")+"|"+(eta||"")+"|"+String(carrier||"").trim().toLowerCase();
 }
+/* One physical truck can show up as several rows in the source file — same
+   PO + date + time + carrier, but a different line item ("รายการ") for each
+   product/lot it's carrying. Confirmed against a real "Incoming plan" file:
+   e.g. one PO with two rows, "รายการ" 10 and 20, same delivery slot. Grouping
+   by the same key already used for dedupe (rather than deduping row-by-row,
+   which used to keep only the first row of a group and silently drop the
+   rest as if they were duplicates) turns each such group into ONE truck
+   carrying a `lots` array, so nothing from those extra rows is lost. A
+   single-row group still produces a truck with a one-item `lots` array —
+   same shape either way, so the rest of the app only has to special-case
+   the "more than one lot" *display*, not the data model. */
+function importGroupRows(rows){
+  var order = [], byKey = {};
+  rows.forEach(function(r){
+    var key = importDedupeKey(r.po_no, r.order_date, r.eta, r.carrier);
+    if(!byKey[key]){
+      byKey[key] = {
+        key: key,
+        carrier: r.carrier, po_no: r.po_no, order_date: r.order_date, eta: r.eta,
+        lots: []
+      };
+      order.push(byKey[key]);
+    }
+    byKey[key].lots.push({ details:r.details, qtt:r.qtt, sku_no:r.sku_no, remark:r.remark, raw:r.raw });
+  });
+  return order;
+}
 
 export function handleImportFile(file){
   ui.importError = null;
@@ -249,12 +276,16 @@ export function runImportPreview(){
   state.trucks.forEach(function(t){
     existingKeys[importDedupeKey(t.poNo, t.date, t.eta, t.carrier)] = true;
   });
-  var seen = {}, dupeCount = 0, toImport = [];
-  kept.forEach(function(r){
-    var key = importDedupeKey(r.po_no, r.order_date, r.eta, r.carrier);
-    if(existingKeys[key] || seen[key]){ dupeCount++; return; }
-    seen[key] = true;
-    toImport.push(r);
+  // Group first (see importGroupRows), so several source rows for the same
+  // physical truck become one entry with multiple lots, THEN dedupe against
+  // already-imported trucks — one skip decision per truck, not per row. A
+  // truck already imported has all of its rows (lots included) counted into
+  // dupeCount, same total-rows meaning the count had before grouping existed.
+  var groups = importGroupRows(kept);
+  var dupeCount = 0, toImport = [];
+  groups.forEach(function(g){
+    if(existingKeys[g.key]){ dupeCount += g.lots.length; return; }
+    toImport.push(g);
   });
   toImport.sort(function(a,b){
     if(a.order_date !== b.order_date) return a.order_date < b.order_date ? -1 : 1;
@@ -272,24 +303,52 @@ export function runImportConfirm(){
   var r = ui.importResult;
   if(!r || !r.toImport.length) return;
   ui.importBusy = true; ui.syncStatus = "saving"; render();
-  var rows = r.toImport.map(function(row, idx){
+  // Each entry in r.toImport is now a *group* (one physical truck, possibly
+  // several lots — see importGroupRows). The top-level details/qtt/sku_no/
+  // remark/raw always mirror lots[0], so a single-lot truck (still the
+  // common case) is stored exactly as before; `lots` carries the full list
+  // and is what a multi-lot truck's detail sheet reads to show every lot,
+  // not just the first.
+  var rows = r.toImport.map(function(g, idx){
+    var primary = g.lots[0] || {};
     return {
       reference_id: "T-"+Date.now().toString(36).toUpperCase()+idx.toString(36).toUpperCase(),
-      carrier: row.carrier, plant: "AMATA", im_ex_tr: "IM",
-      po_no: row.po_no, sku_no: row.sku_no, qtt: row.qtt,
-      remark: row.remark, details: row.details,
-      order_date: row.order_date,
-      eta: row.eta ? (row.order_date+"T"+row.eta+":00") : null,
+      carrier: g.carrier, plant: "AMATA", im_ex_tr: "IM",
+      po_no: g.po_no, sku_no: primary.sku_no, qtt: primary.qtt,
+      remark: primary.remark, details: primary.details,
+      order_date: g.order_date,
+      eta: g.eta ? (g.order_date+"T"+g.eta+":00") : null,
       truck_state: "pending",
-      raw: row.raw || null /* every source column, verbatim — see supabase-schema.sql */
+      raw: primary.raw || null, /* every source column, verbatim — see supabase-schema.sql */
+      lots: g.lots.length > 1 ? g.lots : null
     };
   });
+  var totalLots = r.toImport.reduce(function(sum,g){ return sum + g.lots.length; }, 0);
   var CHUNK = 40, i = 0;
-  var rawColumnMissing = false;
-  function stripRaw(chunk){ return chunk.map(function(r2){ var c = {}; for(var k in r2) if(k !== "raw") c[k]=r2[k]; return c; }); }
-  function isMissingRawColumnError(err){
+  var rawColumnMissing = false, lotsColumnMissing = false;
+  function stripKeys(chunk, keys){
+    return chunk.map(function(r2){
+      var c = {};
+      for(var k in r2) if(keys.indexOf(k) === -1) c[k] = r2[k];
+      return c;
+    });
+  }
+  function isMissingColumnError(err, col){
     var msg = String((err && err.message) || "");
-    return /\braw\b/i.test(msg) && /(column|schema cache|does not exist)/i.test(msg);
+    return new RegExp("\\b"+col+"\\b","i").test(msg) && /(column|schema cache|does not exist)/i.test(msg);
+  }
+  function attemptInsert(chunk){
+    return sbRest("trucks", { method:"POST", headers:{ "Prefer":"return=minimal" }, body: chunk }).catch(function(err){
+      if(!rawColumnMissing && isMissingColumnError(err, "raw")){
+        rawColumnMissing = true;
+        return attemptInsert(stripKeys(chunk, ["raw"]));
+      }
+      if(!lotsColumnMissing && isMissingColumnError(err, "lots")){
+        lotsColumnMissing = true;
+        return attemptInsert(stripKeys(chunk, ["lots"]));
+      }
+      throw err;
+    });
   }
   function next(){
     if(i >= rows.length){
@@ -299,18 +358,16 @@ export function runImportConfirm(){
         importCtx = null;
         var msg = tr("importDoneToast").replace("{n}", rows.length);
         if(rawColumnMissing) msg += " " + tr("importRawColumnMissing");
+        if(lotsColumnMissing && totalLots > rows.length) msg += " " + tr("importLotsColumnMissing");
         showToast(msg);
       });
     }
-    var chunk = rows.slice(i, i+CHUNK);
+    var already = [];
+    if(rawColumnMissing) already.push("raw");
+    if(lotsColumnMissing) already.push("lots");
+    var chunk = stripKeys(rows.slice(i, i+CHUNK), already);
     i += CHUNK;
-    return sbRest("trucks", { method:"POST", headers:{ "Prefer":"return=minimal" }, body: chunk }).catch(function(err){
-      if(!rawColumnMissing && isMissingRawColumnError(err)){
-        rawColumnMissing = true;
-        return sbRest("trucks", { method:"POST", headers:{ "Prefer":"return=minimal" }, body: stripRaw(chunk) });
-      }
-      throw err;
-    }).then(next);
+    return attemptInsert(chunk).then(next);
   }
   next().catch(function(){
     return loadFromSupabase().then(function(){

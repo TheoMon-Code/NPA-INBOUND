@@ -65,6 +65,7 @@ export function mapRowToTruck(row){
     startedBy: row.started_by || "",
     finishedBy: row.finished_by || "",
     raw: row.raw || null,
+    lots: row.lots || null,
     photos: (row.photos || []).map(function(p){
       return { id:p.id, url:p.url, storagePath:p.storage_path, uploadedBy:p.uploaded_by||"", createdAt:p.created_at };
     })
@@ -109,8 +110,27 @@ export function sbDeleteTruck(id){
   return sbRest("trucks?id=eq."+encodeURIComponent(id), { method:"DELETE" });
 }
 
-export function sbUploadPhoto(truckId, blob, uploadedBy){
-  var path = truckId+"/"+Date.now()+"-"+Math.random().toString(36).slice(2,8)+".jpg";
+/* Turns a truck's PO/reference number into something safe to put in a
+   storage path: ASCII letters/digits/hyphens only (Thai text and other
+   symbols become hyphens rather than being rejected outright), collapsed
+   and capped so one long/messy source value can't produce a huge path. */
+function slugifyForPath(s){
+  return String(s==null?"":s)
+    .replace(/[^A-Za-z0-9]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 40);
+}
+
+export function sbUploadPhoto(truckId, blob, uploadedBy, truckLabel){
+  // truckId (a Supabase UUID) stays the folder — it's the only thing
+  // guaranteed unique per truck, so grouping/deleting photos never breaks
+  // even when two different truck visits share the same PO number (see
+  // README). truckLabel (the PO/reference shown in the app) is only added
+  // to the filename, purely so photos are recognizable when browsed
+  // directly in the Supabase Storage dashboard or downloaded in bulk.
+  var safeLabel = slugifyForPath(truckLabel);
+  var path = truckId+"/"+(safeLabel ? safeLabel+"-" : "")+Date.now()+"-"+Math.random().toString(36).slice(2,8)+".jpg";
   return fetch(SUPABASE_URL+"/storage/v1/object/"+SUPABASE_BUCKET+"/"+path, {
     method: "POST",
     headers: sbHeaders({ "Content-Type":"image/jpeg" }),

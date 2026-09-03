@@ -8,7 +8,7 @@ import { state, ui } from "./state.js";
 import { tr } from "./i18n.js";
 import { derive, lateMinutes, STATUS_KEYS } from "./status.js";
 import { esc, shortDate, fmtElapsed, dateTimeOf, clockStr, addDays, todayKey } from "./dateUtils.js";
-import { DAY_LABELS, MONTH_LABELS, DAY_LABELS_TH, MONTH_LABELS_TH } from "./config.js";
+import { DAY_LABELS, MONTH_LABELS, DAY_LABELS_TH, MONTH_LABELS_TH, MAX_PHOTOS_PER_TRUCK } from "./config.js";
 import { loadSavedName } from "./storage.js";
 import { supabaseEnabled } from "./api.js";
 import { hasImportFile, importFileName, importSheetNames } from "./importPlan.js";
@@ -71,6 +71,11 @@ function cardHtml(t, now){
       (t.plant ? "<span>"+esc(t.plant)+"</span>" : "")+
       "<span>"+shortDate(t.date)+"</span>"+
       (t.imExTr ? "<span>"+esc(t.imExTr)+"</span>" : "")+
+      // Once a truck goes "Late" the pill above stops showing the scheduled
+      // time (it switches to how many minutes late instead) — repeating the
+      // ETA here means it's never hidden, however late the truck gets.
+      (t.eta ? "<span>"+tr("pill_eta")+" "+esc(t.eta)+"</span>" : "")+
+      (t.lots && t.lots.length > 1 ? "<span>"+esc(tr("multiLotBadge").replace("{n}", t.lots.length))+"</span>" : "")+
       "</span>"+
     "</span>"+
   "</button>";
@@ -184,6 +189,7 @@ function sheetHtml(now){
     (t.imExTr?'<span class="chip">'+esc(t.imExTr)+'</span>':"")+
     '</div>'+
     shipmentDetailsHtml(t)+
+    lotsHtml(t)+
     rawDetailsHtml(t)+
     photosHtml(t)+
     body+
@@ -213,6 +219,21 @@ function shipmentDetailsHtml(t){
    supabase-schema.sql. Collapsed by default (native <details>, no JS) since
    it's a lot of text and most people only need it occasionally. Manually
    created trucks have no raw data, so this section simply doesn't appear. */
+/* When a truck was imported from a source row that had siblings sharing the
+   same PO+date+time+carrier (several lots on one physical truck — see
+   importGroupRows in importPlan.js), this lists every lot, not just the
+   first (which shipmentDetailsHtml above already shows on its own). A
+   single-lot truck has no `lots` array at all (or a one-item one), so this
+   section simply doesn't appear for the common case. */
+function lotsHtml(t){
+  if(!t.lots || !Array.isArray(t.lots) || t.lots.length < 2) return "";
+  var items = t.lots.map(function(lot, idx){
+    var label = lot.details || tr("lotUnnamed");
+    var qty = lot.qtt ? (" — "+lot.qtt) : "";
+    return detailRow("#"+(idx+1), label+qty);
+  }).join("");
+  return '<div class="sheet-section"><div class="label">'+esc(tr("lotsSectionTitle").replace("{n}", t.lots.length))+'</div><div class="detailgrid">'+items+'</div></div>';
+}
 function rawDetailsHtml(t){
   if(!t.raw || typeof t.raw !== "object") return "";
   var rows = Object.keys(t.raw).map(function(k){ return detailRow(k, t.raw[k]); }).join("");
@@ -304,9 +325,15 @@ function importSheetHtml(){
       '</div>'+errHtml;
   } else if(ui.importStep === "preview"){
     var r = ui.importResult || { toImport:[], dupeCount:0, pastCount:0 };
-    var rows = r.toImport.slice(0,12).map(function(row){
-      return '<div class="importrow"><b>'+esc(row.order_date)+(row.eta?(" "+esc(row.eta)):"")+'</b> · '+esc(row.carrier||"—")+
-        (row.details?(' · '+esc(row.details)):"")+(row.qtt?(' ('+esc(row.qtt)+')'):"")+'</div>';
+    // Each entry is a truck (a group of one or more lots — see
+    // importGroupRows in importPlan.js); show the first lot's product/qty
+    // like before, plus a "+N lots" badge when the truck actually has more,
+    // so a multi-lot truck doesn't look identical to a single-lot one here.
+    var rows = r.toImport.slice(0,12).map(function(g){
+      var primary = g.lots[0] || {};
+      var extra = g.lots.length > 1 ? (' <span class="chip">'+esc(tr("multiLotBadge").replace("{n}", g.lots.length))+'</span>') : "";
+      return '<div class="importrow"><b>'+esc(g.order_date)+(g.eta?(" "+esc(g.eta)):"")+'</b> · '+esc(g.carrier||"—")+
+        (primary.details?(' · '+esc(primary.details)):"")+(primary.qtt?(' ('+esc(primary.qtt)+')'):"")+extra+'</div>';
     }).join("");
     var more = r.toImport.length > 12 ? '<div class="hint" style="margin-top:4px">'+tr("importMoreRows").replace("{n}", r.toImport.length-12)+'</div>' : "";
     body = '<div class="hint" style="margin-top:6px">'+
@@ -349,11 +376,11 @@ function photosHtml(t){
     var rm = ui.role === "admin" ? '<button class="photoslot-rm" data-photo-remove="'+esc(p.id)+'" data-photo-truck="'+esc(t.id)+'" data-photo-path="'+esc(p.storagePath)+'" aria-label="Remove">✕</button>' : "";
     return '<div class="photoslot"><a href="'+esc(p.url)+'" target="_blank" rel="noopener"><img src="'+esc(p.url)+'" loading="lazy"></a>'+rm+'</div>';
   }).join("");
-  if(photos.length < 6){
+  if(photos.length < MAX_PHOTOS_PER_TRUCK){
     slots += '<button class="photoslot add" data-photo-add="'+esc(t.id)+'"><span style="font-size:22px;line-height:1">+</span><span>'+tr("addPhoto")+'</span></button>';
   }
   return '<div class="sheet-section"><div class="label">'+tr("photosTitle")+'</div>'+
-    '<div class="hint">'+tr("photosHint")+'</div>'+
+    '<div class="hint">'+tr("photosHint").replace("{n}", MAX_PHOTOS_PER_TRUCK)+'</div>'+
     '<div class="photogrid">'+slots+'</div></div>';
 }
 function toastHtml(){
@@ -395,6 +422,10 @@ export function render(){
     sheetHtml(now)+
     roleGateHtml()+
     toastHtml()+
-    '<input type="file" accept="image/*" capture="environment" id="photoAddInput" style="display:none">';
+    // No `capture` attribute: that hint forces the camera open directly and
+    // only ever allows one shot, which rules out picking several existing
+    // photos at once. Without it, phones show their normal chooser (camera
+    // vs. gallery) and `multiple` lets a gallery pick grab several at a time.
+    '<input type="file" accept="image/*" multiple id="photoAddInput" style="display:none">';
   document.getElementById("app").innerHTML = html;
 }

@@ -13,7 +13,17 @@ export function isInputSheetOpen(){
     var t = state.trucks.find(function(x){ return x.id === ui.openId; });
     return t && t.status !== "unloading" && t.status !== "done";
   })();
+  // ui.pendingPhotoTruckId is set the instant the hidden file input is
+  // clicked (see events.js) and only cleared once its native picker
+  // returns a selection. That window can easily run past 15s — a camera
+  // app in particular — and a render() in the meantime would replace the
+  // whole #app subtree, orphaning that exact <input> element: the OS
+  // picker still fires its "change" event on it, but the event can no
+  // longer bubble up to the listener on #app (it's not attached to the
+  // document anymore), so the picked photo silently never uploads. Treat a
+  // pending pick like any other open input so it can't be wiped out.
   return !!(ui.addOpen || ui.pinSettingsOpen || ui.nameSettingsOpen || ui.importOpen || truckInputOpen ||
+    ui.pendingPhotoTruckId ||
     (ui.roleGateOpen && ui.roleGateStep === "pin"));
 }
 

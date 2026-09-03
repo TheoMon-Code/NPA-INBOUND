@@ -40,14 +40,25 @@ create table if not exists public.trucks (
                                       -- nothing from the source file is ever silently dropped. Only
                                       -- populated for trucks created via that import; manually added
                                       -- trucks leave this null. Shown in the app under a truck's
-                                      -- "All imported fields" section.
+                                      -- "All imported fields" section. Holds the FIRST lot's raw data
+                                      -- when a truck has several (see `lots` below).
+  lots jsonb,                         -- one physical truck can carry several lots/line-items on the
+                                      -- same source-file PO+date+time+carrier (confirmed against a
+                                      -- real "Incoming plan" file: e.g. one PO delivered as two
+                                      -- separate line items). Each element is
+                                      -- {details, qtt, sku_no, remark, raw} for one lot; `details`/
+                                      -- `qtt`/`sku_no`/`remark`/`raw` above always mirror lots[0] so a
+                                      -- single-lot truck (the common case) looks exactly as before.
+                                      -- Only populated for imported trucks with more than one lot;
+                                      -- null otherwise.
   created_at timestamptz not null default now()
 );
 -- Running this file again on a project that already has the table (e.g. you
--- ran it before "raw" existed) needs this explicit ALTER — "create table if
--- not exists" above is a no-op once the table is already there, so it can't
--- add a new column on its own.
+-- ran it before "raw"/"lots" existed) needs these explicit ALTERs — "create
+-- table if not exists" above is a no-op once the table is already there, so
+-- it can't add new columns on its own.
 alter table public.trucks add column if not exists raw jsonb;
+alter table public.trucks add column if not exists lots jsonb;
 
 -- ---------- photos ----------
 -- Up to 6 photos per truck, addable at any time, in no particular order.
