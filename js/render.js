@@ -396,6 +396,16 @@ function syncLabel(){
 }
 
 export function render(){
+  // Every render() replaces the *entire* #app subtree (no framework, no
+  // diffing — see Round 8) — cheap to reason about, but on its own that
+  // also resets the page's scroll position on every single call, including
+  // the periodic background refresh (every ~15s) that isn't guarded by
+  // isInputSheetOpen(). Someone reading partway down the truck list would
+  // otherwise get yanked back to the top every 15 seconds, which is the
+  // "violent" jump users reported. Capturing/restoring window scroll around
+  // the swap costs nothing and fixes that without touching the render
+  // model itself.
+  var scrollY = window.scrollY;
   var now = new Date();
   var showTabs = ui.role === "admin";
   document.documentElement.setAttribute("lang", ui.lang === "th" ? "th" : "en");
@@ -428,4 +438,5 @@ export function render(){
     // vs. gallery) and `multiple` lets a gallery pick grab several at a time.
     '<input type="file" accept="image/*" multiple id="photoAddInput" style="display:none">';
   document.getElementById("app").innerHTML = html;
+  if(scrollY) window.scrollTo(0, scrollY);
 }

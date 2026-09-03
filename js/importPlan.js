@@ -19,7 +19,19 @@
    rest of the app never touches the SheetJS object directly, only the small
    read-only accessors below (hasImportFile/importFileName/importSheetNames),
    which is what keeps it safe to hold a large non-serializable object here
-   without it leaking into `ui` (view state) or `state` (persisted data). */
+   without it leaking into `ui` (view state) or `state` (persisted data).
+
+   The real files this was built against can run well past 100MB (a stray
+   #REF! column recopied across a million-plus blank rows in one Excel
+   version — see README) — reading and parsing that is genuinely slow, and
+   doing it synchronously on the main thread used to freeze the whole page
+   for the duration (nothing can repaint, not even the "Reading…" spinner,
+   while JS is blocking the main thread). That work now runs in
+   js/importWorker.js, a dedicated background Worker, so the page stays
+   responsive while it happens; parseWorkbook() below falls back to doing
+   the exact same parse on the main thread if Workers aren't available at
+   all, so the feature still works either way — just without that
+   responsiveness in the fallback case. */
 import { pad2, todayKey } from "./dateUtils.js";
 import { tr } from "./i18n.js";
 import { ui, state } from "./state.js";
@@ -27,7 +39,87 @@ import { sbRest, loadFromSupabase } from "./api.js";
 import { render } from "./render.js";
 import { showToast } from "./actions.js";
 
-var importCtx = null; /* { workbook, sheetNames, fileName } — set once a file is parsed */
+var importCtx = null; /* { sheetNames, sheetsData: {name: aoa}, fileName } — set once a file is parsed */
+
+var importWorker = null;
+var importWorkerReady = false; /* importScripts() inside it has confirmed success */
+var importWorkerFailed = false;
+/* Bounds only how long we wait to hear the worker's environment came up
+   (importScripts() succeeding — a quick, one-time, usually-cached fetch) —
+   never the parse itself, which runs after and can legitimately take much
+   longer for a very large file. A network that silently drops the CDN
+   request (rather than actively refusing it) would otherwise hang forever
+   with no fallback at all. */
+var IMPORT_WORKER_READY_TIMEOUT_MS = 6000;
+
+/* header:1/raw:true/blankrows:false/defval:null — same options either way,
+   whether this runs here (fallback) or inside importWorker.js. */
+function extractAllSheets(wb){
+  var sheets = {};
+  (wb.SheetNames || []).forEach(function(name){
+    var ws = wb.Sheets[name];
+    sheets[name] = ws ? XLSX.utils.sheet_to_json(ws, { header:1, raw:true, blankrows:false, defval:null }) : [];
+  });
+  return sheets;
+}
+function parseWorkbookMainThread(data){
+  return new Promise(function(resolve, reject){
+    // A setTimeout(0) at least lets the "Reading…" spinner (already
+    // rendered by the caller before this runs) paint once before the
+    // synchronous parse below blocks the main thread — doesn't shorten a
+    // slow parse, but stops the very first frame from looking like the
+    // app just hung the instant a file was chosen.
+    setTimeout(function(){
+      try{
+        var wb = XLSX.read(data, { type:"array", cellDates:true });
+        resolve({ sheetNames: wb.SheetNames || [], sheets: extractAllSheets(wb) });
+      }catch(err){ reject(err); }
+    }, 0);
+  });
+}
+function parseWorkbook(data){
+  if(importWorkerFailed || typeof Worker === "undefined") return parseWorkbookMainThread(data);
+  return new Promise(function(resolve, reject){
+    function fallbackToMainThread(){
+      importWorkerFailed = true;
+      if(importWorker){ try{ importWorker.terminate(); }catch(err){} importWorker = null; }
+      parseWorkbookMainThread(data).then(resolve, reject);
+    }
+    function sendParseRequest(){
+      importWorker.onmessage = function(e){
+        var msg = e.data;
+        if(!msg || msg.type !== "result") return;
+        if(msg.ok) resolve({ sheetNames: msg.sheetNames, sheets: msg.sheets });
+        // The worker itself came up fine but the parse failed (e.g.
+        // genuinely not a spreadsheet) — a real error to surface, not an
+        // environment limitation, so this does NOT fall back to a
+        // main-thread retry (which would just fail the exact same way).
+        else reject(new Error(msg.error || "worker parse failed"));
+      };
+      // No transfer list on purpose: transferring `data.buffer` would
+      // detach it on the main thread, and it may still be needed for
+      // fallbackToMainThread() above if something goes wrong later. The
+      // one-time copy this costs is negligible next to the parse itself.
+      importWorker.postMessage({ type: "parse", buffer: data.buffer });
+    }
+    if(importWorkerReady && importWorker){ sendParseRequest(); return; }
+    if(!importWorker){
+      try{ importWorker = new Worker("js/importWorker.js"); }
+      catch(err){ fallbackToMainThread(); return; }
+    }
+    var readyTimer = setTimeout(fallbackToMainThread, IMPORT_WORKER_READY_TIMEOUT_MS);
+    importWorker.onerror = function(){
+      clearTimeout(readyTimer);
+      fallbackToMainThread();
+    };
+    importWorker.onmessage = function(e){
+      if(!e.data || e.data.type !== "ready") return;
+      clearTimeout(readyTimer);
+      importWorkerReady = true;
+      sendParseRequest();
+    };
+  });
+}
 
 export function hasImportFile(){ return !!importCtx; }
 export function importFileName(){ return importCtx ? importCtx.fileName : ""; }
@@ -180,10 +272,9 @@ function importExtractRows(dataRows, colMap, sheetLabel, headerRow){
   });
   return out;
 }
-function importParseSheet(workbook, sheetName){
-  var ws = workbook.Sheets[sheetName];
-  if(!ws) return { rows:[], error:null };
-  var aoa = XLSX.utils.sheet_to_json(ws, { header:1, raw:true, blankrows:false, defval:null });
+function importParseSheet(sheetsData, sheetName){
+  var aoa = (sheetsData && sheetsData[sheetName]) || [];
+  if(!aoa.length) return { rows:[], error:null };
   var headerIdx = importFindHeaderRow(aoa);
   if(headerIdx === -1) return { rows:[], error:"noHeader" };
   var colMap = importDetectColumnMap(aoa[headerIdx]);
@@ -226,24 +317,22 @@ export function handleImportFile(file){
   render();
   var reader = new FileReader();
   reader.onload = function(){
-    try{
-      var data = new Uint8Array(reader.result);
-      var wb = XLSX.read(data, { type:"array", cellDates:true });
-      var names = wb.SheetNames || [];
-      importCtx = { workbook: wb, sheetNames: names, fileName: file.name };
+    var data = new Uint8Array(reader.result);
+    parseWorkbook(data).then(function(result){
+      importCtx = { sheetNames: result.sheetNames, sheetsData: result.sheets, fileName: file.name };
       ui.importSelected = {};
-      names.forEach(function(n){
+      result.sheetNames.forEach(function(n){
         ui.importSelected[n] = /incoming/i.test(n) && !/รปภ/.test(n);
       });
       ui.importBusy = false;
       ui.importStep = "pick";
       render();
-    }catch(err){
+    }).catch(function(){
       importCtx = null;
       ui.importBusy = false;
       ui.importError = tr("importParseFailed");
       render();
-    }
+    });
   };
   reader.onerror = function(){
     ui.importBusy = false;
@@ -262,7 +351,7 @@ export function runImportPreview(){
   ui.importBusy = true; ui.importError = null; render();
   var allRows = [], hadHeaderError = false;
   selectedNames.forEach(function(name){
-    var res = importParseSheet(importCtx.workbook, name);
+    var res = importParseSheet(importCtx.sheetsData, name);
     if(res.error) hadHeaderError = true;
     allRows = allRows.concat(res.rows);
   });

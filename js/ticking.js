@@ -9,10 +9,19 @@ import { clockStr, fmtElapsed } from "./dateUtils.js";
 import { render } from "./render.js";
 
 export function isInputSheetOpen(){
-  var truckInputOpen = ui.openId && ui.role === "admin" && (function(){
-    var t = state.trucks.find(function(x){ return x.id === ui.openId; });
-    return t && t.status !== "unloading" && t.status !== "done";
-  })();
+  // Any open truck sheet — regardless of role or the truck's current status
+  // — pauses the periodic background refresh. This used to be narrower
+  // (admin only, and only while the truck was still editable), on the
+  // theory that a "done"/"unloading" sheet has nothing left that a refresh
+  // could overwrite. But a full re-render (see render.js — no framework, no
+  // diffing, the whole #app subtree is rebuilt) is disruptive to *read*,
+  // not just to edit: it collapses any open <details> ("Lots on this
+  // truck", "All imported fields") back shut and can reset scroll position
+  // inside the sheet — reported as the refresh feeling "too violent" mid-
+  // read. Pausing for any open sheet and letting the next poll/tick catch
+  // up the instant it's closed is simpler and safer than trying to guess
+  // which sheets are still "safe" to disrupt.
+  var truckSheetOpen = !!ui.openId;
   // ui.pendingPhotoTruckId is set the instant the hidden file input is
   // clicked (see events.js) and only cleared once its native picker
   // returns a selection. That window can easily run past 15s — a camera
@@ -22,7 +31,7 @@ export function isInputSheetOpen(){
   // longer bubble up to the listener on #app (it's not attached to the
   // document anymore), so the picked photo silently never uploads. Treat a
   // pending pick like any other open input so it can't be wiped out.
-  return !!(ui.addOpen || ui.pinSettingsOpen || ui.nameSettingsOpen || ui.importOpen || truckInputOpen ||
+  return !!(ui.addOpen || ui.pinSettingsOpen || ui.nameSettingsOpen || ui.importOpen || truckSheetOpen ||
     ui.pendingPhotoTruckId ||
     (ui.roleGateOpen && ui.roleGateStep === "pin"));
 }
