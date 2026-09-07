@@ -13,7 +13,8 @@ mon-inbound/
 ├── icons/
 │   ├── favicon.png            # icône d'onglet / apple-touch-icon
 │   ├── icon-192.png           # icône PWA 192×192
-│   └── icon-512.png           # icône PWA 512×512
+│   ├── icon-512.png           # icône PWA 512×512
+│   └── mark-white.png         # logo (silhouette blanche) affiché dans le bandeau bleu du haut
 ├── css/
 │   └── app.css                # toute la feuille de style (inchangée, juste extraite)
 ├── js/
@@ -98,7 +99,11 @@ Un écran d'aperçu montre le nombre de camions prêts à importer avant toute �
 
 ### Photos (mode test)
 
-Quand Supabase est connecté, une section "Photos" apparaît sur la fiche de chaque camion : un chauffeur MHE (ou l'admin) peut ajouter jusqu'à 20 photos (`MAX_PHOTOS_PER_TRUCK` dans `js/config.js` — un seul endroit à changer si ce plafond doit encore bouger), à tout moment, dans n'importe quel ordre — ce n'est pas lié aux boutons Start/Finish. Le sélecteur permet de choisir plusieurs photos d'un coup (pas obligé de répéter l'opération une par une) ; s'il reste moins de slots que de photos sélectionnées, les premières sont ajoutées et un message précise combien ont été ignorées. Les photos sont redimensionnées/compressées dans le navigateur (max 1280px, JPEG qualité ~0.72, voir `js/photoUtils.js`) avant l'envoi pour rester légères en 4G, puis stockées dans le bucket Supabase `inbound-photos` (public, lecture directe par URL) sous `<id du camion>/<PO ou référence>-<timestamp>-<aléatoire>.jpg` — le dossier reste l'UUID du camion (garanti unique même si deux camions partagent le même n° de PO), seul le nom de fichier reprend le PO pour rester lisible en parcourant le bucket depuis le dashboard Supabase. Chaque photo garde une trace de qui l'a ajoutée (le nom renseigné côté chauffeur, optionnel).
+Quand Supabase est connecté, une section "Photos" apparaît sur la fiche de chaque camion : un chauffeur MHE (ou l'admin) peut ajouter jusqu'à 40 photos (`MAX_PHOTOS_PER_TRUCK` dans `js/config.js` — un seul endroit à changer si ce plafond doit encore bouger ; relevé de 20 à 40 au Round 13, suite au retour de Khun Badeeson qui en prend souvent beaucoup par expédition), à tout moment, dans n'importe quel ordre — ce n'est pas lié aux boutons Start/Finish. Le sélecteur permet de choisir plusieurs photos d'un coup (pas obligé de répéter l'opération une par une) ; s'il reste moins de slots que de photos sélectionnées, les premières sont ajoutées et un message précise combien ont été ignorées. Les photos sont redimensionnées/compressées dans le navigateur (max 1280px, JPEG qualité ~0.72, voir `js/photoUtils.js`) avant l'envoi pour rester légères en 4G, puis stockées dans le bucket Supabase `inbound-photos` (public, lecture directe par URL) sous `<id du camion>/<PO ou référence>-<timestamp>-<aléatoire>.jpg` — le dossier reste l'UUID du camion (garanti unique même si deux camions partagent le même n° de PO), seul le nom de fichier reprend le PO pour rester lisible en parcourant le bucket depuis le dashboard Supabase. Chaque photo garde une trace de qui l'a ajoutée (le nom renseigné côté chauffeur, optionnel).
+
+### Remark de dommage / réclamation (Round 13)
+
+En plus du champ "Remark" importé du fichier Excel (lecture seule, propre à chaque lot), la fiche camion propose maintenant une zone de texte libre "Remark (damage / claim note)" — un seul champ par camion, modifiable à tout moment par n'importe qui (Admin ou chauffeur), utile pour noter par exemple à quel niveau/couche du conteneur un dommage a été trouvé, en vue d'une réclamation auprès du fournisseur. Stocké dans `trucks.damage_remark` (voir `supabase-schema.sql` — `alter table ... add column if not exists damage_remark text;`, à exécuter une fois si le schéma avait déjà été lancé avant ce round). Si cette colonne n'existe pas encore côté Supabase, l'enregistrement échoue proprement avec un message dédié demandant à ISD de lancer cette mise à jour — rien d'autre n'est perturbé.
 
 C'est explicitement en **mode test** : la clé anon donne un accès public en lecture/écriture au bucket et aux tables (voir la note de sécurité dans `supabase-schema.sql`) — largement suffisant pour un mockup, mais à ne pas considérer comme sécurisé pour de la donnée sensible.
 
@@ -108,7 +113,23 @@ L'interface est bilingue (dictionnaire complet dans `js/i18n.js`). Une petite pa
 
 ## Design
 
-Refonte complète du visuel : couleur de marque alignée sur le bleu MON (`#004990`), tuiles de statistiques teintées (vert / orange / rouge), cartes et boutons avec relief et animation de pression au tap, bouton d'ajout (FAB) en accent ambre pour bien ressortir. Pensé pour un vrai rendu d'app mobile (viewport correct, pas de "vue PC dézoomée") plutôt qu'un site web responsive générique. Tout est dans `css/app.css`.
+Refonte complète du visuel : tuiles de statistiques teintées (vert / orange / rouge), cartes et boutons avec relief et animation de pression au tap, bouton d'ajout (FAB) en accent ambre pour bien ressortir. Pensé pour un vrai rendu d'app mobile (viewport correct, pas de "vue PC dézoomée") plutôt qu'un site web responsive générique. Tout est dans `css/app.css`.
+
+### Vraie identité MON (Round 13)
+
+Jusqu'ici l'app utilisait un bleu approximatif et un logo hexagone générique (placeholder), en attendant les vrais éléments. Suite au retour de Khun Badeeson ("mettre les vraies couleurs et le vrai logo de la société"), Theo a transmis le logo officiel et le guide de marque ("MON Groups Corporate Identity", Corporate Design Manual v1.1, sept. 2017). L'app utilise maintenant :
+
+- **Le vrai logo** : le mark hexagonal a été détouré depuis le fichier logo fourni (`icons/mark-white.png` — version blanche unie, même silhouette que l'original, exactement comme le guide de marque prescrit sa propre variante "monochrome blanc" pour poser le logo sur fond de couleur/sombre) et posé dans le bandeau bleu du haut à la place de l'ancien hexagone SVG générique. Les icônes PWA (`icons/icon-512.png`, `icons/icon-192.png`, `icons/favicon.png`) ont aussi été régénérées à partir du même fichier.
+- **Les vraies couleurs officielles**, reprises telles quelles depuis la section "Corporate Colours" du guide :
+  - Bleu 1 `#006EAF` (bleu principal/interactif → `--brand`)
+  - Bleu 2 `#4EB2E5` (bleu clair du guide → `--brand` en mode sombre)
+  - Bleu 3 `#004990` (déjà utilisé pour le bandeau depuis longtemps → `--brand-surface`, confirmé exact)
+  - Rouge officiel `#D31A2B` → `--bad`
+  - Orange secondaire `#F39200` → `--accent` (bouton FAB), une teinte plus soutenue → `--warn`
+  - Vert secondaire `#008D36` → `--good`
+  - Les variantes `*-ink`/`*-soft` (texte sur couleur, fonds de badge) sont des teintes/nuances dérivées de ces couleurs officielles, calculées pour garder exactement les mêmes ratios de mélange que l'ancienne palette (calcul, pas à l'œil) — le guide ne les définit pas lui-même.
+
+Tout est documenté en commentaire en tête de `css/app.css` (bloc "brand palette (Round 13)") pour qu'ISD retrouve facilement la source de chaque couleur si le guide de marque évolue.
 
 ## Autres fonctionnalités
 

@@ -151,6 +151,48 @@ function saveEta_retry(id, etaValue){
     retry: function(){ saveEta_retry(id, etaValue); }
   });
 }
+/* A single free-text remark per truck (not per photo) — requested to note,
+   e.g., which layer of the container damaged product was found on, as
+   evidence for a supplier claim. Editable by anyone, at any time, exactly
+   like the ETA field above (not tied to the truck's start/finish lifecycle,
+   so it's a plain unconditional PATCH, not sbPatchTruckConditional). Keeps
+   the sheet open after saving (like photos) rather than closing it, since
+   adding a remark is typically one step among several while looking at a
+   truck, not a final action. */
+export function saveDamageRemark(id){
+  var el = document.getElementById("damageRemarkInput");
+  var v = el ? el.value : "";
+  var t = findTruck(id);
+  if(!t) return;
+  if(supabaseEnabled()){
+    saveDamageRemark_send(id, v);
+    return;
+  }
+  persist(function(){ t.damageRemark = v; });
+  showToast(tr("remarkSaved"));
+}
+function isMissingColumnError(err, col){
+  var msg = String((err && err.message) || "");
+  return new RegExp("\\b"+col+"\\b","i").test(msg) && /(column|schema cache|does not exist)/i.test(msg);
+}
+function saveDamageRemark_send(id, v){
+  sbRest("trucks?id=eq."+encodeURIComponent(id), { method:"PATCH", headers:{"Prefer":"return=representation"}, body:{damage_remark:v} })
+    .then(function(){
+      return loadFromSupabase().then(function(){ showToast(tr("remarkSaved")); });
+    })
+    .catch(function(err){
+      // The "damage_remark" column update (supabase-schema.sql) hasn't been
+      // run on this Supabase project yet — same graceful-degradation pattern
+      // as the "raw"/"lots" columns (Rounds 7/10): tell the user plainly
+      // rather than showing a generic/confusing error for what is really
+      // just a missing migration step.
+      if(isMissingColumnError(err, "damage_remark")){
+        showToast(tr("remarkColumnMissing"), true);
+        return;
+      }
+      showToast((err && err.message) || tr("couldNotSaveSheet"), true);
+    });
+}
 export function startUnload(id){
   var by = loadSavedName();
   buzz();

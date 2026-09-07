@@ -37,7 +37,13 @@ function fmtHM(mins){
 }
 
 function markSvg(){
-  return '<svg class="mark" viewBox="0 0 32 32" fill="none"><path d="M16 2 29 9v14L16 30 3 23V9z" stroke="#fff" stroke-width="2" stroke-linejoin="round"/><path d="M16 2v14M16 30V16M3 9l13 7M29 9l-13 7" stroke="#fff" stroke-width="1.4" opacity=".65"/></svg>';
+  // The real MON hexagon mark (Round 13 — replaces the generic placeholder
+  // hexagon/diamond used since Round 1). icons/mark-white.png is a solid-white
+  // silhouette of the official logo mark, generated from Theo's logo file —
+  // matches the corporate style guide's own "white monochrome" variant, meant
+  // for colored/dark backgrounds like this topbar's blue gradient (the
+  // full-color blue mark would have poor contrast on a blue background).
+  return '<img class="mark" src="icons/mark-white.png" alt="MON">';
 }
 
 function effectiveTab(){ return ui.role === "driver" ? "today" : ui.tab; }
@@ -192,6 +198,7 @@ function sheetHtml(now){
     lotsHtml(t)+
     rawDetailsHtml(t)+
     photosHtml(t)+
+    damageRemarkHtml(t)+
     body+
   '</div></div>';
 }
@@ -382,6 +389,21 @@ function photosHtml(t){
   return '<div class="sheet-section"><div class="label">'+tr("photosTitle")+'</div>'+
     '<div class="hint">'+tr("photosHint").replace("{n}", MAX_PHOTOS_PER_TRUCK)+'</div>'+
     '<div class="photogrid">'+slots+'</div></div>';
+}
+/* A single free-text remark per truck (not per photo, per Theo's choice) —
+   e.g. noting which layer of the container damaged product was found on,
+   used as evidence for a supplier claim (Round 13 request from Khun
+   Badeeson). Editable by anyone at any time, saved via saveDamageRemark()
+   in actions.js — same "plain field + button" pattern as the ETA input
+   above, just always visible instead of only while a truck is still
+   schedulable. Needs Supabase (nothing to sync otherwise) exactly like
+   photos, so it's hidden in local-only mode for the same reason. */
+function damageRemarkHtml(t){
+  if(!supabaseEnabled()) return "";
+  return '<div class="sheet-section"><div class="label">'+tr("damageRemarkTitle")+'</div>'+
+    '<div class="hint">'+tr("damageRemarkHint")+'</div>'+
+    '<textarea class="field" rows="3" id="damageRemarkInput" placeholder="'+tr("damageRemarkPlaceholder")+'" style="margin-top:8px;resize:vertical">'+esc(t.damageRemark||"")+'</textarea>'+
+    '<button class="btn primary" data-save-remark="'+esc(t.id)+'" style="margin-top:8px">'+tr("saveRemarkBtn")+'</button></div>';
 }
 function toastHtml(){
   if(!ui.toast) return "";

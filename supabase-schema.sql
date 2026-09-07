@@ -51,17 +51,24 @@ create table if not exists public.trucks (
                                       -- single-lot truck (the common case) looks exactly as before.
                                       -- Only populated for imported trucks with more than one lot;
                                       -- null otherwise.
+  damage_remark text,                 -- one free-text note per truck, set by the driver/admin from the
+                                      -- app itself (not from the source file) — e.g. which layer of the
+                                      -- container damaged product was found on, used as evidence for a
+                                      -- supplier claim. Editable any time, independent of `remark` above
+                                      -- (which is read-only data copied from the imported source file).
   created_at timestamptz not null default now()
 );
 -- Running this file again on a project that already has the table (e.g. you
--- ran it before "raw"/"lots" existed) needs these explicit ALTERs — "create
--- table if not exists" above is a no-op once the table is already there, so
--- it can't add new columns on its own.
+-- ran it before "raw"/"lots"/"damage_remark" existed) needs these explicit
+-- ALTERs — "create table if not exists" above is a no-op once the table is
+-- already there, so it can't add new columns on its own.
 alter table public.trucks add column if not exists raw jsonb;
 alter table public.trucks add column if not exists lots jsonb;
+alter table public.trucks add column if not exists damage_remark text;
 
 -- ---------- photos ----------
--- Up to 6 photos per truck, addable at any time, in no particular order.
+-- Up to MAX_PHOTOS_PER_TRUCK (js/config.js — currently 40) photos per truck,
+-- addable at any time, in no particular order.
 create table if not exists public.photos (
   id uuid primary key default gen_random_uuid(),
   truck_id uuid not null references public.trucks(id) on delete cascade,

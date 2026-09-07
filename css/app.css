@@ -2,15 +2,29 @@
    Extracted from the original single-file index.html without any changes to
    the rules themselves — same look, same behavior, just its own file so it's
    easier to find and edit. */
+/* ---------- brand palette (Round 13) ----------
+   Replaced with MON's actual corporate colours from the Style Guide (Corporate
+   Design Manual v1.1, Sept 2017) Theo sent — the values below are the exact
+   hex codes from its "Corporate Colours" section, not an approximation:
+     Blue 1 (main)  #006EAF  -> --brand         (primary interactive blue)
+     Blue 2         #4EB2E5  -> dark-mode --brand (the guide's own lighter blue)
+     Blue 3         #004990  -> --brand-surface (topbar band — this one was
+                                already exactly right since Round 5)
+     Red            #D31A2B  -> --bad            (official primary red)
+     Secondary Orange #F39200 -> --accent        (FAB), a darkened shade -> --warn
+     Secondary Green  #008D36 -> --good
+   The *-ink/*-soft variants are derived tints/shades of each (for text-on-
+   color and soft chip backgrounds) — not called out individually in the
+   guide, so kept at the same blend ratios the previous palette used. */
 :root{
   --paper:#EEF2F7; --surface:#FFFFFF; --surface-2:#E7EEF6; --surface-3:#DAE4F0;
   --ink:#0E1826; --ink-dim:#54617A; --ink-faint:#8592A8;
   --line:#D6DFEC; --line-strong:#B7C4DA;
-  --brand:#146EC4; --brand-ink:#00376E; --brand-soft:#E0EBF7; --brand-surface:#004990;
-  --accent:#F0A63A; --accent-ink:#8A5A0E; --accent-soft:#FCEEDA;
-  --good:#12805B; --good-soft:#DCF3E9;
-  --warn:#A8670A; --warn-soft:#FBEDD7;
-  --bad:#C0293B; --bad-soft:#FAE1E4;
+  --brand:#006EAF; --brand-ink:#00273E; --brand-soft:#DDEBF4; --brand-surface:#004990;
+  --accent:#F39200; --accent-ink:#6E4200; --accent-soft:#FDEACE;
+  --good:#008D36; --good-soft:#DFF1E6;
+  --warn:#9E5F00; --warn-soft:#F4EEE3;
+  --bad:#D31A2B; --bad-soft:#FAE4E6;
   --shadow:rgba(10,26,46,.14);
   --radius:16px;
   color-scheme:light;
@@ -20,11 +34,11 @@
     --paper:#0A1420; --surface:#101B2C; --surface-2:#182540; --surface-3:#20304F;
     --ink:#EAF1FF; --ink-dim:#93A3C2; --ink-faint:#5C6C8C;
     --line:#213155; --line-strong:#304470;
-    --brand:#6EA8E6; --brand-ink:#A9CCF2; --brand-soft:#15243D; --brand-surface:#00335E;
-    --accent:#F5B860; --accent-ink:#FBDDA5; --accent-soft:#3A2C10;
-    --good:#3FC191; --good-soft:#12301F;
-    --warn:#E5A741; --warn-soft:#3A2A0E;
-    --bad:#F17683; --bad-soft:#3B171E;
+    --brand:#4EB2E5; --brand-ink:#9BD3F0; --brand-soft:#122738; --brand-surface:#004990;
+    --accent:#F6AD40; --accent-ink:#FBD8A3; --accent-soft:#121921;
+    --good:#59B57C; --good-soft:#122429;
+    --warn:#C09759; --warn-soft:#1C2126;
+    --bad:#DE5360; --bad-soft:#1A1925;
     --shadow:rgba(0,0,0,.45);
     color-scheme:dark;
   }
@@ -33,11 +47,11 @@
   --paper:#0A1420; --surface:#101B2C; --surface-2:#182540; --surface-3:#20304F;
   --ink:#EAF1FF; --ink-dim:#93A3C2; --ink-faint:#5C6C8C;
   --line:#213155; --line-strong:#304470;
-  --brand:#6EA8E6; --brand-ink:#A9CCF2; --brand-soft:#15243D; --brand-surface:#00335E;
-  --accent:#F5B860; --accent-ink:#FBDDA5; --accent-soft:#3A2C10;
-  --good:#3FC191; --good-soft:#12301F;
-  --warn:#E5A741; --warn-soft:#3A2A0E;
-  --bad:#F17683; --bad-soft:#3B171E;
+  --brand:#4EB2E5; --brand-ink:#9BD3F0; --brand-soft:#122738; --brand-surface:#004990;
+  --accent:#F6AD40; --accent-ink:#FBD8A3; --accent-soft:#121921;
+  --good:#59B57C; --good-soft:#122429;
+  --warn:#C09759; --warn-soft:#1C2126;
+  --bad:#DE5360; --bad-soft:#1A1925;
   --shadow:rgba(0,0,0,.45);
   color-scheme:dark;
 }
@@ -54,6 +68,7 @@ img{max-width:100%}
 [hidden]{display:none!important}
 button{font:inherit;color:inherit}
 input{font:inherit;color:inherit}
+textarea{font:inherit;color:inherit}
 ::selection{background:var(--brand-soft)}
 .mono{font-family:"IBM Plex Mono","IBM Plex Sans Thai",ui-monospace,monospace;font-variant-numeric:tabular-nums}
 .display{font-family:"Archivo","IBM Plex Sans Thai",system-ui,sans-serif}
@@ -76,7 +91,7 @@ input{font:inherit;color:inherit}
 
 /* topbar */
 .topbar{
-  background:linear-gradient(160deg,var(--brand-surface),#0B6BB8 65%,var(--brand-surface));
+  background:linear-gradient(160deg,var(--brand-surface),#006EAF 65%,var(--brand-surface)); /* Blue 3 -> Blue 1 (official) -> Blue 3 */
   color:#fff;
   /* padding-top adds env(safe-area-inset-top) so this header's own content
      (brand, clock, date) never sits under the phone's status bar / notch
@@ -94,7 +109,7 @@ input{font:inherit;color:inherit}
   position:sticky; top:0; z-index:20;
 }
 .brand-row{display:flex;align-items:center;gap:9px}
-.mark{width:30px;height:30px;flex:none}
+.mark{width:30px;height:30px;flex:none;object-fit:contain;display:block}
 .brand-word{line-height:1.05}
 .brand-word b{display:block;font-family:"Archivo";font-weight:800;font-size:19px;letter-spacing:.2px}
 .brand-word span{display:block;font-family:"Archivo";font-weight:700;font-size:11px;letter-spacing:2.4px;color:#BFD0FF;margin-top:1px}

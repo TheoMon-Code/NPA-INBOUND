@@ -10,7 +10,7 @@ import {
   pickRole, submitPin, focusPin, savePin, saveName,
   openSheet, openAdd, closeSheet, saveEta, startUnload, finishUnload,
   cancelUnload, reopenUnload, deleteTruck, createTruck,
-  addPhotos, removePhoto
+  addPhotos, removePhoto, saveDamageRemark
 } from "./actions.js";
 import { openImportPlan, runImportPreview, runImportConfirm, handleImportFile } from "./importPlan.js";
 
@@ -68,6 +68,8 @@ export function initEvents(){
     }
     var saveEl = el.closest("[data-save-eta]");
     if(saveEl){ saveEta(saveEl.getAttribute("data-save-eta")); return; }
+    var saveRemarkEl = el.closest("[data-save-remark]");
+    if(saveRemarkEl){ saveDamageRemark(saveRemarkEl.getAttribute("data-save-remark")); return; }
     var startEl = el.closest("[data-start]");
     if(startEl){ startUnload(startEl.getAttribute("data-start")); return; }
     var finishEl = el.closest("[data-finish]");

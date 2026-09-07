@@ -56,6 +56,7 @@ export function mapRowToTruck(row){
     contType: row.cont_type || "",
     closingDate: row.closing_date || "",
     remark: row.remark || "",
+    damageRemark: row.damage_remark || "",
     details: row.details || "",
     date: row.order_date || todayKey(),
     eta: row.eta ? row.eta.slice(11,16) : null,
