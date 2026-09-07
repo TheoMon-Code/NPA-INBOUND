@@ -38,12 +38,15 @@ function fmtHM(mins){
 
 function markSvg(){
   // The real MON hexagon mark (Round 13 — replaces the generic placeholder
-  // hexagon/diamond used since Round 1). icons/mark-white.png is a solid-white
-  // silhouette of the official logo mark, generated from Theo's logo file —
-  // matches the corporate style guide's own "white monochrome" variant, meant
-  // for colored/dark backgrounds like this topbar's blue gradient (the
-  // full-color blue mark would have poor contrast on a blue background).
-  return '<img class="mark" src="icons/mark-white.png" alt="MON">';
+  // hexagon/diamond used since Round 1). icons/mark-color.png is the mark
+  // cropped straight out of Theo's own logo file, in its original colors —
+  // unmodified, per Theo's request (a white-monochrome version was tried
+  // first for contrast against this blue topbar, but Theo wants his real
+  // logo as given, not a recolored variant). Wrapped in a small white rounded
+  // "badge" behind it (`.mark-badge`) so the full-color mark has proper
+  // contrast sitting on the blue topbar — the same pattern Theo pointed to
+  // as a reference (a white card behind a colored logo on a blue banner).
+  return '<div class="mark-badge"><img class="mark" src="icons/mark-color.png" alt="MON"></div>';
 }
 
 function effectiveTab(){ return ui.role === "driver" ? "today" : ui.tab; }

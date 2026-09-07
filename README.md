@@ -14,7 +14,7 @@ mon-inbound/
 │   ├── favicon.png            # icône d'onglet / apple-touch-icon
 │   ├── icon-192.png           # icône PWA 192×192
 │   ├── icon-512.png           # icône PWA 512×512
-│   └── mark-white.png         # logo (silhouette blanche) affiché dans le bandeau bleu du haut
+│   └── mark-color.png         # logo (couleurs d'origine) affiché dans le bandeau bleu du haut
 ├── css/
 │   └── app.css                # toute la feuille de style (inchangée, juste extraite)
 ├── js/
@@ -119,7 +119,7 @@ Refonte complète du visuel : tuiles de statistiques teintées (vert / orange / 
 
 Jusqu'ici l'app utilisait un bleu approximatif et un logo hexagone générique (placeholder), en attendant les vrais éléments. Suite au retour de Khun Badeeson ("mettre les vraies couleurs et le vrai logo de la société"), Theo a transmis le logo officiel et le guide de marque ("MON Groups Corporate Identity", Corporate Design Manual v1.1, sept. 2017). L'app utilise maintenant :
 
-- **Le vrai logo** : le mark hexagonal a été détouré depuis le fichier logo fourni (`icons/mark-white.png` — version blanche unie, même silhouette que l'original, exactement comme le guide de marque prescrit sa propre variante "monochrome blanc" pour poser le logo sur fond de couleur/sombre) et posé dans le bandeau bleu du haut à la place de l'ancien hexagone SVG générique. Les icônes PWA (`icons/icon-512.png`, `icons/icon-192.png`, `icons/favicon.png`) ont aussi été régénérées à partir du même fichier.
+- **Le vrai logo** : le mark hexagonal a été détouré depuis le fichier logo fourni et posé dans le bandeau bleu du haut à la place de l'ancien hexagone SVG générique, dans ses **couleurs d'origine** (`icons/mark-color.png` — pas recoloré). Un essai initial en silhouette blanche unie (variante "monochrome blanc" que le guide de marque prescrit pour un fond de couleur) a été écarté à la demande de Theo, qui voulait le logo tel quel ; pour garder une bonne lisibilité du logo en couleur sur le fond bleu du bandeau, il repose maintenant sur une petite carte blanche arrondie (`.mark-badge` dans `css/app.css`) plutôt que directement sur le dégradé bleu. Les icônes PWA (`icons/icon-512.png`, `icons/icon-192.png`, `icons/favicon.png`) ont aussi été régénérées à partir du même fichier.
 - **Les vraies couleurs officielles**, reprises telles quelles depuis la section "Corporate Colours" du guide :
   - Bleu 1 `#006EAF` (bleu principal/interactif → `--brand`)
   - Bleu 2 `#4EB2E5` (bleu clair du guide → `--brand` en mode sombre)

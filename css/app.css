@@ -109,7 +109,19 @@ textarea{font:inherit;color:inherit}
   position:sticky; top:0; z-index:20;
 }
 .brand-row{display:flex;align-items:center;gap:9px}
-.mark{width:30px;height:30px;flex:none;object-fit:contain;display:block}
+/* white "badge" behind the full-color logo mark (Round 13) -- Theo asked for
+   his real logo, unmodified/uncolored, rather than the white-monochrome
+   version tried first; a colored mark directly on this blue topbar would
+   have poor contrast, so it sits on a small white rounded card instead,
+   matching the reference (a white card behind a colored logo on a blue
+   banner) Theo pointed to. */
+.mark-badge{
+  width:38px;height:38px;flex:none;
+  background:#fff;border-radius:11px;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 2px 6px rgba(0,0,0,.18);
+}
+.mark{width:26px;height:26px;flex:none;object-fit:contain;display:block}
 .brand-word{line-height:1.05}
 .brand-word b{display:block;font-family:"Archivo";font-weight:800;font-size:19px;letter-spacing:.2px}
 .brand-word span{display:block;font-family:"Archivo";font-weight:700;font-size:11px;letter-spacing:2.4px;color:#BFD0FF;margin-top:1px}
