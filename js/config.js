@@ -16,6 +16,10 @@ export const GRACE_MIN = 20;
 // Some trucks genuinely need more than a handful of proof photos — this is
 // the only place that number lives, so raising it later is a one-line change.
 export const MAX_PHOTOS_PER_TRUCK = 40;
+// How far the Admin day-nav arrows ("◀ 5" / "5 ▶") can jump from today, in
+// either direction (Round 13, Theo's request). The 3 quick tabs
+// (yesterday/today/tomorrow) always work regardless of this.
+export const MAX_DAY_OFFSET = 5;
 
 /* localStorage keys (all per-device, never synced anywhere) */
 export const ROLE_KEY = "mon-inbound-role";

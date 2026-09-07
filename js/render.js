@@ -8,7 +8,7 @@ import { state, ui } from "./state.js";
 import { tr } from "./i18n.js";
 import { derive, lateMinutes, STATUS_KEYS } from "./status.js";
 import { esc, shortDate, fmtElapsed, dateTimeOf, clockStr, addDays, todayKey } from "./dateUtils.js";
-import { DAY_LABELS, MONTH_LABELS, DAY_LABELS_TH, MONTH_LABELS_TH, MAX_PHOTOS_PER_TRUCK } from "./config.js";
+import { DAY_LABELS, MONTH_LABELS, DAY_LABELS_TH, MONTH_LABELS_TH, MAX_PHOTOS_PER_TRUCK, MAX_DAY_OFFSET } from "./config.js";
 import { loadSavedName } from "./storage.js";
 import { supabaseEnabled } from "./api.js";
 import { hasImportFile, importFileName, importSheetNames } from "./importPlan.js";
@@ -37,19 +37,20 @@ function fmtHM(mins){
 }
 
 function markSvg(){
-  // The real MON hexagon mark (Round 13 — replaces the generic placeholder
-  // hexagon/diamond used since Round 1). icons/mark-color.png is the mark
-  // cropped straight out of Theo's own logo file, in its original colors —
-  // unmodified, per Theo's request (a white-monochrome version was tried
-  // first for contrast against this blue topbar, but Theo wants his real
-  // logo as given, not a recolored variant). Wrapped in a small white rounded
-  // "badge" behind it (`.mark-badge`) so the full-color mark has proper
-  // contrast sitting on the blue topbar — the same pattern Theo pointed to
-  // as a reference (a white card behind a colored logo on a blue banner).
-  return '<div class="mark-badge"><img class="mark" src="icons/mark-color.png" alt="MON"></div>';
+  // The real MON logo (Round 13 — replaces the generic placeholder
+  // hexagon/diamond used since Round 1). icons/mark-full.png is Theo's own
+  // logo file used whole (hexagon + "MON" wordmark), in its original
+  // colors, unmodified — an earlier version used just the hexagon (to avoid
+  // duplicating the "MON" text already shown next to it), but Theo asked
+  // for the full logo image, so the adjacent "MON" text line was dropped
+  // instead (see brandRow below) to avoid the duplication. Wrapped in a
+  // small white rounded "badge" (`.mark-badge`) so it has proper contrast
+  // sitting on the blue topbar — the same pattern Theo pointed to as a
+  // reference (a white card behind a colored logo on a blue banner).
+  return '<div class="mark-badge"><img class="mark" src="icons/mark-full.png" alt="MON"></div>';
 }
 
-function effectiveTab(){ return ui.role === "driver" ? "today" : ui.tab; }
+function effectiveDayOffset(){ return ui.role === "driver" ? 0 : ui.dayOffset; }
 
 function pill(derived, t, now){
   var txt = tr(STATUS_KEYS[derived]);
@@ -107,17 +108,32 @@ function kpiHtml(trucks, now){
   }).join("");
 }
 function tabsHtml(trucks){
-  var keys = { yesterday: addDays(todayKey(),-1), today: todayKey(), tomorrow: addDays(todayKey(),1) };
-  var labels = { yesterday:tr("tabYesterday"), today:tr("tabToday"), tomorrow:tr("tabTomorrow") };
-  return Object.keys(keys).map(function(k){
-    var n = trucks.filter(function(t){ return t.date === keys[k]; }).length;
-    return '<button class="tab'+(ui.tab===k?" active":"")+'" data-tab="'+k+'">'+
-      '<span class="n mono">'+n+'</span>'+labels[k]+"</button>";
+  // Three quick tabs (yesterday/today/tomorrow, offsets -1/0/+1) plus two
+  // nav arrows that jump 5 days at a time (Round 13, Theo's request: "un
+  // bouton pour revenir 5 jours avant et 5 jours après"), clamped to
+  // [-MAX_DAY_OFFSET, +MAX_DAY_OFFSET] overall. When the arrows land outside
+  // -1/0/+1 none of the three quick tabs is "active", so a small date pill
+  // shows which day is actually selected.
+  var quick = [ {o:-1, label:tr("tabYesterday")}, {o:0, label:tr("tabToday")}, {o:1, label:tr("tabTomorrow")} ];
+  var cur = ui.dayOffset;
+  var atMin = cur <= -MAX_DAY_OFFSET, atMax = cur >= MAX_DAY_OFFSET;
+  var quickHtml = quick.map(function(q){
+    var key = addDays(todayKey(), q.o);
+    var n = trucks.filter(function(t){ return t.date === key; }).length;
+    return '<button class="tab'+(cur===q.o?" active":"")+'" data-tab="'+q.o+'">'+
+      '<span class="n mono">'+n+'</span>'+q.label+"</button>";
   }).join("");
+  var isQuickDay = quick.some(function(q){ return q.o === cur; });
+  var dateInfo = isQuickDay ? "" :
+    '<div class="tab-dateinfo">'+shortDate(addDays(todayKey(), cur))+'</div>';
+  return '<div class="tabs-row">'+
+    '<button class="tab tab-nav" data-day-nav="-5" aria-label="'+tr("navBack5Days")+'"'+(atMin?" disabled":"")+'>◀ 5</button>'+
+    '<div class="tabs">'+quickHtml+'</div>'+
+    '<button class="tab tab-nav" data-day-nav="5" aria-label="'+tr("navForward5Days")+'"'+(atMax?" disabled":"")+'>5 ▶</button>'+
+  '</div>'+dateInfo;
 }
 function listHtml(trucks, now){
-  var keys = { yesterday: addDays(todayKey(),-1), today: todayKey(), tomorrow: addDays(todayKey(),1) };
-  var dayTrucks = trucks.filter(function(t){ return t.date === keys[effectiveTab()]; });
+  var dayTrucks = trucks.filter(function(t){ return t.date === addDays(todayKey(), effectiveDayOffset()); });
   dayTrucks.sort(function(a,b){ return sortWeight(a,now) - sortWeight(b,now); });
   if(!dayTrucks.length){
     return '<div class="empty"><span class="empty-icon">🚚</span><div>'+tr("noTrucksToday")+'</div></div>';
@@ -285,7 +301,7 @@ function roleGateHtml(){
     return '<div class="rolegate"><div class="rolecard">'+langBtn+closeBtn+
       '<div class="rolecard-title">'+tr("adminPinTitle")+'</div>'+
       '<div class="rolecard-sub">'+tr("enterPinSub")+'</div>'+
-      '<input class="field" style="margin-top:14px;text-align:center;letter-spacing:6px;font-family:\'IBM Plex Mono\';font-size:20px" type="password" inputmode="numeric" autocomplete="off" maxlength="8" id="pinInput" placeholder="••••">'+
+      '<input class="field" style="margin-top:14px;text-align:center;letter-spacing:6px;font-family:\'IBM Plex Mono\';font-size:20px" type="password" inputmode="numeric" autocomplete="off" maxlength="8" id="pinInput" placeholder="••••••">'+
       (ui.roleGateError ? '<div class="hint" style="color:var(--bad);text-align:center;margin-top:8px">'+esc(ui.roleGateError)+'</div>' : '')+
       '<button class="btn primary" data-pin-submit="1">'+tr("unlockAdmin")+'</button>'+
       '<button class="linklike" data-role-back="1">'+tr("back")+'</button>'+
@@ -304,9 +320,9 @@ function pinSettingsHtml(){
     '<div class="sheet-head"><div><div class="sheet-id title-lg">'+tr("changePinTitle")+'</div></div>'+
     '<button class="sheet-close" data-close="1">✕</button></div>'+
     '<div class="formgrid">'+
-      '<div><div class="label">'+tr("curPin")+'</div><input class="field" type="password" inputmode="numeric" autocomplete="off" id="pin-current" placeholder="••••"></div>'+
-      '<div><div class="label">'+tr("newPin")+'</div><input class="field" type="password" inputmode="numeric" autocomplete="off" id="pin-new" placeholder="••••"></div>'+
-      '<div><div class="label">'+tr("confirmNewPin")+'</div><input class="field" type="password" inputmode="numeric" autocomplete="off" id="pin-confirm" placeholder="••••"></div>'+
+      '<div><div class="label">'+tr("curPin")+'</div><input class="field" type="password" inputmode="numeric" autocomplete="off" id="pin-current" placeholder="••••••"></div>'+
+      '<div><div class="label">'+tr("newPin")+'</div><input class="field" type="password" inputmode="numeric" autocomplete="off" id="pin-new" placeholder="••••••"></div>'+
+      '<div><div class="label">'+tr("confirmNewPin")+'</div><input class="field" type="password" inputmode="numeric" autocomplete="off" id="pin-confirm" placeholder="••••••"></div>'+
     '</div>'+
     (ui.pinSettingsError ? '<div class="hint" style="color:var(--bad);text-align:center;margin-top:8px">'+esc(ui.pinSettingsError)+'</div>' : '')+
     '<button class="btn primary" data-save-pin="1">'+tr("updatePinBtn")+'</button>'+
@@ -437,7 +453,11 @@ export function render(){
   var html =
     '<div class="topbar">'+
       '<div class="brand-row">'+markSvg()+
-        '<div class="brand-word"><b>MON</b><span>INBOUND</span>'+
+        // "MON" is no longer repeated as text here -- it's now baked into
+        // markSvg()'s full logo image (hexagon + wordmark), so only the
+        // app-specific "INBOUND" tagline remains, to avoid showing "MON"
+        // twice side by side.
+        '<div class="brand-word"><span class="tagline">INBOUND</span>'+
         '<div class="rolebadgerow">'+
           '<button class="rolebadge" data-role-switch="1">'+(ui.role?roleLabel(ui.role):tr("selectRole"))+' ⇵</button>'+
           (ui.role==="admin" ? '<button class="rolebadge" data-open-import="1" aria-label="'+tr("importPlanAria")+'">📥</button>' : '')+
@@ -450,7 +470,7 @@ export function render(){
       '<div class="clockdate">'+longDate(now)+'</div>'+
       '<div class="syncrow"><span class="syncdot '+syncDotClass()+'"></span>'+syncLabel()+'</div></div>'+
     '</div>'+
-    (showTabs ? '<div class="tabs">'+tabsHtml(state.trucks)+'</div>' : '<div class="dayheading">'+tr("todaysTrucks")+'</div>')+
+    (showTabs ? tabsHtml(state.trucks) : '<div class="dayheading">'+tr("todaysTrucks")+'</div>')+
     '<div class="kpis">'+kpiHtml(state.trucks, now)+'</div>'+
     '<div class="list">'+listHtml(state.trucks, now)+'</div>'+
     (ui.role === "admin" ? '<button class="fab" data-add="1" aria-label="'+tr("addTruckAria")+'">+</button>' : '')+

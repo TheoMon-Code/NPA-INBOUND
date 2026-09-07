@@ -5,6 +5,7 @@
    split-out modules instead of local closures. */
 import { ui } from "./state.js";
 import { render } from "./render.js";
+import { MAX_DAY_OFFSET } from "./config.js";
 import { saveLangLocal } from "./storage.js";
 import {
   pickRole, submitPin, focusPin, savePin, saveName,
@@ -97,7 +98,15 @@ export function initEvents(){
     var createEl = el.closest("[data-create]");
     if(createEl){ createTruck(); return; }
     var tabEl = el.closest("[data-tab]");
-    if(tabEl){ ui.tab = tabEl.getAttribute("data-tab"); render(); return; }
+    if(tabEl){ ui.dayOffset = parseInt(tabEl.getAttribute("data-tab"), 10); render(); return; }
+    var dayNavEl = el.closest("[data-day-nav]");
+    if(dayNavEl){
+      var delta = parseInt(dayNavEl.getAttribute("data-day-nav"), 10);
+      var next = ui.dayOffset + delta;
+      ui.dayOffset = Math.max(-MAX_DAY_OFFSET, Math.min(MAX_DAY_OFFSET, next));
+      render();
+      return;
+    }
     if(el.closest("[data-toast-retry]")){
       var retry = ui.retryAction;
       ui.toast = null; ui.retryAction = null;

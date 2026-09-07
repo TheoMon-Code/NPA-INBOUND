@@ -14,7 +14,7 @@ mon-inbound/
 │   ├── favicon.png            # icône d'onglet / apple-touch-icon
 │   ├── icon-192.png           # icône PWA 192×192
 │   ├── icon-512.png           # icône PWA 512×512
-│   └── mark-color.png         # logo (couleurs d'origine) affiché dans le bandeau bleu du haut
+│   └── mark-full.png          # logo complet (hexagone + "MON", couleurs d'origine) affiché dans le bandeau bleu du haut
 ├── css/
 │   └── app.css                # toute la feuille de style (inchangée, juste extraite)
 ├── js/
@@ -51,7 +51,7 @@ Seule dépendance externe : [SheetJS](https://sheetjs.com/) chargée depuis un C
 
 ## Les deux rôles
 
-- **Admin** : protégé par un code PIN (par défaut `1234`, modifiable dans l'app via l'icône ⚙ à côté du badge de rôle). Peut saisir/modifier l'ETA, ajouter/supprimer des camions, importer le planning, changer le PIN.
+- **Admin** : protégé par un code PIN à 6 chiffres minimum (par défaut `748231`, modifiable dans l'app via l'icône ⚙ à côté du badge de rôle). Peut saisir/modifier l'ETA, ajouter/supprimer des camions, importer le planning, changer le PIN.
 - **MHE Driver** : aucune connexion. Voit les camions du jour, démarre/termine le déchargement, ajoute des photos. Peut renseigner son nom une fois (pastille "👤 Name" à côté du badge de rôle) — mémorisé sur l'appareil, pas un compte.
 
 Le rôle est choisi une fois par téléphone (stocké localement sur l'appareil, pas de compte).
@@ -119,7 +119,7 @@ Refonte complète du visuel : tuiles de statistiques teintées (vert / orange / 
 
 Jusqu'ici l'app utilisait un bleu approximatif et un logo hexagone générique (placeholder), en attendant les vrais éléments. Suite au retour de Khun Badeeson ("mettre les vraies couleurs et le vrai logo de la société"), Theo a transmis le logo officiel et le guide de marque ("MON Groups Corporate Identity", Corporate Design Manual v1.1, sept. 2017). L'app utilise maintenant :
 
-- **Le vrai logo** : le mark hexagonal a été détouré depuis le fichier logo fourni et posé dans le bandeau bleu du haut à la place de l'ancien hexagone SVG générique, dans ses **couleurs d'origine** (`icons/mark-color.png` — pas recoloré). Un essai initial en silhouette blanche unie (variante "monochrome blanc" que le guide de marque prescrit pour un fond de couleur) a été écarté à la demande de Theo, qui voulait le logo tel quel ; pour garder une bonne lisibilité du logo en couleur sur le fond bleu du bandeau, il repose maintenant sur une petite carte blanche arrondie (`.mark-badge` dans `css/app.css`) plutôt que directement sur le dégradé bleu. Les icônes PWA (`icons/icon-512.png`, `icons/icon-192.png`, `icons/favicon.png`) ont aussi été régénérées à partir du même fichier.
+- **Le vrai logo, en entier** : le bandeau bleu du haut affiche maintenant le logo complet de Theo (hexagone + mot "MON"), dans ses **couleurs d'origine**, sans aucun recadrage ni recoloration (`icons/mark-full.png`). Deux itérations avant d'arriver là : un essai avec juste le hexagone recadré a été écarté ("je veux le logo complet") ; un essai en silhouette blanche unie (variante "monochrome blanc" que le guide de marque prescrit pour un fond de couleur) a aussi été écarté, Theo voulant ses couleurs d'origine. Comme le logo écrit déjà "MON" dedans, le texte "MON" qui apparaissait à côté dans le bandeau a été retiré (seul "INBOUND" reste, en sous-titre) pour ne pas le répéter. Pour garder une bonne lisibilité du logo en couleur sur le fond bleu du bandeau, il repose sur une petite carte blanche arrondie (`.mark-badge` dans `css/app.css`) plutôt que directement sur le dégradé bleu. Les icônes PWA (`icons/icon-512.png`, `icons/icon-192.png`, `icons/favicon.png`) restent, elles, juste le hexagone (plus adapté à une icône carrée) régénéré à partir du même fichier.
 - **Les vraies couleurs officielles**, reprises telles quelles depuis la section "Corporate Colours" du guide :
   - Bleu 1 `#006EAF` (bleu principal/interactif → `--brand`)
   - Bleu 2 `#4EB2E5` (bleu clair du guide → `--brand` en mode sombre)
@@ -141,6 +141,7 @@ Tout est documenté en commentaire en tête de `css/app.css` (bloc "brand palett
 - **Rafraîchissement en douceur** : `render()` reconstruit tout le HTML à chaque cycle (voir plus bas) — sans précaution, ça remettait le scroll en haut de la page à chaque rafraîchissement périodique (~15s), ce qui donnait une impression de "saut violent" en lisant la liste. La position de scroll est maintenant conservée à travers chaque rafraîchissement. Par ailleurs, tant qu'une fiche camion est ouverte (n'importe quel rôle, n'importe quel statut — même un camion "terminé" qu'on est juste en train de consulter), le rafraîchissement périodique est mis en pause pour ne pas fermer une section dépliée ("Lots on this truck", "Toutes les données du fichier source") ni interrompre la lecture ; il reprend dès la fermeture de la fiche.
 - **Bandeau bleu qui respecte l'encoche/barre de statut du téléphone** : quand l'app est installée sur l'écran d'accueil (`manifest.webmanifest`, `"display": "standalone"`), elle prend tout l'écran y compris la zone de la barre de statut — sans précaution, le contenu du bandeau bleu du haut (nom, horloge, date) se retrouvait collé sous/derrière l'heure et les icônes du téléphone. `css/app.css` (`.topbar`) ajoute maintenant `env(safe-area-inset-top)` à son padding du haut pour que son propre contenu commence toujours après cette zone, quel que soit le téléphone (ne change rien sur un appareil sans encoche/barre superposée, où `env()` vaut 0).
 - **Heure prévue toujours visible sur la carte** : une fois un camion "en retard", la pastille de statut affiche les minutes de retard à la place de l'heure — l'heure prévue (ETA) reste donc affichée séparément sur la carte, pour ne jamais la perdre de vue même très en retard.
+- **Navigation par jour élargie (Admin, Round 13)** : en plus des trois onglets rapides Hier / Aujourd'hui / Demain, deux flèches "◀ 5" et "5 ▶" de part et d'autre permettent de sauter 5 jours en arrière ou en avant, jusqu'à 5 jours de chaque côté d'aujourd'hui au total (`MAX_DAY_OFFSET` dans `js/config.js`, comme `MAX_PHOTOS_PER_TRUCK`, seul endroit à changer si cette plage doit être élargie). Une fois sur un jour hors Hier/Aujourd'hui/Demain, aucun des trois onglets rapides n'est mis en avant et une petite pastille affiche la date exacte consultée (ex. "12/09") pour ne jamais perdre le fil. Ne concerne que l'Admin — un chauffeur MHE reste toujours sur "Aujourd'hui", comme avant.
 
 ## Pour l'équipe ISD
 

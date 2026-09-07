@@ -108,23 +108,25 @@ textarea{font:inherit;color:inherit}
   gap:10px;
   position:sticky; top:0; z-index:20;
 }
-.brand-row{display:flex;align-items:center;gap:9px}
-/* white "badge" behind the full-color logo mark (Round 13) -- Theo asked for
-   his real logo, unmodified/uncolored, rather than the white-monochrome
-   version tried first; a colored mark directly on this blue topbar would
-   have poor contrast, so it sits on a small white rounded card instead,
-   matching the reference (a white card behind a colored logo on a blue
-   banner) Theo pointed to. */
+.brand-row{display:flex;align-items:center;gap:10px}
+/* white "badge" behind the full-color logo (Round 13) -- Theo asked for his
+   real logo, unmodified/uncolored, rather than the white-monochrome version
+   tried first; a colored mark directly on this blue topbar would have poor
+   contrast, so it sits on a small white rounded card instead, matching the
+   reference (a white card behind a colored logo on a blue banner) Theo
+   pointed to. icons/mark-full.png is the WHOLE logo (hexagon + "MON"
+   wordmark, not just the hexagon) per Theo's follow-up request, so this
+   badge is sized wide (not square) to fit that image's aspect ratio, and
+   the redundant "MON" text label next to it was dropped (see render.js). */
 .mark-badge{
-  width:38px;height:38px;flex:none;
+  height:38px;flex:none;padding:5px 10px;
   background:#fff;border-radius:11px;
   display:flex;align-items:center;justify-content:center;
   box-shadow:0 2px 6px rgba(0,0,0,.18);
 }
-.mark{width:26px;height:26px;flex:none;object-fit:contain;display:block}
+.mark{height:100%;width:auto;max-width:120px;object-fit:contain;display:block}
 .brand-word{line-height:1.05}
-.brand-word b{display:block;font-family:"Archivo";font-weight:800;font-size:19px;letter-spacing:.2px}
-.brand-word span{display:block;font-family:"Archivo";font-weight:700;font-size:11px;letter-spacing:2.4px;color:#BFD0FF;margin-top:1px}
+.brand-word .tagline{display:block;font-family:"Archivo";font-weight:700;font-size:11px;letter-spacing:2.4px;color:#BFD0FF;margin-top:1px}
 .rolebadgerow{margin-top:7px; display:flex; gap:6px; align-items:center}
 .rolebadge{
   font-size:10.5px; font-weight:700; letter-spacing:.3px;
@@ -146,8 +148,15 @@ textarea{font:inherit;color:inherit}
 @media (prefers-reduced-motion:reduce){.syncdot.saving{animation:none}}
 
 /* tabs */
+/* Outer row (Round 13): the 3 quick tabs (yesterday/today/tomorrow) plus a
+   "-5"/"+5" nav arrow on each side, so Admin can jump further than one day
+   without leaving this row -- Theo's request ("un bouton pour revenir 5
+   jours avant et 5 jours après"). */
+.tabs-row{
+  display:flex; align-items:stretch; gap:6px; padding:12px 16px 0; background:var(--paper);
+}
 .tabs{
-  display:flex; gap:6px; padding:12px 16px 0; background:var(--paper);
+  display:flex; gap:6px; flex:1; min-width:0;
 }
 .tab{
   flex:1; text-align:center; padding:9px 4px; border-radius:10px;
@@ -158,6 +167,17 @@ textarea{font:inherit;color:inherit}
 .tab .n{font-family:"IBM Plex Mono";font-size:15px;font-weight:600;color:var(--ink)}
 .tab.active{background:var(--brand);border-color:var(--brand);color:#fff}
 .tab.active .n{color:#fff}
+.tab-nav{
+  flex:none; width:44px; justify-content:center;
+  font-family:"IBM Plex Mono"; font-size:12px; font-weight:700;
+}
+.tab-nav[disabled]{opacity:.35}
+.tab-dateinfo{
+  margin:6px 16px 0; padding:6px 10px; border-radius:8px;
+  background:var(--brand-soft); color:var(--brand-ink);
+  font-size:12px; font-weight:700; text-align:center;
+  font-family:"IBM Plex Mono";
+}
 .dayheading{
   padding:14px 16px 0; font-size:11px; font-weight:700; letter-spacing:1.6px;
   text-transform:uppercase; color:var(--ink-faint);

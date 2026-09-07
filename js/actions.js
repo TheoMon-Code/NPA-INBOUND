@@ -80,8 +80,9 @@ export function closeSheet(){
   render();
 }
 export function openAdd(){
-  var keys = { yesterday: addDays(todayKey(),-1), today: todayKey(), tomorrow: addDays(todayKey(),1) };
-  ui.addDefaultDate = keys[ui.tab] || addDays(todayKey(),1);
+  // Default the new-truck date to whichever day is currently shown (falls
+  // back to "today" for a driver, who never sees the day tabs at all).
+  ui.addDefaultDate = addDays(todayKey(), ui.role === "driver" ? 0 : ui.dayOffset);
   ui.addOpen = true; ui.openId = null; render();
 }
 
@@ -116,7 +117,7 @@ export function savePin(){
   var next = (document.getElementById("pin-new")||{}).value || "";
   var confirm = (document.getElementById("pin-confirm")||{}).value || "";
   if(cur !== state.adminCode){ ui.pinSettingsError = tr("pinErrCurrent"); render(); return; }
-  if(!next || next.length < 4){ ui.pinSettingsError = tr("pinErrLength"); render(); return; }
+  if(!next || next.length < 6){ ui.pinSettingsError = tr("pinErrLength"); render(); return; }
   if(next !== confirm){ ui.pinSettingsError = tr("pinErrMismatch"); render(); return; }
   persist(function(){ state.adminCode = next; });
   ui.pinSettingsOpen = false;

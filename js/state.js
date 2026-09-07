@@ -15,11 +15,11 @@ import { loadRole, loadLang } from "./storage.js";
 import { todayKey } from "./dateUtils.js";
 import { supabaseEnabled } from "./api.js";
 
-const DEFAULT_STATE = { seq: 10, trucks: [], adminCode: "1234" };
+const DEFAULT_STATE = { seq: 10, trucks: [], adminCode: "748231" };
 
 const dataEl = document.getElementById("app-data");
 const initialState = dataEl ? JSON.parse(dataEl.textContent) : DEFAULT_STATE;
-if(initialState.adminCode == null) initialState.adminCode = "1234";
+if(initialState.adminCode == null) initialState.adminCode = "748231";
 
 export const state = initialState;
 
@@ -30,7 +30,12 @@ export function replaceState(newState){
 }
 
 export const ui = {
-  tab: "today",
+  // Which day is shown in the truck list (Admin only -- driver is always
+  // pinned to "today", see effectiveDayOffset() in render.js), as an offset
+  // in days from today: 0=today, -1=yesterday, +1=tomorrow. The three quick
+  // tabs jump straight to -1/0/+1; the "-5"/"+5" nav arrows (Round 13, Theo's
+  // request) shift by 5 days at a time, clamped to [-5, +5] overall.
+  dayOffset: 0,
   openId: null,
   addOpen: false,
   addDefaultDate: null,
