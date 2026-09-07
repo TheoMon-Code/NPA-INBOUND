@@ -260,15 +260,24 @@ textarea{font:inherit;color:inherit}
      a bcp de inbound ca va pas"). position:fixed anchors it to the
      viewport instead, so it now always sits in the same visible spot no
      matter how long the list gets or how far the page is scrolled.
-     `.shell` is centered with max-width:480px on wide/desktop screens, so a
-     plain `right:18px` (measured from the browser window's edge) would
-     drift away from the app column there -- the max() below falls back to
-     18px on narrow/mobile screens (where the shell fills the viewport) and
-     otherwise adds the gutter between the viewport edge and the shell's
-     actual right edge, keeping the button flush with the app column at any
-     width. `.list` already carries 100px of bottom padding (see .list
-     below) so this fixed button never covers the last card. */
-  position:fixed; right:max(18px, calc((100vw - 480px) / 2 + 18px));
+     Round 15 first shipped this with `right:max(18px, calc((100vw - 480px)
+     / 2 + 18px))`, on the assumption that .shell's `max-width:480px`
+     centers the app in a narrow column on desktop and the button should
+     hug THAT column's edge. Theo then reported the button floating in the
+     middle of the page on desktop web (fine on phone) -- turns out .shell
+     is never actually applied to anything: render() in js/render.js builds
+     #app's content directly, with no wrapping `<div class="shell">`, so
+     that CSS rule has been dead code (most likely since the Round 8
+     file-split) and on a wide screen the real content fills the entire
+     window edge to edge, same as on mobile. The calc() was therefore
+     "centering" the button against a column that doesn't exist, landing it
+     partway across the screen instead of at the real right edge. Reverted
+     to a plain 18px, which matches how the app has actually always
+     rendered on desktop. `.shell`'s max-width is left in place in case
+     ISD wants to actually wire up that narrow-desktop-card look later --
+     see the note in the project doc -- but nothing currently depends on
+     it. */
+  position:fixed; right:18px;
   bottom:calc(22px + env(safe-area-inset-bottom)); z-index:15;
   width:58px;height:58px;border-radius:18px;border:none;
   background:var(--accent); color:var(--accent-ink); font-size:28px; font-weight:600;
