@@ -109,11 +109,13 @@ function kpiHtml(trucks, now){
 }
 function tabsHtml(trucks){
   // Three quick tabs (yesterday/today/tomorrow, offsets -1/0/+1) plus two
-  // nav arrows that jump 5 days at a time (Round 13, Theo's request: "un
-  // bouton pour revenir 5 jours avant et 5 jours après"), clamped to
-  // [-MAX_DAY_OFFSET, +MAX_DAY_OFFSET] overall. When the arrows land outside
-  // -1/0/+1 none of the three quick tabs is "active", so a small date pill
-  // shows which day is actually selected.
+  // nav arrows that step ONE day at a time (Round 15 -- the first version
+  // jumped straight to +/-5, which skipped every day in between; Theo
+  // pointed out he needed access to those in-between dates too, not just
+  // the two extremes), clamped to [-MAX_DAY_OFFSET, +MAX_DAY_OFFSET]
+  // overall. When the current offset lands outside -1/0/+1 none of the
+  // three quick tabs is "active", so a small date pill shows which day is
+  // actually selected.
   var quick = [ {o:-1, label:tr("tabYesterday")}, {o:0, label:tr("tabToday")}, {o:1, label:tr("tabTomorrow")} ];
   var cur = ui.dayOffset;
   var atMin = cur <= -MAX_DAY_OFFSET, atMax = cur >= MAX_DAY_OFFSET;
@@ -127,9 +129,9 @@ function tabsHtml(trucks){
   var dateInfo = isQuickDay ? "" :
     '<div class="tab-dateinfo">'+shortDate(addDays(todayKey(), cur))+'</div>';
   return '<div class="tabs-row">'+
-    '<button class="tab tab-nav" data-day-nav="-5" aria-label="'+tr("navBack5Days")+'"'+(atMin?" disabled":"")+'>◀ 5</button>'+
+    '<button class="tab tab-nav" data-day-nav="-1" aria-label="'+tr("navPrevDay")+'"'+(atMin?" disabled":"")+'>◀</button>'+
     '<div class="tabs">'+quickHtml+'</div>'+
-    '<button class="tab tab-nav" data-day-nav="5" aria-label="'+tr("navForward5Days")+'"'+(atMax?" disabled":"")+'>5 ▶</button>'+
+    '<button class="tab tab-nav" data-day-nav="1" aria-label="'+tr("navNextDay")+'"'+(atMax?" disabled":"")+'>▶</button>'+
   '</div>'+dateInfo;
 }
 function listHtml(trucks, now){
