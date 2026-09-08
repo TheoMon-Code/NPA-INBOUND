@@ -13,6 +13,18 @@ export const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiO
 export const SUPABASE_BUCKET = "inbound-photos";
 export const SUPABASE_POLL_MS = 15000;
 export const GRACE_MIN = 20;
+// A truck still "scheduled" (not late, not started) whose ETA falls within
+// this many minutes is flagged with a small "coming up soon" cue on its
+// card -- a heads-up before it tips over into "late", rather than only
+// finding out after the fact. Purely a visual nudge: it doesn't change the
+// truck's actual derived status, KPI counts, or sort order (see
+// isDueSoon() in js/status.js).
+export const DUE_SOON_MIN = 15;
+// How long an Admin has to tap "Undo" after deleting a truck before the
+// deletion is actually sent (Supabase or local storage) -- see deleteTruck()
+// in js/actions.js. A plain safety net against a mis-tap or a second thought,
+// not meant to be a long grace period.
+export const UNDO_DELETE_MS = 5000;
 // Some trucks genuinely need more than a handful of proof photos — this is
 // the only place that number lives, so raising it later is a one-line change.
 export const MAX_PHOTOS_PER_TRUCK = 40;
@@ -26,6 +38,19 @@ export const ROLE_KEY = "mon-inbound-role";
 export const LANG_KEY = "mon-inbound-lang";
 export const NAME_KEY = "mon-inbound-name";
 export const DATA_KEY = "mon-inbound-data";
+export const PLANT_KEY = "mon-inbound-import-plant";
+// A phone that loses signal mid-warehouse shouldn't lose the action itself
+// (Start/Finish, ETA, a damage remark, add/delete truck) -- see
+// js/offlineQueue.js. Kept in localStorage (not just memory) so it survives
+// the phone locking or the browser being killed in the background, both
+// routine on a phone used on a factory floor all day.
+export const OFFLINE_QUEUE_KEY = "mon-inbound-offline-queue";
+// The import screen used to hard-code plant="AMATA" for every imported
+// truck, which was fine while AMATA was the only site anyone imported for.
+// It's now an editable field (remembered per device, like the admin's PIN or
+// display language) so the app can cover another MON site later without
+// touching code — this is just what a blank/never-used device falls back to.
+export const DEFAULT_PLANT = "AMATA";
 
 export const DAY_LABELS = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 export const MONTH_LABELS = ["January","February","March","April","May","June","July","August","September","October","November","December"];

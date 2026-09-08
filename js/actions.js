@@ -7,7 +7,7 @@
    Supabase afterwards so every phone stays consistent. */
 import { pad2, addDays, todayKey } from "./dateUtils.js";
 import { tr } from "./i18n.js";
-import { MAX_PHOTOS_PER_TRUCK } from "./config.js";
+import { MAX_PHOTOS_PER_TRUCK, UNDO_DELETE_MS } from "./config.js";
 import { state, ui } from "./state.js";
 import {
   supabaseEnabled, sbRest, sbPatchTruckConditional, sbCreateTruck,
@@ -16,6 +16,7 @@ import {
 import { loadSavedName, saveNameLocal, saveLocalData, saveRoleLocal } from "./storage.js";
 import { render } from "./render.js";
 import { buzz, readAndCompressImage } from "./photoUtils.js";
+import { enqueueOfflineAction } from "./offlineQueue.js";
 
 /* ---------- toast + persistence plumbing ---------- */
 export function showToast(msg, sticky){
@@ -60,6 +61,18 @@ export function runBackendCall(promise, opts){
         showToast(tr(key));
       });
     }
+    // Genuinely no network reachable (not a server error -- see api.js) --
+    // for the truck-lifecycle actions that supply a queueDescriptor, queue
+    // it instead of just erroring: it'll replay automatically once the
+    // connection is back (see js/offlineQueue.js), rather than being lost
+    // the moment this toast disappears.
+    if(err && err.networkFailure && opts.queueDescriptor){
+      enqueueOfflineAction(opts.queueDescriptor);
+      ui.syncStatus = "queued";
+      render();
+      showToast(tr("queuedOffline"));
+      return;
+    }
     ui.syncStatus = "error";
     ui.retryAction = opts.retry || null;
     render();
@@ -76,7 +89,8 @@ export function findTruck(id){ return state.trucks.find(function(t){ return t.id
 export function openSheet(id){ ui.openId = id; ui.addOpen = false; ui.confirmDelete = null; render(); }
 export function closeSheet(){
   ui.openId = null; ui.addOpen = false; ui.pinSettingsOpen = false;
-  ui.nameSettingsOpen = false; ui.importOpen = false; ui.confirmDelete = null;
+  ui.nameSettingsOpen = false; ui.importOpen = false; ui.reportOpen = false;
+  ui.confirmDelete = null;
   render();
 }
 export function openAdd(){
@@ -139,7 +153,8 @@ export function saveEta(id){
     runBackendCall(sbRest("trucks?id=eq."+encodeURIComponent(id), { method:"PATCH", headers:{"Prefer":"return=representation"}, body:{eta:etaValue} }), {
       successMsg: tr("timeSaved"),
       errorMsg: "couldNotSaveSheet",
-      retry: function(){ saveEta_retry(id, etaValue); }
+      retry: function(){ saveEta_retry(id, etaValue); },
+      queueDescriptor: { kind:"patchPlain", id: id, patch: { eta: etaValue } }
     });
     return;
   }
@@ -149,7 +164,8 @@ export function saveEta(id){
 function saveEta_retry(id, etaValue){
   runBackendCall(sbRest("trucks?id=eq."+encodeURIComponent(id), { method:"PATCH", headers:{"Prefer":"return=representation"}, body:{eta:etaValue} }), {
     successMsg: tr("timeSaved"), errorMsg: "couldNotSaveSheet",
-    retry: function(){ saveEta_retry(id, etaValue); }
+    retry: function(){ saveEta_retry(id, etaValue); },
+    queueDescriptor: { kind:"patchPlain", id: id, patch: { eta: etaValue } }
   });
 }
 /* A single free-text remark per truck (not per photo) — requested to note,
@@ -182,6 +198,14 @@ function saveDamageRemark_send(id, v){
       return loadFromSupabase().then(function(){ showToast(tr("remarkSaved")); });
     })
     .catch(function(err){
+      // No network at all (as opposed to reaching Supabase and getting an
+      // error back, handled below) -- queue it like the other truck actions
+      // (see js/offlineQueue.js) rather than losing the remark outright.
+      if(err && err.networkFailure){
+        enqueueOfflineAction({ kind:"patchPlain", id: id, patch: { damage_remark: v } });
+        showToast(tr("queuedOffline"));
+        return;
+      }
       // The "damage_remark" column update (supabase-schema.sql) hasn't been
       // run on this Supabase project yet — same graceful-degradation pattern
       // as the "raw"/"lots" columns (Rounds 7/10): tell the user plainly
@@ -198,11 +222,13 @@ export function startUnload(id){
   var by = loadSavedName();
   buzz();
   if(supabaseEnabled()){
+    var patch = { truck_state:"arrived", act_arrival: localNaiveTs(new Date()), started_by: by || null };
     var go = function(){
-      runBackendCall(sbPatchTruckConditional(id, "pending", { truck_state:"arrived", act_arrival: localNaiveTs(new Date()), started_by: by || null }), {
+      runBackendCall(sbPatchTruckConditional(id, "pending", patch), {
         conflictKeyFor: function(){ return "conflict_already_started"; },
         errorMsg: "couldNotSaveSheet",
-        retry: go
+        retry: go,
+        queueDescriptor: { kind:"patchConditional", id: id, fromState:"pending", patch: patch }
       });
     };
     go();
@@ -219,14 +245,16 @@ export function finishUnload(id){
   var by = loadSavedName();
   buzz();
   if(supabaseEnabled()){
+    var patch = { truck_state:"completed", act_dept: localNaiveTs(new Date()), finished_by: by || null };
     var go = function(){
-      runBackendCall(sbPatchTruckConditional(id, "arrived", { truck_state:"completed", act_dept: localNaiveTs(new Date()), finished_by: by || null }), {
+      runBackendCall(sbPatchTruckConditional(id, "arrived", patch), {
         conflictKeyFor: function(){
           var t = findTruck(id);
           return (t && t.status === "done") ? "conflict_already_finished" : "conflict_not_started_yet";
         },
         errorMsg: "couldNotSaveSheet",
-        retry: go
+        retry: go,
+        queueDescriptor: { kind:"patchConditional", id: id, fromState:"arrived", patch: patch }
       });
     };
     go();
@@ -241,11 +269,13 @@ export function finishUnload(id){
 }
 export function cancelUnload(id){
   if(supabaseEnabled()){
+    var patch = { truck_state:"pending", act_arrival:null, started_by:null };
     var go = function(){
-      runBackendCall(sbPatchTruckConditional(id, "arrived", { truck_state:"pending", act_arrival:null, started_by:null }), {
+      runBackendCall(sbPatchTruckConditional(id, "arrived", patch), {
         conflictKeyFor: function(){ return "conflict_not_in_started_state"; },
         errorMsg: "couldNotSaveSheet",
-        retry: go
+        retry: go,
+        queueDescriptor: { kind:"patchConditional", id: id, fromState:"arrived", patch: patch }
       });
     };
     go();
@@ -259,11 +289,13 @@ export function cancelUnload(id){
 }
 export function reopenUnload(id){
   if(supabaseEnabled()){
+    var patch = { truck_state:"arrived", act_dept:null, finished_by:null };
     var go = function(){
-      runBackendCall(sbPatchTruckConditional(id, "completed", { truck_state:"arrived", act_dept:null, finished_by:null }), {
+      runBackendCall(sbPatchTruckConditional(id, "completed", patch), {
         conflictKeyFor: function(){ return "conflict_not_in_completed_state"; },
         errorMsg: "couldNotSaveSheet",
-        retry: go
+        retry: go,
+        queueDescriptor: { kind:"patchConditional", id: id, fromState:"completed", patch: patch }
       });
     };
     go();
@@ -275,13 +307,39 @@ export function reopenUnload(id){
     t.finishedAt = null;
   });
 }
+/* Module-level (not on `ui`, which only ever holds plain/serializable-ish
+   display state) -- the one live timer for whichever delete is currently
+   pending. Only one truck can be mid-delete at a time (deleteTruck() itself
+   is only reachable from a truck's own sheet, which closes when it's
+   tapped), so a single variable is enough; a fresh delete before the
+   previous one committed would just replace it, which can't happen in
+   practice given the sheet closes immediately below. */
+var pendingDeleteTimer = null;
+
+/* Deleting a truck is easy to do by accident (one mis-tap past the existing
+   confirm step, on a phone at a busy dock) and, until this round, permanent
+   the instant it happened. Now it's a short "Undo" window instead: the truck
+   is hidden from the list/KPIs right away (see ui.pendingDeleteId in
+   render.js) but nothing is actually sent to Supabase (or removed from local
+   storage) until UNDO_DELETE_MS later, unless undoDeleteTruck() cancels it
+   first. */
 export function deleteTruck(id){
   ui.openId = null; ui.confirmDelete = null;
+  var t = findTruck(id);
+  ui.pendingDeleteId = id;
+  ui.pendingDeleteLabel = t ? (t.poNo || t.ref || id) : id;
+  render();
+  clearTimeout(pendingDeleteTimer);
+  pendingDeleteTimer = setTimeout(function(){ commitDelete(id); }, UNDO_DELETE_MS);
+}
+function commitDelete(id){
+  ui.pendingDeleteId = null; ui.pendingDeleteLabel = null;
   if(supabaseEnabled()){
     runBackendCall(sbDeleteTruck(id), {
       successMsg: tr("truckDeleted"),
       errorMsg: "couldNotDeleteTruck",
-      retry: function(){ deleteTruck(id); }
+      retry: function(){ commitDelete(id); },
+      queueDescriptor: { kind:"deleteTruck", id: id }
     });
     return;
   }
@@ -289,6 +347,14 @@ export function deleteTruck(id){
     state.trucks = state.trucks.filter(function(t){ return t.id !== id; });
   });
   showToast(tr("truckDeleted"));
+}
+/* The Undo tap in the toast (see toastHtml() in render.js) -- cancels the
+   pending commit outright, so the truck simply reappears; nothing was ever
+   actually sent anywhere for this delete. */
+export function undoDeleteTruck(){
+  clearTimeout(pendingDeleteTimer);
+  ui.pendingDeleteId = null; ui.pendingDeleteLabel = null;
+  render();
 }
 export function createTruck(){
   var carrier = document.getElementById("f-carrier").value.trim();
@@ -308,7 +374,8 @@ export function createTruck(){
     runBackendCall(sbCreateTruck(fields), {
       successMsg: tr("truckAdded"),
       errorMsg: "couldNotCreateTruck",
-      retry: function(){ /* re-open the add form instead of blindly resubmitting stale field values */ ui.addOpen = true; render(); }
+      retry: function(){ /* re-open the add form instead of blindly resubmitting stale field values */ ui.addOpen = true; render(); },
+      queueDescriptor: { kind:"createTruck", fields: fields }
     });
     return;
   }

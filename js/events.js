@@ -10,10 +10,11 @@ import { saveLangLocal } from "./storage.js";
 import {
   pickRole, submitPin, focusPin, savePin, saveName,
   openSheet, openAdd, closeSheet, saveEta, startUnload, finishUnload,
-  cancelUnload, reopenUnload, deleteTruck, createTruck,
+  cancelUnload, reopenUnload, deleteTruck, undoDeleteTruck, createTruck,
   addPhotos, removePhoto, saveDamageRemark
 } from "./actions.js";
 import { openImportPlan, runImportPreview, runImportConfirm, handleImportFile } from "./importPlan.js";
+import { openReport, runReport, exportReportCsv } from "./reporting.js";
 
 export function initEvents(){
   var app = document.getElementById("app");
@@ -46,6 +47,9 @@ export function initEvents(){
       ui.openId = null; ui.addOpen = false; render(); return;
     }
     if(el.closest("[data-open-import]")){ openImportPlan(); return; }
+    if(el.closest("[data-open-report]")){ openReport(); return; }
+    if(el.closest("[data-run-report]")){ runReport(); return; }
+    if(el.closest("[data-export-report-csv]")){ exportReportCsv(); return; }
     var importSheetToggleEl = el.closest("[data-import-sheet-toggle]");
     if(importSheetToggleEl){
       var importSheetName = importSheetToggleEl.getAttribute("data-import-sheet-toggle");
@@ -95,6 +99,7 @@ export function initEvents(){
     if(delEl){ ui.confirmDelete = delEl.getAttribute("data-delete"); render(); return; }
     var delConfirmEl = el.closest("[data-delete-confirm]");
     if(delConfirmEl){ deleteTruck(delConfirmEl.getAttribute("data-delete-confirm")); return; }
+    if(el.closest("[data-undo-delete]")){ undoDeleteTruck(); return; }
     var createEl = el.closest("[data-create]");
     if(createEl){ createTruck(); return; }
     var tabEl = el.closest("[data-tab]");
@@ -104,6 +109,11 @@ export function initEvents(){
       var delta = parseInt(dayNavEl.getAttribute("data-day-nav"), 10);
       var next = ui.dayOffset + delta;
       ui.dayOffset = Math.max(-MAX_DAY_OFFSET, Math.min(MAX_DAY_OFFSET, next));
+      render();
+      return;
+    }
+    if(el.closest("[data-toggle-late-filter]")){
+      ui.filterLateOnly = !ui.filterLateOnly;
       render();
       return;
     }
@@ -118,6 +128,19 @@ export function initEvents(){
 
   app.addEventListener("keydown", function(e){
     if(e.key === "Enter" && e.target && e.target.id === "pinInput"){ submitPin(); }
+  });
+
+  // Separate from the "change" listener below (which only fires on
+  // blur/Enter for a text input) -- the search box needs to filter the list
+  // on every keystroke, not just once focus leaves it. render() preserves
+  // this input's focus/cursor position across the rebuild (see render.js),
+  // which is what makes re-rendering on every character typed workable at
+  // all given this app's whole-subtree render model.
+  app.addEventListener("input", function(e){
+    if(e.target && e.target.id === "searchInput"){
+      ui.searchQuery = e.target.value;
+      render();
+    }
   });
 
   app.addEventListener("change", function(e){

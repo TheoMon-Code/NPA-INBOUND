@@ -11,6 +11,7 @@ import { render } from "./render.js";
 import { tick, isInputSheetOpen } from "./ticking.js";
 import { initEvents } from "./events.js";
 import { SUPABASE_POLL_MS } from "./config.js";
+import { flushOfflineQueue } from "./offlineQueue.js";
 
 initEvents();
 
@@ -19,8 +20,16 @@ if(supabaseEnabled()){
      it now and keep polling it, skipping a refresh while someone has an input
      open (an ETA edit, the add form, PIN entry) so it doesn't get clobbered. */
   loadFromSupabase();
+  // Anything queued from a previous session that ended offline (phone
+  // killed/locked with no signal) gets one attempt right away; flushOfflineQueue()
+  // is a no-op if the queue is empty, so this costs nothing on the common path.
+  flushOfflineQueue();
+  // The 'online' event is the fast path back from a real connectivity drop,
+  // but it isn't reliable on every mobile browser -- the periodic poll below
+  // is the fallback net, checking again every SUPABASE_POLL_MS regardless.
+  window.addEventListener("online", flushOfflineQueue);
   setInterval(function(){
-    if(!isInputSheetOpen()) loadFromSupabase();
+    if(!isInputSheetOpen()){ loadFromSupabase(); flushOfflineQueue(); }
   }, SUPABASE_POLL_MS);
   /* Also refresh right away when someone comes back to the app (phone woken
      up, tab switched back to) instead of waiting for the next poll tick —

@@ -34,10 +34,12 @@
    responsiveness in the fallback case. */
 import { pad2, todayKey } from "./dateUtils.js";
 import { tr } from "./i18n.js";
-import { ui, state } from "./state.js";
-import { sbRest, loadFromSupabase } from "./api.js";
+import { ui } from "./state.js";
+import { sbRest, loadFromSupabase, sbFetchTrucksInRange } from "./api.js";
 import { render } from "./render.js";
 import { showToast } from "./actions.js";
+import { saveSavedPlant } from "./storage.js";
+import { DEFAULT_PLANT } from "./config.js";
 
 var importCtx = null; /* { sheetNames, sheetsData: {name: aoa}, fileName } — set once a file is parsed */
 
@@ -346,6 +348,8 @@ export function runImportPreview(){
   if(!importCtx) return;
   var fromDateEl = document.getElementById("import-from-date");
   if(fromDateEl && fromDateEl.value) ui.importFromDate = fromDateEl.value;
+  var plantEl = document.getElementById("import-plant");
+  if(plantEl && plantEl.value.trim()){ ui.importPlant = plantEl.value.trim(); saveSavedPlant(ui.importPlant); }
   var selectedNames = Object.keys(ui.importSelected).filter(function(n){ return ui.importSelected[n]; });
   if(!selectedNames.length){ ui.importError = tr("importPickAtLeastOne"); render(); return; }
   ui.importBusy = true; ui.importError = null; render();
@@ -361,31 +365,57 @@ export function runImportPreview(){
     if(r.order_date < fromDate){ pastCount++; return false; }
     return true;
   });
-  var existingKeys = {};
-  state.trucks.forEach(function(t){
-    existingKeys[importDedupeKey(t.poNo, t.date, t.eta, t.carrier)] = true;
+  // Which trucks already exist for these exact dates? Deliberately queried
+  // fresh from Supabase (sbFetchTrucksInRange), scoped to the actual min/max
+  // dates found in the file being imported -- NOT read off state.trucks,
+  // which (since the server-side day-window added alongside this) only ever
+  // holds the +/-MAX_DAY_OFFSET days the UI can display. A manager
+  // re-importing an older file (say, a few months back, for record-keeping)
+  // would otherwise have every one of those already-imported trucks look
+  // "new" and get duplicated, since state.trucks wouldn't contain them
+  // anymore. Querying the exact date range in the file sidesteps that
+  // entirely, and is more correct than the old approach even for a same-day
+  // import (it no longer depends on state.trucks having finished loading).
+  var minDate = null, maxDate = null;
+  kept.forEach(function(r){
+    if(minDate === null || r.order_date < minDate) minDate = r.order_date;
+    if(maxDate === null || r.order_date > maxDate) maxDate = r.order_date;
   });
-  // Group first (see importGroupRows), so several source rows for the same
-  // physical truck become one entry with multiple lots, THEN dedupe against
-  // already-imported trucks — one skip decision per truck, not per row. A
-  // truck already imported has all of its rows (lots included) counted into
-  // dupeCount, same total-rows meaning the count had before grouping existed.
-  var groups = importGroupRows(kept);
-  var dupeCount = 0, toImport = [];
-  groups.forEach(function(g){
-    if(existingKeys[g.key]){ dupeCount += g.lots.length; return; }
-    toImport.push(g);
+  var existingLookup = (minDate === null) ? Promise.resolve([]) : sbFetchTrucksInRange(minDate, maxDate);
+  return existingLookup.then(function(existingTrucks){
+    var existingKeys = {};
+    existingTrucks.forEach(function(t){
+      existingKeys[importDedupeKey(t.poNo, t.date, t.eta, t.carrier)] = true;
+    });
+    // Group first (see importGroupRows), so several source rows for the same
+    // physical truck become one entry with multiple lots, THEN dedupe against
+    // already-imported trucks — one skip decision per truck, not per row. A
+    // truck already imported has all of its rows (lots included) counted into
+    // dupeCount, same total-rows meaning the count had before grouping existed.
+    var groups = importGroupRows(kept);
+    var dupeCount = 0, toImport = [];
+    groups.forEach(function(g){
+      if(existingKeys[g.key]){ dupeCount += g.lots.length; return; }
+      toImport.push(g);
+    });
+    toImport.sort(function(a,b){
+      if(a.order_date !== b.order_date) return a.order_date < b.order_date ? -1 : 1;
+      var ae = a.eta || "99:99", be = b.eta || "99:99";
+      return ae < be ? -1 : (ae > be ? 1 : 0);
+    });
+    ui.importResult = { toImport: toImport, dupeCount: dupeCount, pastCount: pastCount };
+    ui.importBusy = false;
+    ui.importError = hadHeaderError ? tr("importSomeSheetsSkipped") : null;
+    ui.importStep = "preview";
+    render();
+  }).catch(function(){
+    // Dedupe-check query failed (network hiccup, missing table, etc.) --
+    // fail safe rather than silently importing possible duplicates: show the
+    // same error path as any other Supabase failure and let the admin retry.
+    ui.importBusy = false;
+    ui.importError = tr("importSaveFailed");
+    render();
   });
-  toImport.sort(function(a,b){
-    if(a.order_date !== b.order_date) return a.order_date < b.order_date ? -1 : 1;
-    var ae = a.eta || "99:99", be = b.eta || "99:99";
-    return ae < be ? -1 : (ae > be ? 1 : 0);
-  });
-  ui.importResult = { toImport: toImport, dupeCount: dupeCount, pastCount: pastCount };
-  ui.importBusy = false;
-  ui.importError = hadHeaderError ? tr("importSomeSheetsSkipped") : null;
-  ui.importStep = "preview";
-  render();
 }
 
 export function runImportConfirm(){
@@ -402,7 +432,7 @@ export function runImportConfirm(){
     var primary = g.lots[0] || {};
     return {
       reference_id: "T-"+Date.now().toString(36).toUpperCase()+idx.toString(36).toUpperCase(),
-      carrier: g.carrier, plant: "AMATA", im_ex_tr: "IM",
+      carrier: g.carrier, plant: (ui.importPlant || DEFAULT_PLANT), im_ex_tr: "IM",
       po_no: g.po_no, sku_no: primary.sku_no, qtt: primary.qtt,
       remark: primary.remark, details: primary.details,
       order_date: g.order_date,

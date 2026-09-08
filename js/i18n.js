@@ -17,6 +17,10 @@ export const STRINGS = {
   sync_saving:{en:"Saving…",th:"กำลังบันทึก…"},
   sync_synced:{en:"Synced",th:"ซิงค์แล้ว"},
   sync_error:{en:"Not saved",th:"บันทึกไม่สำเร็จ"},
+  sync_queued:{en:"Saved offline",th:"บันทึกแบบออฟไลน์"},
+  queuedOffline:{en:"Saved — will send once back online",th:"บันทึกแล้ว — จะส่งเมื่อกลับมามีสัญญาณ"},
+  offlineQueueFlushed:{en:"{n} offline action(s) synced",th:"ซิงค์การทำงานที่ค้างไว้ {n} รายการแล้ว"},
+  offlineQueuePending:{en:"{n} pending",th:"ค้างอยู่ {n} รายการ"},
   todaysTrucks:{en:"Today's trucks",th:"รถบรรทุกวันนี้"},
   tabYesterday:{en:"Yesterday",th:"เมื่อวาน"},
   tabToday:{en:"Today",th:"วันนี้"},
@@ -145,6 +149,22 @@ export const STRINGS = {
   importPlanTitle:{en:"Import inbound plan",th:"นำเข้าแผนขนส่งขาเข้า"},
   importIntro:{en:"Choose the Excel file your planner already uses (e.g. \"Incoming plan\"). It's read on this device only — nothing is uploaded except the trucks you confirm on the next screen.",th:"เลือกไฟล์ Excel แผนที่ใช้งานอยู่แล้ว (เช่น \"Incoming plan\") ไฟล์จะถูกอ่านในเครื่องนี้เท่านั้น จะส่งข้อมูลก็ต่อเมื่อคุณกดยืนยันรายการในหน้าถัดไป"},
   importFromDate:{en:"Only import from this date onward",th:"นำเข้าเฉพาะตั้งแต่วันที่นี้เป็นต้นไป"},
+  importPlant:{en:"Plant / site",th:"โรงงาน/ไซต์งาน"},
+  reportTitle:{en:"Reports",th:"รายงานสรุป"},
+  reportIntro:{en:"Stats for a date range you pick — for a manager checking how a period went, not the day-to-day view above.",th:"สรุปข้อมูลตามช่วงวันที่ที่เลือก — สำหรับผู้จัดการดูภาพรวมของช่วงเวลานั้น ไม่ใช่มุมมองรายวันด้านบน"},
+  reportFrom:{en:"From",th:"จากวันที่"},
+  reportTo:{en:"To",th:"ถึงวันที่"},
+  reportRunBtn:{en:"Generate",th:"สร้างรายงาน"},
+  reportLoading:{en:"Loading…",th:"กำลังโหลด…"},
+  reportFromAfterTo:{en:"\"From\" must be on or before \"To\".",th:"วันที่เริ่มต้องมาก่อนหรือเท่ากับวันที่สิ้นสุด"},
+  reportLoadFailed:{en:"Could not load the report.",th:"ไม่สามารถโหลดรายงานได้"},
+  reportRatedNote:{en:"On-time rate is based on {n} truck(s) with a logged arrival and a scheduled time.",th:"อัตราตรงเวลาคำนวณจากรถบรรทุก {n} คันที่มีบันทึกเวลาเข้าและเวลานัดหมาย"},
+  reportKpiTotal:{en:"Trucks",th:"รถบรรทุก"},
+  reportKpiCompleted:{en:"Completed",th:"เสร็จสิ้น"},
+  reportKpiOnTime:{en:"On time",th:"ตรงเวลา"},
+  reportKpiAvgTime:{en:"Avg. unload",th:"เวลาเฉลี่ย"},
+  reportKpiDamage:{en:"Damage remarks",th:"หมายเหตุความเสียหาย"},
+  reportKpiNoLog:{en:"No arrival logged",th:"ไม่มีบันทึกเวลาเข้า"},
   importPickSheets:{en:"Sheets to read",th:"ชีตที่จะอ่าน"},
   importPreviewBtn:{en:"Preview",th:"ดูตัวอย่าง"},
   importParsing:{en:"Reading…",th:"กำลังอ่าน…"},
@@ -167,7 +187,15 @@ export const STRINGS = {
   // of silently keeping only the first lot.
   multiLotBadge:{en:"{n} lots",th:"{n} ล็อต"},
   lotsSectionTitle:{en:"Lots on this truck ({n})",th:"ล็อตในคันนี้ ({n})"},
-  lotUnnamed:{en:"(no description)",th:"(ไม่มีคำอธิบาย)"}
+  lotUnnamed:{en:"(no description)",th:"(ไม่มีคำอธิบาย)"},
+  // Round 17: quick search + late-only filter, the "coming up soon" pill
+  // cue, undo-able delete, and CSV export from the reporting screen.
+  searchPlaceholder:{en:"Search PO, carrier, plant…",th:"ค้นหา PO, ผู้ขนส่ง, โรงงาน…"},
+  filterLateOnly:{en:"⏰ Late only",th:"⏰ เฉพาะที่ล่าช้า"},
+  noSearchResults:{en:"No trucks match your search.",th:"ไม่พบรถบรรทุกที่ตรงกับการค้นหา"},
+  truckDeletedUndo:{en:"{label} deleted — tap Undo to restore.",th:"ลบ {label} แล้ว — แตะ \"ยกเลิก\" เพื่อกู้คืน"},
+  undo:{en:"Undo",th:"ยกเลิก"},
+  reportExportCsvBtn:{en:"Export CSV",th:"ส่งออกเป็น CSV"}
 };
 
 export function tr(key){

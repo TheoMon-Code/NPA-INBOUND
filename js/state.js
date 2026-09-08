@@ -11,8 +11,8 @@
    startup) — importers would keep pointing at the old object. `replaceState`
    below is the one place that happens, so it copies the new data onto the
    existing object instead of swapping the reference. */
-import { loadRole, loadLang } from "./storage.js";
-import { todayKey } from "./dateUtils.js";
+import { loadRole, loadLang, loadSavedPlant } from "./storage.js";
+import { todayKey, addDays } from "./dateUtils.js";
 import { supabaseEnabled } from "./api.js";
 
 const DEFAULT_STATE = { seq: 10, trucks: [], adminCode: "748231" };
@@ -56,9 +56,39 @@ export const ui = {
   importStep: "pick",
   importSelected: {},
   importFromDate: todayKey(),
+  // Which site/plant new imported trucks get tagged with -- used to be
+  // hard-coded to "AMATA" (Round 6); now editable on the import screen and
+  // remembered per device (see storage.js) so another MON site can be
+  // imported for without a code change.
+  importPlant: loadSavedPlant(),
   importBusy: false,
   importError: null,
-  importResult: null
+  importResult: null,
+  // Admin reporting screen (Round 16) -- KPIs over a manager-picked date
+  // range, separate from the day-by-day live view above.
+  reportOpen: false,
+  reportFrom: addDays(todayKey(), -6),
+  reportTo: todayKey(),
+  reportBusy: false,
+  reportError: null,
+  reportData: null,
+  // Raw rows behind the last report run (Round 17), kept alongside the
+  // aggregated reportData above purely so "Export CSV" has something to
+  // write out without a second Supabase round trip.
+  reportRows: null,
+  // Quick list-level search (PO/reference/carrier/plant, case-insensitive)
+  // and a one-tap "late only" filter (Round 17) -- both purely client-side,
+  // filtering what's already loaded rather than re-querying Supabase; empty
+  // by default so they never change what's shown until someone uses them.
+  searchQuery: "",
+  filterLateOnly: false,
+  // Set for the few seconds between tapping "Delete" (after the existing
+  // confirm step) and the deletion actually being sent -- see deleteTruck()
+  // in actions.js. The truck is hidden from the list/KPIs immediately but
+  // isn't actually gone yet, so an accidental delete (or a change of mind)
+  // can still be undone.
+  pendingDeleteId: null,
+  pendingDeleteLabel: null
 };
 ui.roleGateOpen = !ui.role;
 

@@ -5,8 +5,8 @@
    APIs directly — no server code of our own to deploy, no SDK to install.
    Everything else (role, admin PIN, display language) still uses this
    browser's localStorage (see storage.js). */
-import { SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_BUCKET } from "./config.js";
-import { todayKey } from "./dateUtils.js";
+import { SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_BUCKET, MAX_DAY_OFFSET } from "./config.js";
+import { todayKey, addDays } from "./dateUtils.js";
 import { state, ui } from "./state.js";
 import { render } from "./render.js";
 
@@ -26,6 +26,15 @@ export function sbRest(path, opts){
     method: opts.method || "GET",
     headers: headers,
     body: opts.body ? JSON.stringify(opts.body) : undefined
+  }).catch(function(){
+    // fetch() itself rejected -- genuinely no network reachable (offline,
+    // DNS failure, etc.), as opposed to the request reaching Supabase and
+    // getting an error response (handled below, once res exists). Tagged
+    // distinctly so callers (js/offlineQueue.js) can tell "no network, worth
+    // queuing for later" apart from "reached the server, it said no".
+    var e = new Error("network");
+    e.networkFailure = true;
+    throw e;
   }).then(function(res){
     if(res.status === 204) return null;
     return res.json().catch(function(){ return null; }).then(function(json){
@@ -73,14 +82,74 @@ export function mapRowToTruck(row){
   };
 }
 
+/* Every screen in the app only ever shows ONE day at a time (Admin's day-nav
+   is clamped to [-MAX_DAY_OFFSET, +MAX_DAY_OFFSET] from today, see
+   config.js/render.js — a driver is pinned to today only) — so nothing in
+   render.js ever needs a truck dated further out than that window, no matter
+   how much history has piled up in Supabase over months of real use. Before
+   this, loadFromSupabase() fetched *every* truck ever imported, every single
+   poll (every 15s) — fine while the table was small, but it would only get
+   slower over time as more months of trucks accumulate, for data that was
+   never going to be shown anyway. Scoping the query to that same window
+   server-side (PostgREST supports two conditions on one column, ANDed
+   together) keeps each poll's payload bounded regardless of how big the
+   table gets, with no visible change to what the app displays. */
+function defaultWindow(){
+  return { from: addDays(todayKey(), -MAX_DAY_OFFSET), to: addDays(todayKey(), MAX_DAY_OFFSET) };
+}
+
 export function loadFromSupabase(){
-  return sbRest("trucks?select=*,photos(id,url,storage_path,uploaded_by,created_at)&order=order_date.asc,eta.asc.nullslast").then(function(rows){
+  var w = defaultWindow();
+  var q = "trucks?select=*,photos(id,url,storage_path,uploaded_by,created_at)"+
+    "&order_date=gte."+w.from+"&order_date=lte."+w.to+
+    "&order=order_date.asc,eta.asc.nullslast";
+  return sbRest(q).then(function(rows){
     state.trucks = (rows || []).map(mapRowToTruck);
     ui.syncStatus = "synced";
     render();
   }).catch(function(err){
     ui.syncStatus = "error";
     render();
+  });
+}
+
+/* Used only by the Admin reporting screen (js/reporting.js) -- a deliberately
+   separate, explicitly-ranged query, same reasoning as sbFetchTrucksInRange
+   below: a manager might ask for stats over the last 30 or 90 days, well
+   outside the +/-MAX_DAY_OFFSET window loadFromSupabase() keeps state.trucks
+   scoped to for everyday display. Selects only the columns the report's KPIs
+   actually use, rather than the full row (photos, raw, lots, ...). */
+export function sbFetchTrucksForReport(fromDate, toDate){
+  var q = "trucks?select=order_date,eta,truck_state,act_arrival,act_dept,damage_remark"+
+    "&order_date=gte."+fromDate+"&order_date=lte."+toDate;
+  return sbRest(q).then(function(rows){
+    return (rows || []).map(function(row){
+      return {
+        date: row.order_date || "",
+        eta: row.eta ? row.eta.slice(11,16) : null,
+        truckState: row.truck_state || "pending",
+        actArrival: row.act_arrival || null,
+        actDept: row.act_dept || null,
+        damageRemark: row.damage_remark || ""
+      };
+    });
+  });
+}
+
+/* Used only by the inbound-plan import (js/importPlan.js) to check which
+   trucks already exist for the exact dates found in the source file being
+   imported — which can be any range, including well outside the display
+   window above (a manager might re-import an older file for record-keeping).
+   Deliberately separate from loadFromSupabase(): it does NOT touch
+   state.trucks or call render(), it just answers "what's already there for
+   these dates" for the dedupe check. */
+export function sbFetchTrucksInRange(fromDate, toDate){
+  var q = "trucks?select=po_no,order_date,eta,carrier"+
+    "&order_date=gte."+fromDate+"&order_date=lte."+toDate;
+  return sbRest(q).then(function(rows){
+    return (rows || []).map(function(row){
+      return { poNo: row.po_no || "", date: row.order_date || "", eta: row.eta ? row.eta.slice(11,16) : null, carrier: row.carrier || "" };
+    });
   });
 }
 

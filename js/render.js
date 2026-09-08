@@ -6,12 +6,13 @@
    they're done. */
 import { state, ui } from "./state.js";
 import { tr } from "./i18n.js";
-import { derive, lateMinutes, STATUS_KEYS } from "./status.js";
+import { derive, lateMinutes, isDueSoon, STATUS_KEYS } from "./status.js";
 import { esc, shortDate, fmtElapsed, dateTimeOf, clockStr, addDays, todayKey } from "./dateUtils.js";
 import { DAY_LABELS, MONTH_LABELS, DAY_LABELS_TH, MONTH_LABELS_TH, MAX_PHOTOS_PER_TRUCK, MAX_DAY_OFFSET } from "./config.js";
 import { loadSavedName } from "./storage.js";
 import { supabaseEnabled } from "./api.js";
 import { hasImportFile, importFileName, importSheetNames } from "./importPlan.js";
+import { offlineQueueCount } from "./offlineQueue.js";
 
 /* ---------- small bilingual text helpers (kept here since they're only
    ever used while building the sheet HTML below) ---------- */
@@ -54,13 +55,14 @@ function effectiveDayOffset(){ return ui.role === "driver" ? 0 : ui.dayOffset; }
 
 function pill(derived, t, now){
   var txt = tr(STATUS_KEYS[derived]);
-  if(derived === "scheduled") txt = tr("pill_eta") + " " + t.eta;
+  var soon = derived === "scheduled" && isDueSoon(t, now);
+  if(derived === "scheduled") txt = (soon ? "⏰ " : "") + tr("pill_eta") + " " + t.eta;
   if(derived === "late") txt = tr("status_late") + " · " + lateMinutes(t, now) + " " + tr("unit_min");
   if(derived === "unloading") txt = tr("status_unloading") + " · " + fmtElapsed(now - new Date(t.startedAt));
   if(derived === "done" && t.startedAt && t.finishedAt){
     txt = tr("status_done") + " · " + fmtHM((new Date(t.finishedAt)-new Date(t.startedAt))/60000);
   }
-  return '<span class="pill '+derived+'">'+esc(txt)+"</span>";
+  return '<span class="pill '+derived+(soon?" duesoon":"")+'">'+esc(txt)+"</span>";
 }
 function sortWeight(t, now){
   var d = derive(t, now);
@@ -72,8 +74,9 @@ function sortWeight(t, now){
 }
 function cardHtml(t, now){
   var d = derive(t, now);
+  var soon = d === "scheduled" && isDueSoon(t, now);
   return '<button class="card" data-open="'+esc(t.id)+'">'+
-    '<span class="stripe '+d+'"></span>'+
+    '<span class="stripe '+d+(soon?" duesoon":"")+'"></span>'+
     '<span class="card-body">'+
       '<span class="card-top"><span class="card-id mono">'+esc(t.poNo || t.ref || t.id)+"</span>"+pill(d,t,now)+"</span>"+
       '<span class="card-carrier">'+esc(t.carrier)+"</span>"+
@@ -134,10 +137,41 @@ function tabsHtml(trucks){
     '<button class="tab tab-nav" data-day-nav="1" aria-label="'+tr("navNextDay")+'"'+(atMax?" disabled":"")+'>▶</button>'+
   '</div>'+dateInfo;
 }
+/* Quick client-side search (PO/reference/carrier/plant) + a one-tap "late
+   only" filter (Round 17) -- both narrow what's shown in the list below,
+   never what kpiHtml() counts (those stay "today's real totals" regardless
+   of what's currently typed in the search box). Default state (empty query,
+   filter off) matches every truck, same as before this round. */
+function matchesListFilters(t, now){
+  if(ui.filterLateOnly){
+    var d = derive(t, now);
+    if(d !== "late" && d !== "urgent") return false;
+  }
+  var q = (ui.searchQuery || "").trim().toLowerCase();
+  if(q){
+    var hay = ((t.poNo||"")+" "+(t.ref||"")+" "+(t.carrier||"")+" "+(t.plant||"")).toLowerCase();
+    if(hay.indexOf(q) === -1) return false;
+  }
+  return true;
+}
+function searchRowHtml(){
+  return '<div class="searchrow">'+
+    '<input class="field" type="text" id="searchInput" placeholder="'+tr("searchPlaceholder")+'" value="'+esc(ui.searchQuery)+'">'+
+    '<button class="filterchip'+(ui.filterLateOnly?" active":"")+'" data-toggle-late-filter="1">'+tr("filterLateOnly")+'</button>'+
+  '</div>';
+}
 function listHtml(trucks, now){
   var dayTrucks = trucks.filter(function(t){ return t.date === addDays(todayKey(), effectiveDayOffset()); });
-  dayTrucks.sort(function(a,b){ return sortWeight(a,now) - sortWeight(b,now); });
-  if(!dayTrucks.length){
+  var filtered = dayTrucks.filter(function(t){ return matchesListFilters(t, now); });
+  filtered.sort(function(a,b){ return sortWeight(a,now) - sortWeight(b,now); });
+  if(!filtered.length){
+    // Distinguish "nothing scheduled at all today" from "there ARE trucks
+    // today, just none matching the current search/filter" -- the second
+    // one needs a different message (and icon) so it doesn't read as an
+    // empty day when it's really just a narrow search.
+    if(dayTrucks.length){
+      return '<div class="empty"><span class="empty-icon">🔍</span><div>'+tr("noSearchResults")+'</div></div>';
+    }
     return '<div class="empty"><span class="empty-icon">🚚</span><div>'+tr("noTrucksToday")+'</div></div>';
   }
   // A short list on a tall phone screen (especially standalone/home-screen
@@ -145,12 +179,13 @@ function listHtml(trucks, now){
   // large blank area below the cards that reads as broken rather than
   // intentional. This closing line turns that empty space into a deliberate
   // "end of list" instead of an unexplained void.
-  return dayTrucks.map(function(t){ return cardHtml(t, now); }).join("")+
+  return filtered.map(function(t){ return cardHtml(t, now); }).join("")+
     '<div class="list-end">'+tr("endOfList")+'</div>';
 }
 
 function sheetHtml(now){
   if(ui.importOpen) return importSheetHtml();
+  if(ui.reportOpen) return reportSheetHtml();
   if(ui.pinSettingsOpen) return pinSettingsHtml();
   if(ui.nameSettingsOpen) return nameSettingsHtml();
   if(ui.addOpen) return addSheetHtml();
@@ -342,6 +377,50 @@ function nameSettingsHtml(){
     '<button class="btn primary" data-save-name="1">'+tr("saveNameBtn")+'</button>'+
   '</div></div>';
 }
+/* KPI grid over a picked date range, for a manager rather than whoever's
+   watching the dock right now (see js/reporting.js). Reuses the same
+   .kpi tile look as the everyday "today" strip at the top of the app,
+   rather than inventing a second visual language for numbers. */
+function reportKpiTilesHtml(d){
+  var pctStr = d.onTimePct==null ? "—" : (d.onTimePct+"%");
+  var items = [
+    {v:d.total, l:tr("reportKpiTotal"), cls:""},
+    {v:d.completed, l:tr("reportKpiCompleted"), cls:"good"},
+    {v:pctStr, l:tr("reportKpiOnTime"), cls: d.onTimePct!=null && d.onTimePct<80 ? "bad" : "good"},
+    {v:d.avgMin==null?"—":fmtHM(d.avgMin), l:tr("reportKpiAvgTime"), cls:""},
+    {v:d.damageCount, l:tr("reportKpiDamage"), cls: d.damageCount ? "bad" : ""},
+    {v:d.noArrivalLogged, l:tr("reportKpiNoLog"), cls: d.noArrivalLogged ? "warn" : ""}
+  ];
+  return items.map(function(k){
+    return '<div class="kpi '+k.cls+'"><div class="v mono">'+k.v+'</div><div class="l">'+k.l+"</div></div>";
+  }).join("");
+}
+function reportSheetHtml(){
+  var busy = !!ui.reportBusy;
+  var errHtml = ui.reportError ? '<div class="hint" style="color:var(--bad);margin-top:10px">'+esc(ui.reportError)+'</div>' : "";
+  var d = ui.reportData;
+  var resultsHtml = "";
+  if(d){
+    resultsHtml = '<div class="hint" style="margin-top:14px">'+
+        tr("reportRatedNote").replace("{n}", d.onTimeRated)+
+      '</div>'+
+      '<div class="kpis" style="margin-top:8px">'+reportKpiTilesHtml(d)+'</div>'+
+      '<button class="linklike" data-export-report-csv="1" style="margin-top:10px">'+tr("reportExportCsvBtn")+'</button>';
+  }
+  return '<div class="scrim" data-scrim="1"><div class="sheet">'+
+    '<div class="sheet-handle"></div>'+
+    '<div class="sheet-head"><div><div class="sheet-id title-lg">'+tr("reportTitle")+'</div></div>'+
+    '<button class="sheet-close" data-close="1">✕</button></div>'+
+    '<div class="hint" style="margin-top:6px">'+tr("reportIntro")+'</div>'+
+    '<div class="formgrid" style="margin-top:12px">'+
+      '<div><div class="label">'+tr("reportFrom")+'</div><input class="field" type="date" id="report-from" value="'+esc(ui.reportFrom)+'"></div>'+
+      '<div><div class="label">'+tr("reportTo")+'</div><input class="field" type="date" id="report-to" value="'+esc(ui.reportTo)+'"></div>'+
+    '</div>'+
+    errHtml+
+    '<button class="btn primary" data-run-report="1" '+(busy?"disabled":"")+'>'+(busy?tr("reportLoading"):tr("reportRunBtn"))+'</button>'+
+    resultsHtml+
+  '</div></div>';
+}
 function importSheetHtml(){
   var busy = !!ui.importBusy;
   var errHtml = ui.importError ? '<div class="hint" style="color:var(--bad);margin-top:10px">'+esc(ui.importError)+'</div>' : "";
@@ -381,6 +460,7 @@ function importSheetHtml(){
     body = '<div class="hint" style="margin-top:6px">'+esc(importFileName())+'</div>'+
       '<div class="formgrid" style="margin-top:12px">'+
         '<div><div class="label">'+tr("importFromDate")+'</div><input class="field" type="date" id="import-from-date" value="'+esc(ui.importFromDate)+'"></div>'+
+        '<div><div class="label">'+tr("importPlant")+'</div><input class="field" id="import-plant" value="'+esc(ui.importPlant)+'"></div>'+
       '</div>'+
       '<div class="label" style="margin-top:16px">'+tr("importPickSheets")+'</div>'+
       '<div class="importsheetlist">'+rowsHtml+'</div>'+
@@ -427,15 +507,34 @@ function damageRemarkHtml(t){
     '<button class="btn primary" data-save-remark="'+esc(t.id)+'" style="margin-top:8px">'+tr("saveRemarkBtn")+'</button></div>';
 }
 function toastHtml(){
+  // A pending delete (see deleteTruck() in actions.js) pre-empts whatever
+  // ui.toast would otherwise show -- there's normally nothing else to show
+  // at that exact moment anyway (deleteTruck doesn't call showToast()), and
+  // this guarantees the Undo button is never accidentally covered by an
+  // unrelated toast racing in during the undo window.
+  if(ui.pendingDeleteId){
+    return '<div class="toast"><span>'+esc(tr("truckDeletedUndo").replace("{label}", ui.pendingDeleteLabel||""))+'</span>'+
+      '<button class="toast-retry" data-undo-delete="1">'+tr("undo")+'</button></div>';
+  }
   if(!ui.toast) return "";
   var retry = ui.retryAction ? '<button class="toast-retry" data-toast-retry="1">'+tr("retry")+'</button>' : "";
   return '<div class="toast"><span>'+esc(ui.toast)+"</span>"+retry+"</div>";
 }
 function syncDotClass(){
-  return { local:"local", connecting:"local", saving:"saving", synced:"", error:"err" }[ui.syncStatus] || "";
+  return { local:"local", connecting:"local", saving:"saving", synced:"", error:"err", queued:"warn" }[ui.syncStatus] || "";
 }
 function syncLabel(){
-  return { local:tr("sync_local"), connecting:tr("sync_connecting"), saving:tr("sync_saving"), synced:tr("sync_synced"), error:tr("sync_error") }[ui.syncStatus] || "";
+  return { local:tr("sync_local"), connecting:tr("sync_connecting"), saving:tr("sync_saving"), synced:tr("sync_synced"), error:tr("sync_error"), queued:tr("sync_queued") }[ui.syncStatus] || "";
+}
+/* Small "N pending" badge next to the sync dot, shown whenever the offline
+   action queue (js/offlineQueue.js) has anything in it -- independent of
+   ui.syncStatus, which only reflects the *last* call's outcome. A driver who
+   queued a Start five minutes ago and then successfully saved a photo just
+   after should still see that the Start is still waiting to go out. */
+function offlineQueueBadgeHtml(){
+  var n = offlineQueueCount();
+  if(!n) return "";
+  return '<span class="queuebadge">'+esc(tr("offlineQueuePending").replace("{n}", n))+'</span>';
 }
 
 export function render(){
@@ -449,8 +548,25 @@ export function render(){
   // the swap costs nothing and fixes that without touching the render
   // model itself.
   var scrollY = window.scrollY;
+  // The search box (Round 17) re-renders on every keystroke so the list can
+  // filter live -- but render() rebuilds the whole #app subtree from
+  // scratch, which would otherwise recreate the input and drop focus/cursor
+  // position after each character typed. Captured here and restored at the
+  // end, the same way scrollY above already is for the periodic refresh.
+  var activeEl = document.activeElement;
+  var focusInfo = null;
+  if(activeEl && activeEl.id && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA")){
+    focusInfo = { id: activeEl.id, start: null, end: null };
+    try{ focusInfo.start = activeEl.selectionStart; focusInfo.end = activeEl.selectionEnd; }catch(e){}
+  }
   var now = new Date();
   var showTabs = ui.role === "admin";
+  // A truck pending deletion (tapped "Delete", inside the undo window --
+  // see deleteTruck() in actions.js) is hidden from both the KPI strip and
+  // the list right away, even though it hasn't actually been deleted yet.
+  var visibleTrucks = ui.pendingDeleteId
+    ? state.trucks.filter(function(t){ return t.id !== ui.pendingDeleteId; })
+    : state.trucks;
   document.documentElement.setAttribute("lang", ui.lang === "th" ? "th" : "en");
   var html =
     '<div class="topbar">'+
@@ -463,6 +579,7 @@ export function render(){
         '<div class="rolebadgerow">'+
           '<button class="rolebadge" data-role-switch="1">'+(ui.role?roleLabel(ui.role):tr("selectRole"))+' ⇵</button>'+
           (ui.role==="admin" ? '<button class="rolebadge" data-open-import="1" aria-label="'+tr("importPlanAria")+'">📥</button>' : '')+
+          (ui.role==="admin" ? '<button class="rolebadge" data-open-report="1" aria-label="'+tr("reportTitle")+'">📊</button>' : '')+
           (ui.role==="admin" ? '<button class="rolebadge" data-open-pin-settings="1" aria-label="'+tr("changePin")+'">⚙</button>' : '')+
           (ui.role==="driver" ? '<button class="rolebadge" data-open-name-settings="1">'+tr("setNamePill")+'</button>' : '')+
           '<button class="rolebadge langtoggle" data-toggle-lang="1" aria-label="Language / ภาษา">'+(ui.lang==="th"?"EN":"TH")+'</button>'+
@@ -470,11 +587,12 @@ export function render(){
         '</div></div>'+
       '<div class="clockbox"><div class="clock" id="clockEl">'+clockStr(now)+'</div>'+
       '<div class="clockdate">'+longDate(now)+'</div>'+
-      '<div class="syncrow"><span class="syncdot '+syncDotClass()+'"></span>'+syncLabel()+'</div></div>'+
+      '<div class="syncrow"><span class="syncdot '+syncDotClass()+'"></span>'+syncLabel()+offlineQueueBadgeHtml()+'</div></div>'+
     '</div>'+
-    (showTabs ? tabsHtml(state.trucks) : '<div class="dayheading">'+tr("todaysTrucks")+'</div>')+
-    '<div class="kpis">'+kpiHtml(state.trucks, now)+'</div>'+
-    '<div class="list">'+listHtml(state.trucks, now)+'</div>'+
+    (showTabs ? tabsHtml(visibleTrucks) : '<div class="dayheading">'+tr("todaysTrucks")+'</div>')+
+    '<div class="kpis">'+kpiHtml(visibleTrucks, now)+'</div>'+
+    searchRowHtml()+
+    '<div class="list">'+listHtml(visibleTrucks, now)+'</div>'+
     (ui.role === "admin" ? '<button class="fab" data-add="1" aria-label="'+tr("addTruckAria")+'">+</button>' : '')+
     sheetHtml(now)+
     roleGateHtml()+
@@ -486,4 +604,13 @@ export function render(){
     '<input type="file" accept="image/*" multiple id="photoAddInput" style="display:none">';
   document.getElementById("app").innerHTML = html;
   if(scrollY) window.scrollTo(0, scrollY);
+  if(focusInfo){
+    var restored = document.getElementById(focusInfo.id);
+    if(restored){
+      restored.focus();
+      if(focusInfo.start != null && typeof restored.setSelectionRange === "function"){
+        try{ restored.setSelectionRange(focusInfo.start, focusInfo.end); }catch(e){}
+      }
+    }
+  }
 }

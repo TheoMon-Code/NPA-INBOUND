@@ -144,8 +144,13 @@ textarea{font:inherit;color:inherit}
 .syncdot.local{background:#C7D2EB}
 .syncdot.saving{background:#F4C563;animation:pulse 1s infinite}
 .syncdot.err{background:#F17683}
+.syncdot.warn{background:#F4C563}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
 @media (prefers-reduced-motion:reduce){.syncdot.saving{animation:none}}
+/* "N pending" badge (Round 16) next to the sync label when the offline
+   action queue (js/offlineQueue.js) has anything waiting to go out --
+   independent of whatever the last live call's status happened to be. */
+.queuebadge{background:rgba(244,197,99,.18);color:#F4C563;border-radius:8px;padding:1px 6px;margin-left:2px;font-weight:600}
 
 /* tabs */
 /* Outer row (Round 13): the 3 quick tabs (yesterday/today/tomorrow) plus a
@@ -182,6 +187,17 @@ textarea{font:inherit;color:inherit}
   padding:14px 16px 0; font-size:11px; font-weight:700; letter-spacing:1.6px;
   text-transform:uppercase; color:var(--ink-faint);
 }
+
+/* quick search + late-only filter (Round 17), sitting between the KPI strip
+   and the truck list */
+.searchrow{display:flex; gap:8px; padding:2px 16px 0; align-items:stretch}
+.searchrow .field{margin-top:0; flex:1}
+.filterchip{
+  flex:none; padding:0 14px; border-radius:11px; border:1px solid var(--line-strong);
+  background:var(--surface); font-size:12.5px; font-weight:700; color:var(--ink-dim);
+  white-space:nowrap; display:flex; align-items:center; justify-content:center;
+}
+.filterchip.active{background:var(--bad); border-color:var(--bad); color:#fff}
 
 /* kpi strip */
 .kpis{
@@ -232,6 +248,10 @@ textarea{font:inherit;color:inherit}
 .stripe.late{background:var(--bad)}
 .stripe.unloading{background:var(--warn)}
 .stripe.done{background:var(--good)}
+/* Round 17 -- additive to .scheduled (both classes on the same element),
+   so it only needs to win the cascade by being declared after it; derive()
+   itself never returns "duesoon", see isDueSoon() in js/status.js. */
+.stripe.duesoon{background:var(--warn)}
 .card-body{padding:11px 13px;flex:1;min-width:0}
 .card-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .card-id{font-family:"IBM Plex Mono";font-weight:600;font-size:14.5px}
@@ -245,6 +265,7 @@ textarea{font:inherit;color:inherit}
 .pill.late{background:var(--bad-soft);color:var(--bad)}
 .pill.unloading{background:var(--warn-soft);color:var(--warn)}
 .pill.done{background:var(--good-soft);color:var(--good)}
+.pill.duesoon{background:var(--warn-soft);color:var(--warn)}
 .card-carrier{font-size:13.5px;font-weight:600;margin-top:4px;color:var(--ink)}
 .card-meta{font-size:11.5px;color:var(--ink-dim);margin-top:3px;display:flex;gap:6px;flex-wrap:wrap}
 .card-meta span:not(:last-child)::after{content:"·";margin-left:6px;color:var(--line-strong)}
