@@ -11,10 +11,11 @@ import {
   pickRole, submitPin, focusPin, savePin, saveName,
   openSheet, openAdd, closeSheet, saveEta, startUnload, finishUnload,
   cancelUnload, reopenUnload, deleteTruck, undoDeleteTruck, createTruck,
-  addPhotos, removePhoto, saveDamageRemark
+  addPhotos, removePhoto, saveDamageRemark, findTruck
 } from "./actions.js";
 import { openImportPlan, runImportPreview, runImportConfirm, handleImportFile } from "./importPlan.js";
 import { openReport, runReport, exportReportCsv } from "./reporting.js";
+import { downloadTruckPhotos } from "./photoDownload.js";
 
 export function initEvents(){
   var app = document.getElementById("app");
@@ -79,16 +80,29 @@ export function initEvents(){
     if(startEl){ startUnload(startEl.getAttribute("data-start")); return; }
     var finishEl = el.closest("[data-finish]");
     if(finishEl){ finishUnload(finishEl.getAttribute("data-finish")); return; }
-    var photoAddEl = el.closest("[data-photo-add]");
-    if(photoAddEl){
-      ui.pendingPhotoTruckId = photoAddEl.getAttribute("data-photo-add");
-      var input = document.getElementById("photoAddInput");
-      if(input) input.click();
+    var photoAddCameraEl = el.closest("[data-photo-add-camera]");
+    if(photoAddCameraEl){
+      ui.pendingPhotoTruckId = photoAddCameraEl.getAttribute("data-photo-add-camera");
+      var cameraInput = document.getElementById("photoAddCameraInput");
+      if(cameraInput) cameraInput.click();
+      return;
+    }
+    var photoAddGalleryEl = el.closest("[data-photo-add-gallery]");
+    if(photoAddGalleryEl){
+      ui.pendingPhotoTruckId = photoAddGalleryEl.getAttribute("data-photo-add-gallery");
+      var galleryInput = document.getElementById("photoAddGalleryInput");
+      if(galleryInput) galleryInput.click();
       return;
     }
     var photoRmEl = el.closest("[data-photo-remove]");
     if(photoRmEl){
       removePhoto(photoRmEl.getAttribute("data-photo-remove"), photoRmEl.getAttribute("data-photo-path"));
+      return;
+    }
+    var downloadPhotosEl = el.closest("[data-download-photos]");
+    if(downloadPhotosEl){
+      var dpTruck = findTruck(downloadPhotosEl.getAttribute("data-download-photos"));
+      if(dpTruck) downloadTruckPhotos(dpTruck.id, dpTruck.photos, dpTruck.poNo || dpTruck.ref || dpTruck.id);
       return;
     }
     var cancelEl = el.closest("[data-cancel]");
@@ -144,7 +158,7 @@ export function initEvents(){
   });
 
   app.addEventListener("change", function(e){
-    if(e.target && e.target.id === "photoAddInput"){
+    if(e.target && (e.target.id === "photoAddCameraInput" || e.target.id === "photoAddGalleryInput")){
       // input.files is a *live* FileList tied to the input's value: clearing
       // e.target.value below (needed so picking the same file twice in a row
       // still fires "change") empties this exact same object in place, not

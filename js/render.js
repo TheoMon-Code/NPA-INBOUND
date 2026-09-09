@@ -485,11 +485,37 @@ function photosHtml(t){
     return '<div class="photoslot"><a href="'+esc(p.url)+'" target="_blank" rel="noopener"><img src="'+esc(p.url)+'" loading="lazy"></a>'+rm+'</div>';
   }).join("");
   if(photos.length < MAX_PHOTOS_PER_TRUCK){
-    slots += '<button class="photoslot add" data-photo-add="'+esc(t.id)+'"><span style="font-size:22px;line-height:1">+</span><span>'+tr("addPhoto")+'</span></button>';
+    // Two separate tiles rather than one generic "+" (pre-Round 19): on a
+    // real Android phone, the single file input below has no `capture`
+    // attribute (removed at Round 9 so `multiple` could enable picking
+    // several existing photos at once) — but Android's own file/photo
+    // chooser, when `multiple` is set, frequently drops the "Camera" shortcut
+    // from that generic chooser entirely (a single camera shot can't satisfy
+    // "pick several", so many devices/OEM pickers just omit it), leaving only
+    // Gallery/Files. Reported by a manager on site: "can't take a photo from
+    // android mobile phone". A single input can't have it both ways
+    // (`capture` forces the camera open directly and can only ever return
+    // one file, `multiple` needs no `capture` to allow a multi-pick) — so
+    // this is two distinct tiles backed by two distinct hidden inputs
+    // instead: one that always launches the camera directly (`capture`,
+    // single shot), one that always opens the gallery/file chooser
+    // (`multiple`, no capture) for picking several at once. Guarantees camera
+    // access regardless of what any given device's generic chooser offers.
+    slots += '<button class="photoslot add" data-photo-add-camera="'+esc(t.id)+'"><span style="font-size:20px;line-height:1">📷</span><span>'+tr("addPhotoCamera")+'</span></button>'+
+      '<button class="photoslot add" data-photo-add-gallery="'+esc(t.id)+'"><span style="font-size:20px;line-height:1">🖼️</span><span>'+tr("addPhotoGallery")+'</span></button>';
   }
+  // Download-all button, only once there's at least one photo to bundle —
+  // requested by a manager on site who compared it to an existing "FG
+  // export" download elsewhere in MON's tools (see js/photoDownload.js for
+  // how the zip itself is built). Same `.btn.ghost` treatment as the CSV
+  // export button (Round 17.1's lesson: a real button, not a discreet text
+  // link, for anything meant to be reliably noticed and clicked).
+  var downloadBtn = photos.length
+    ? '<button class="btn ghost" data-download-photos="'+esc(t.id)+'" style="margin-top:8px">⬇️ '+tr("downloadPhotosBtn")+'</button>'
+    : "";
   return '<div class="sheet-section"><div class="label">'+tr("photosTitle")+'</div>'+
     '<div class="hint">'+tr("photosHint").replace("{n}", MAX_PHOTOS_PER_TRUCK)+'</div>'+
-    '<div class="photogrid">'+slots+'</div></div>';
+    '<div class="photogrid">'+slots+'</div>'+downloadBtn+'</div>';
 }
 /* A single free-text remark per truck (not per photo, per Theo's choice) —
    e.g. noting which layer of the container damaged product was found on,
@@ -597,11 +623,14 @@ export function render(){
     sheetHtml(now)+
     roleGateHtml()+
     toastHtml()+
-    // No `capture` attribute: that hint forces the camera open directly and
-    // only ever allows one shot, which rules out picking several existing
-    // photos at once. Without it, phones show their normal chooser (camera
-    // vs. gallery) and `multiple` lets a gallery pick grab several at a time.
-    '<input type="file" accept="image/*" multiple id="photoAddInput" style="display:none">';
+    // Two hidden inputs, one per photo tile above (Round 19) — see the long
+    // comment in photosHtml() for why one input can't safely serve both
+    // jobs on every real Android device. `capture="environment"` forces the
+    // rear camera open directly (guaranteed camera access, one shot at a
+    // time); no `capture` on the other lets `multiple` grab several existing
+    // photos from the gallery/file chooser at once, same as before.
+    '<input type="file" accept="image/*" capture="environment" id="photoAddCameraInput" style="display:none">'+
+    '<input type="file" accept="image/*" multiple id="photoAddGalleryInput" style="display:none">';
   document.getElementById("app").innerHTML = html;
   if(scrollY) window.scrollTo(0, scrollY);
   if(focusInfo){

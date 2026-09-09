@@ -79,9 +79,15 @@ async def main():
 
         # The app's own change handler does `e.target.value = ""` the instant
         # it reads the FileList (see events.js), so checking
-        # photoAddInput.files.length afterward is meaningless -- it always
-        # reads 0 whether or not the upload actually happened. The real
-        # signal is UPLOAD_CALLS / the toast.
+        # photoAddGalleryInput.files.length afterward is meaningless -- it
+        # always reads 0 whether or not the upload actually happened. The
+        # real signal is UPLOAD_CALLS / the toast.
+        #
+        # Two separate tiles since Round 19 (data-photo-add-camera and
+        # data-photo-add-gallery -- see the long comment in render.js's
+        # photosHtml()): this exercises the gallery tile specifically, since
+        # multi-select only makes sense there (the camera tile is single-shot
+        # by nature, covered in test_v2_photo_camera_tile.py).
         #
         # Clicking the "+" tile calls input.click() from page script, which
         # Chromium/Playwright intercepts as a real file-chooser open (CDP
@@ -92,7 +98,7 @@ async def main():
         # register the expect_file_chooser listener *before* the click and
         # resolve it directly, same as driving a real native picker.
         async with page.expect_file_chooser() as fc_info:
-            await page.click("[data-photo-add]")
+            await page.click("[data-photo-add-gallery]")
         file_chooser = await fc_info.value
         await file_chooser.set_files([
             {"name": "photo1.jpg", "mimeType": "image/jpeg", "buffer": make_jpeg_bytes((255, 0, 0))},
