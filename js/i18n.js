@@ -195,7 +195,8 @@ export const STRINGS = {
   noSearchResults:{en:"No trucks match your search.",th:"ไม่พบรถบรรทุกที่ตรงกับการค้นหา"},
   truckDeletedUndo:{en:"{label} deleted — tap Undo to restore.",th:"ลบ {label} แล้ว — แตะ \"ยกเลิก\" เพื่อกู้คืน"},
   undo:{en:"Undo",th:"ยกเลิก"},
-  reportExportCsvBtn:{en:"Export CSV",th:"ส่งออกเป็น CSV"}
+  reportExportCsvBtn:{en:"Export CSV",th:"ส่งออกเป็น CSV"},
+  reportExportFailed:{en:"Export failed: {err}",th:"ส่งออกไม่สำเร็จ: {err}"}
 };
 
 export function tr(key){

@@ -73,7 +73,12 @@ function parseWorkbookMainThread(data){
     // app just hung the instant a file was chosen.
     setTimeout(function(){
       try{
-        var wb = XLSX.read(data, { type:"array", cellDates:true });
+        // cellDates:false (the default, spelled out here) is deliberate --
+        // see the long comment above importDateFromCell()/importTimeFromCell()
+        // for why letting SheetJS hand back JS Date objects for a pure
+        // time-of-day cell is NOT safe: cells stay as raw numeric Excel
+        // serials, parsed by hand below with pure arithmetic instead.
+        var wb = XLSX.read(data, { type:"array", cellDates:false });
         resolve({ sheetNames: wb.SheetNames || [], sheets: extractAllSheets(wb) });
       }catch(err){ reject(err); }
     }, 0);
@@ -176,14 +181,38 @@ function importFindHeaderRow(aoa){
   }
   return bestScore >= 3 ? bestIdx : -1;
 }
-/* SheetJS (with cellDates:true at read time) hands back real JS Date objects
-   for anything Excel formatted as a date or time — in UTC, regardless of
-   this browser's own timezone, so UTC getters are what recover the intended
-   wall-clock value. Older/plainer cells sometimes stay numeric (Excel's
-   serial date/time encoding) or come through as a formatted string (e.g. an
-   "08:00 - 17:00" window typed as text) — both are handled as a fallback. */
+/* Cells are read with cellDates:false (see parseWorkbookMainThread()/
+   importWorker.js) — the raw Excel numeric serial, never a JS Date object —
+   and converted below with XLSX.SSF.parse_date_code(), pure arithmetic with
+   no timezone involved anywhere.
+
+   This used to ask SheetJS for cellDates:true and read the resulting Date
+   objects back with UTC getters, on the (reasonable-sounding, and correct
+   for a genuine calendar date) theory that "SheetJS hands back dates in UTC
+   regardless of the browser's own timezone". That held for the `date`
+   column, but NOT for `eta`, a pure time-of-day value: Excel has no native
+   "time with no date" type, so any bare time serial (e.g. 0.2917 for 07:00)
+   is anchored on Excel's day-zero pseudo-date, 1899-12-30. SheetJS builds
+   that Date via the LOCAL multi-arg constructor -- so on a machine whose
+   system timezone is Asia/Bangkok (every real user of this app), the
+   JS/ICU timezone database resolves "Dec 30 1899, Bangkok" using Bangkok's
+   historical local time from BEFORE it standardized on UTC+7 in 1920 --
+   LMT +06:42:04 -- not the modern +07:00. Reading that Date back with UTC
+   getters then recovers a time shifted by the ~17m56s difference between
+   those two offsets (07:00 real becomes "00:17", 09:00 becomes "02:17", and
+   so on) -- silently, consistently, and invisibly in this cloud sandbox
+   (system timezone UTC, no such historical quirk, so every test and every
+   import run from here looked correct) until a real import ran on a real
+   Bangkok-timezone machine and produced exactly this pattern. Found by
+   comparing a real "Incoming plan" import against the source file's raw
+   XML cell values directly (07:00 in the file, "00:17" in the app) -- the
+   17m56s gap is an exact match for Bangkok's documented pre-1920 LMT
+   offset, not a rounding artifact. cellDates:false plus manual arithmetic
+   below never constructs a Date object for these cells at all, so this
+   whole timezone-database question never arises. Cells that stay a plain
+   string (e.g. an "08:00 - 17:00" window typed as text) are handled as a
+   fallback, same as before. */
 function importDateFromCell(v){
-  if(v instanceof Date) return v.getUTCFullYear()+"-"+pad2(v.getUTCMonth()+1)+"-"+pad2(v.getUTCDate());
   if(typeof v === "number"){
     var d = XLSX.SSF.parse_date_code(v);
     if(d) return d.y+"-"+pad2(d.m)+"-"+pad2(d.d);
@@ -192,10 +221,14 @@ function importDateFromCell(v){
     var m = v.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
     if(m) return m[1]+"-"+pad2(+m[2])+"-"+pad2(+m[3]);
   }
+  // Defensive only: a real Date object should never reach here now that
+  // cells are read with cellDates:false, but if one ever does (some other
+  // caller, a future refactor), local getters are the safe choice -- see
+  // the long comment above for why UTC getters are the ones that break.
+  if(v instanceof Date) return v.getFullYear()+"-"+pad2(v.getMonth()+1)+"-"+pad2(v.getDate());
   return null;
 }
 function importTimeFromCell(v){
-  if(v instanceof Date) return pad2(v.getUTCHours())+":"+pad2(v.getUTCMinutes());
   if(typeof v === "number"){
     var d = XLSX.SSF.parse_date_code(v);
     if(d) return pad2(d.H)+":"+pad2(d.M);
@@ -204,6 +237,7 @@ function importTimeFromCell(v){
     var m = v.match(/(\d{1,2}):(\d{2})/);
     if(m) return pad2(+m[1])+":"+pad2(+m[2]);
   }
+  if(v instanceof Date) return pad2(v.getHours())+":"+pad2(v.getMinutes());
   return null;
 }
 function importFormatQty(v){
@@ -215,10 +249,29 @@ function importCleanText(v){
 }
 /* JSON-safe copy of a raw cell value — used only for the catch-all `raw`
    column (see below), so a Date becomes a plain string rather than an
-   object that would serialize unpredictably. */
+   object that would serialize unpredictably.
+
+   Cells are read with cellDates:false now (see importDateFromCell()'s
+   comment above for why), so a date/time-formatted cell arrives here as a
+   plain Excel serial number, same as any other numeric column (a quantity,
+   a code) — nothing here can safely tell those apart by value alone (a real
+   quantity like 20000 or 30000 KG, seen in real files, sits squarely inside
+   the same numeric range as a 2026 date serial, so guessing "this number
+   looks like a date" would misfire and corrupt an ordinary quantity into a
+   fake date). Rather than guess, unmapped date/time columns swept into this
+   catch-all now show their raw serial number instead of a formatted string
+   — a behavior change from before, but `raw`'s whole point (Round 7) is
+   never silently losing a value, not necessarily pretty-printing it; the
+   number is right there, just not formatted. The two fields that DO need to
+   be formatted and matter functionally — `date`/`eta` — go through
+   importDateFromCell()/importTimeFromCell() directly (see importExtractRows
+   below), not through here. */
 function importJsonSafeCell(v){
   if(v instanceof Date){
-    var isDateOnly = v.getUTCHours()===0 && v.getUTCMinutes()===0 && v.getUTCSeconds()===0 && v.getUTCFullYear() > 1980;
+    // Defensive only — see importDateFromCell()'s comment for why local
+    // (not UTC) getters are the safe choice if a Date object ever reaches
+    // here despite cellDates:false.
+    var isDateOnly = v.getHours()===0 && v.getMinutes()===0 && v.getSeconds()===0 && v.getFullYear() > 1980;
     return isDateOnly ? importDateFromCell(v) : importTimeFromCell(v);
   }
   if(typeof v === "number" || typeof v === "boolean" || typeof v === "string") return v;

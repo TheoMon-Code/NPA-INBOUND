@@ -16,6 +16,7 @@ import { tr } from "./i18n.js";
 import { render } from "./render.js";
 import { sbFetchTrucksForReport } from "./api.js";
 import { GRACE_MIN } from "./config.js";
+import { showToast } from "./actions.js";
 
 export function openReport(){
   ui.reportOpen = true;
@@ -97,24 +98,34 @@ function csvField(v){
    server round trip: it's built from what's already in memory and handed to
    the browser as a download via a throwaway object URL. */
 export function exportReportCsv(){
-  var rows = ui.reportRows || [];
-  var header = ["date","eta","truck_state","act_arrival","act_dept","damage_remark"];
-  var lines = [header.join(",")];
-  rows.forEach(function(r){
-    lines.push([r.date, r.eta, r.truckState, r.actArrival, r.actDept, r.damageRemark].map(csvField).join(","));
-  });
-  // Leading BOM so Excel (still the default on a manager's laptop) opens the
-  // file as UTF-8 rather than guessing a local codepage -- harmless for the
-  // plain ASCII values here, but keeps this correct if a damage remark ever
-  // has non-ASCII text in it.
-  var csv = "\uFEFF" + lines.join("\r\n");
-  var blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-  var url = URL.createObjectURL(blob);
-  var a = document.createElement("a");
-  a.href = url;
-  a.download = "mon-inbound-report_" + ui.reportFrom + "_" + ui.reportTo + ".csv";
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+  // Wrapped end-to-end: this used to fail completely silently on anything
+  // going wrong (a Blob/URL API throwing, a browser/extension blocking the
+  // synthetic click) -- there was no feedback in the UI at all, just nothing
+  // happening, which is indistinguishable from "I forgot to click the right
+  // thing". Any failure now surfaces as a toast with the actual error instead.
+  try {
+    var rows = ui.reportRows || [];
+    var header = ["date","eta","truck_state","act_arrival","act_dept","damage_remark"];
+    var lines = [header.join(",")];
+    rows.forEach(function(r){
+      lines.push([r.date, r.eta, r.truckState, r.actArrival, r.actDept, r.damageRemark].map(csvField).join(","));
+    });
+    // Leading BOM so Excel (still the default on a manager's laptop) opens the
+    // file as UTF-8 rather than guessing a local codepage -- harmless for the
+    // plain ASCII values here, but keeps this correct if a damage remark ever
+    // has non-ASCII text in it.
+    var csv = "\uFEFF" + lines.join("\r\n");
+    var blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = "mon-inbound-report_" + ui.reportFrom + "_" + ui.reportTo + ".csv";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+  } catch(err){
+    console.error("CSV export failed:", err);
+    showToast(tr("reportExportFailed").replace("{err}", (err && err.message) || String(err)), true);
+  }
 }

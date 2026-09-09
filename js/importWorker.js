@@ -32,7 +32,11 @@ self.postMessage({ type: "ready" });
 self.onmessage = function(e){
   if(!e.data || e.data.type !== "parse") return;
   try{
-    var wb = XLSX.read(e.data.buffer, { type: "array", cellDates: true });
+    // cellDates:false (default, spelled out) -- see importPlan.js's
+    // importDateFromCell()/importTimeFromCell() comment for why: cells stay
+    // as raw numeric Excel serials, parsed by hand with pure arithmetic
+    // instead of letting SheetJS construct a JS Date object.
+    var wb = XLSX.read(e.data.buffer, { type: "array", cellDates: false });
     var sheetNames = wb.SheetNames || [];
     var sheets = {};
     sheetNames.forEach(function(name){

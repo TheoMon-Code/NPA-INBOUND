@@ -1,15 +1,24 @@
 import asyncio, json, os, re
-from datetime import date
+from datetime import date, datetime, timedelta
 from playwright.async_api import async_playwright
 
 BASE = "http://127.0.0.1:8934/index.html"
 TODAY = date.today().isoformat()
 
+# eta_in(minutes) is relative to *now* rather than a fixed wall-clock time --
+# a fixed "08:00"/"09:00" eta used to intermittently register as "late" too
+# (whenever the suite happened to run after that hour + GRACE_MIN), making
+# this test flaky depending on time of day. Trucks 1 and 2 are anchored well
+# into the future so they're never late regardless of when this runs; only
+# truck 3 (deep in the past) is meant to ever be "late".
+def eta_in(minutes):
+    return (datetime.now() + timedelta(minutes=minutes)).strftime("%H:%M:00")
+
 TRUCKS = [
     {"id":"1","reference_id":"T-1","carrier":"Aurora Freight","plant":"AMATA","po_no":"PO-1001",
-     "order_date":TODAY,"eta":TODAY+"T08:00:00","truck_state":"pending","photos":[]},
+     "order_date":TODAY,"eta":TODAY+"T"+eta_in(90),"truck_state":"pending","photos":[]},
     {"id":"2","reference_id":"T-2","carrier":"Meridian Cargo","plant":"AMATA","po_no":"PO-2002",
-     "order_date":TODAY,"eta":TODAY+"T09:00:00","truck_state":"pending","photos":[]},
+     "order_date":TODAY,"eta":TODAY+"T"+eta_in(150),"truck_state":"pending","photos":[]},
     # Deliberately "late": eta far enough in the past that GRACE_MIN (20min)
     # is already blown, whatever time this test happens to run at.
     {"id":"3","reference_id":"T-3","carrier":"Late Carrier Co","plant":"BANGPAKONG","po_no":"PO-3003",

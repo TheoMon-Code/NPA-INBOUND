@@ -405,7 +405,7 @@ function reportSheetHtml(){
         tr("reportRatedNote").replace("{n}", d.onTimeRated)+
       '</div>'+
       '<div class="kpis" style="margin-top:8px">'+reportKpiTilesHtml(d)+'</div>'+
-      '<button class="linklike" data-export-report-csv="1" style="margin-top:10px">'+tr("reportExportCsvBtn")+'</button>';
+      '<button class="btn ghost" data-export-report-csv="1">⬇️ '+tr("reportExportCsvBtn")+'</button>';
   }
   return '<div class="scrim" data-scrim="1"><div class="sheet">'+
     '<div class="sheet-handle"></div>'+
