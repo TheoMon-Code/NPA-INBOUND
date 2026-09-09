@@ -99,7 +99,19 @@ export const ui = {
   // reintroduce the "violent refresh" problem fixed in Round 11. Stays null
   // (and the countdown simply isn't shown) in local-only mode, where there's
   // no poll to count down to.
-  nextPollAt: null
+  nextPollAt: null,
+  // TV mode (Round 22): a fixed, read-only display for a screen mounted in
+  // the warehouse/office (Theo, after seeing the Round 21 redesign: "Faudra
+  // que tu mettes in mode TV") -- no role gate, no PIN, no search/filters/
+  // KPI tiles/"+" button, nothing clickable, just today's trucks in a big
+  // table that refreshes on the same 15s poll as everything else. Set once
+  // in main.js from the URL (?tv=1), never persisted and never toggled from
+  // within the app itself -- the one device permanently pointed at the
+  // screen just always loads that URL. See renderTv() in render.js, which
+  // is a completely separate render path from the normal admin/driver one
+  // below (so nothing admin-only can ever leak onto a public screen through
+  // a shared code path, and this stays unaffected by future changes there).
+  tvMode: false
 };
 ui.roleGateOpen = !ui.role;
 

@@ -13,6 +13,20 @@ import { initEvents } from "./events.js";
 import { SUPABASE_POLL_MS } from "./config.js";
 import { flushOfflineQueue } from "./offlineQueue.js";
 
+/* TV mode (Round 22): a fixed, read-only display for a screen mounted in
+   the warehouse/office, closer to what MON's Outbound admin tool already
+   has -- Theo asked for this right after seeing the Round 21 redesign
+   deployed. Enabled purely by a URL flag (?tv=1) rather than any stored
+   per-device setting, so the one browser permanently pointed at that
+   screen just always opens this URL and every other device is completely
+   unaffected. ui.roleGateOpen is forced closed here too -- belt and braces
+   for isInputSheetOpen()'s periodic-refresh guard below, in case this
+   happens to run in a browser profile that remembers an old role/PIN state
+   (renderTv() in render.js never reads ui.role/ui.openId/etc. at all, so
+   nothing admin-only can leak into what's actually shown either way). */
+ui.tvMode = new URLSearchParams(window.location.search).get("tv") === "1";
+if(ui.tvMode) ui.roleGateOpen = false;
+
 initEvents();
 
 if(supabaseEnabled()){

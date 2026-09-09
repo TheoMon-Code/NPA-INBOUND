@@ -526,6 +526,36 @@ textarea{font:inherit;color:inherit}
 }
 .langtoggle-card:active{background:var(--surface-3)}
 
+/* ---------- TV mode (Round 22) ----------
+   A fixed, read-only board for a screen mounted in the warehouse/office --
+   reached only via ?tv=1 (see main.js/render.js), never through the normal
+   role/PIN flow. Meant to be read from a few meters away, so everything
+   here is scaled up well past the normal admin/driver sizes; there is no
+   card view at all in this mode (renderTv() always builds the table,
+   regardless of window width) and no hover/active states, since nothing on
+   this screen is ever clicked. */
+body.tvmode .tvtopbar{padding:22px 28px 18px}
+body.tvmode .mark-badge{height:52px}
+body.tvmode .clock{font-size:26px}
+body.tvmode .clockdate{font-size:14px}
+body.tvmode .syncrow{font-size:13px}
+body.tvmode .tvtable{padding:20px 28px 48px}
+body.tvmode .trucktable{font-size:20px}
+body.tvmode .trucktable thead th{font-size:14px;padding:14px 18px}
+body.tvmode .trucktable tbody td{padding:16px 18px}
+body.tvmode .pill{font-size:15px;padding:6px 14px}
+body.tvmode .empty{margin-top:60px;font-size:18px}
+body.tvmode .empty-icon{font-size:52px}
+/* Status legend/description -- unlike the collapsible one in the normal
+   admin/driver view, Theo asked for this to be permanently visible on the
+   TV board ("doit etre obligatoirement visible"), since nobody is there to
+   tap a <details> open. Plain div, not <details>/<summary> -- see
+   tvLegendHtml() in js/render.js. */
+body.tvmode .tvlegend{margin:18px 28px 0;padding:16px 20px}
+body.tvmode .tvlegend-title{font-size:15px;font-weight:700;color:var(--ink-dim);margin-bottom:12px}
+body.tvmode .legendtext b{font-size:15px}
+body.tvmode .legendtext span{font-size:13px}
+
 /* toast */
 .toast{
   position:absolute; left:16px; right:16px; bottom:18px; z-index:50;

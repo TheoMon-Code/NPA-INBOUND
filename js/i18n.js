@@ -223,7 +223,11 @@ export const STRINGS = {
   tableColCarrier:{en:"Carrier",th:"ผู้ขนส่ง"},
   tableColPlant:{en:"Plant",th:"โรงงาน"},
   tableColDate:{en:"Date",th:"วันที่"},
-  tableColLots:{en:"Lots",th:"ล็อต"}
+  tableColLots:{en:"Lots",th:"ล็อต"},
+  // TV mode (Round 22) shows only today's trucks, so a "Date" column would
+  // always read the same value -- an ETA column is more useful on a board
+  // meant to be read from across the room.
+  tvColEta:{en:"ETA",th:"เวลานัด"}
 };
 
 export function tr(key){

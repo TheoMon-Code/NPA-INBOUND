@@ -625,7 +625,7 @@ function pollCountdownHtml(now){
    additive to "scheduled" everywhere else in this file (see isDueSoon() in
    js/status.js) and has no entry of its own in STATUS_KEYS, so it gets its
    own title string here rather than reusing one meant for something else. */
-function statusLegendHtml(){
+function legendRowsHtml(){
   var entries = [
     {cls:"pending", title:tr("status_pending"), desc:tr("legendDesc_pending")},
     {cls:"urgent", title:tr("status_urgent"), desc:tr("legendDesc_urgent")},
@@ -635,15 +635,92 @@ function statusLegendHtml(){
     {cls:"unloading", title:tr("status_unloading"), desc:tr("legendDesc_unloading")},
     {cls:"done", title:tr("status_done"), desc:tr("legendDesc_done")}
   ];
-  var rows = entries.map(function(e){
+  return entries.map(function(e){
     return '<div class="legendrow"><span class="legendswatch '+e.cls+'"></span>'+
       '<div class="legendtext"><b>'+esc(e.title)+'</b><span>'+esc(e.desc)+'</span></div></div>';
   }).join("");
+}
+function statusLegendHtml(){
   return '<details class="statuslegend"><summary>📊 '+tr("legendTitle")+'</summary>'+
-    '<div class="legendgrid">'+rows+'</div></details>';
+    '<div class="legendgrid">'+legendRowsHtml()+'</div></details>';
+}
+/* Same legend content as statusLegendHtml() above, but NOT collapsible --
+   for TV mode only (Round 22). Theo, right after seeing the collapsible
+   version deployed: "le status description doit etre obligatoirement
+   visible c est plus simple" -- on a screen nobody is there to tap open,
+   a <details> that starts shut would just never get seen, so this is a
+   plain always-visible block instead, matching how Outbound's own board
+   shows its legend permanently at the foot of the list. The normal
+   admin/driver view (statusLegendHtml() above) is untouched -- collapsed by
+   default there remains Theo's explicit condition for that view ("simple
+   a regarder pour Phone + Web"), this is additive only for the TV board. */
+function tvLegendHtml(){
+  return '<div class="statuslegend tvlegend"><div class="tvlegend-title">📊 '+tr("legendTitle")+'</div>'+
+    '<div class="legendgrid">'+legendRowsHtml()+'</div></div>';
+}
+
+/* One row of the TV-mode board (see renderTv() below) -- deliberately NOT
+   tableRowHtml() from the wide-screen admin table above: that one carries
+   data-open (opens the truck sheet) and a "truckrow" class styled to look
+   clickable, neither of which belongs on a public, unmanned screen. Reuses
+   pill() for the same live status text as everywhere else, and shows the
+   ETA instead of the date column (every row here is already "today"). */
+function tvRowHtml(t, now){
+  var d = derive(t, now);
+  return '<tr>'+
+    '<td>'+pill(d,t,now)+'</td>'+
+    '<td class="mono">'+esc(t.poNo || t.ref || t.id)+'</td>'+
+    '<td>'+esc(t.carrier||"—")+'</td>'+
+    '<td>'+(t.plant ? esc(t.plant) : "—")+'</td>'+
+    '<td>'+(t.eta || "—")+'</td>'+
+    '<td>'+(t.lots && t.lots.length > 1 ? esc(tr("multiLotBadge").replace("{n}", t.lots.length)) : "—")+'</td>'+
+  '</tr>';
+}
+/* TV mode (Round 22) -- a completely separate render path from the normal
+   render() below, on purpose: a screen nobody is meant to touch should
+   never be able to accidentally end up showing an admin control just
+   because some future change to the shared render() forgot to gate it.
+   This function only ever reads state.trucks (never ui.role, ui.openId,
+   ui.searchQuery, etc.) and only ever builds today's table -- there is no
+   card view here at all, and no click affordance on any row. */
+function renderTv(){
+  var now = new Date();
+  document.documentElement.setAttribute("lang", ui.lang === "th" ? "th" : "en");
+  var todayTrucks = state.trucks.filter(function(t){ return t.date === todayKey(); });
+  todayTrucks.sort(function(a,b){ return sortWeight(a,now) - sortWeight(b,now); });
+  var tableHtml;
+  if(todayTrucks.length){
+    var rows = todayTrucks.map(function(t){ return tvRowHtml(t, now); }).join("");
+    tableHtml = '<table class="trucktable"><thead><tr>'+
+      '<th>'+tr("tableColStatus")+'</th>'+
+      '<th>'+tr("tableColPo")+'</th>'+
+      '<th>'+tr("tableColCarrier")+'</th>'+
+      '<th>'+tr("tableColPlant")+'</th>'+
+      '<th>'+tr("tvColEta")+'</th>'+
+      '<th>'+tr("tableColLots")+'</th>'+
+    '</tr></thead><tbody>'+rows+'</tbody></table>';
+  } else {
+    tableHtml = '<div class="empty"><span class="empty-icon">🚚</span><div>'+tr("noTrucksToday")+'</div></div>';
+  }
+  var html =
+    '<div class="topbar tvtopbar">'+
+      '<div class="brand-row">'+markSvg()+
+        '<div class="brand-word"><span class="tagline">INBOUND</span></div></div>'+
+      '<div class="clockbox"><div class="clock" id="clockEl">'+clockStr(now)+'</div>'+
+      '<div class="clockdate">'+longDate(now)+'</div>'+
+      // Same #pollCountdownEl id as the normal view -- tick() (js/ticking.js)
+      // updates it by id with no idea which render path built it, so the
+      // countdown keeps working here for free.
+      '<div class="syncrow"><span class="syncdot '+syncDotClass()+'"></span>'+syncLabel()+pollCountdownHtml(now)+'</div></div>'+
+    '</div>'+
+    '<div class="tvtable">'+tableHtml+'</div>'+
+    tvLegendHtml();
+  document.body.classList.add("tvmode");
+  document.getElementById("app").innerHTML = html;
 }
 
 export function render(){
+  if(ui.tvMode){ renderTv(); return; }
   // Every render() replaces the *entire* #app subtree (no framework, no
   // diffing — see Round 8) — cheap to reason about, but on its own that
   // also resets the page's scroll position on every single call, including
