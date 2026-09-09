@@ -4,7 +4,7 @@
    falls back to this browser's own saved copy, and starts the two
    timers (Supabase poll, 1s clock/tick) — exactly the same startup
    sequence as the original single-file app's bottom `<script>` block. */
-import { replaceState } from "./state.js";
+import { replaceState, ui } from "./state.js";
 import { supabaseEnabled, loadFromSupabase } from "./api.js";
 import { loadLocalData } from "./storage.js";
 import { render } from "./render.js";
@@ -24,11 +24,21 @@ if(supabaseEnabled()){
   // killed/locked with no signal) gets one attempt right away; flushOfflineQueue()
   // is a no-op if the queue is empty, so this costs nothing on the common path.
   flushOfflineQueue();
+  // Seeds the visible refresh countdown (Round 21) so it shows a real value
+  // from the very first render rather than a blank/placeholder for the
+  // first 15s -- reset again every time the interval below actually fires.
+  ui.nextPollAt = Date.now() + SUPABASE_POLL_MS;
   // The 'online' event is the fast path back from a real connectivity drop,
   // but it isn't reliable on every mobile browser -- the periodic poll below
   // is the fallback net, checking again every SUPABASE_POLL_MS regardless.
   window.addEventListener("online", flushOfflineQueue);
   setInterval(function(){
+    // Reset unconditionally (even on a cycle skipped below because an input
+    // sheet is open) -- the countdown represents "when this timer next
+    // fires", not "when data was last actually refreshed", so it stays a
+    // steady, predictable clock rather than pausing/jumping around whatever
+    // else is open on screen.
+    ui.nextPollAt = Date.now() + SUPABASE_POLL_MS;
     if(!isInputSheetOpen()){ loadFromSupabase(); flushOfflineQueue(); }
   }, SUPABASE_POLL_MS);
   /* Also refresh right away when someone comes back to the app (phone woken

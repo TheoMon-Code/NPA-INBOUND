@@ -64,6 +64,43 @@ function pill(derived, t, now){
   }
   return '<span class="pill '+derived+(soon?" duesoon":"")+'">'+esc(txt)+"</span>";
 }
+/* One row of the wide-screen table view (see listTableHtml() below) --
+   reuses pill() as-is for the status cell so the exact same live text
+   (ETA/late-minutes/elapsed/duration) shows in both views without
+   duplicating that logic. Clicking anywhere on the row opens the truck
+   sheet: events.js's click delegation walks up via el.closest("[data-open]"),
+   so putting data-open directly on the <tr> works with zero JS changes. */
+function tableRowHtml(t, now){
+  var d = derive(t, now);
+  return '<tr class="truckrow" data-open="'+esc(t.id)+'">'+
+    '<td>'+pill(d,t,now)+'</td>'+
+    '<td class="mono">'+esc(t.poNo || t.ref || t.id)+'</td>'+
+    '<td>'+esc(t.carrier||"—")+'</td>'+
+    '<td>'+(t.plant ? esc(t.plant) : "—")+'</td>'+
+    '<td>'+shortDate(t.date)+'</td>'+
+    '<td>'+(t.lots && t.lots.length > 1 ? esc(tr("multiLotBadge").replace("{n}", t.lots.length)) : "—")+'</td>'+
+  '</tr>';
+}
+/* Table-shaped view of the same day's trucks as listHtml()'s cards, for a
+   wide (desktop/web) screen -- a manager compared this app to MON's
+   Outbound admin tool, which lists its LOAD orders as a dense table rather
+   than cards (Round 21). Always rendered alongside the card markup; which
+   one is actually visible is decided purely by CSS (see .list-cards/
+   .list-table in css/app.css), so a phone never pays for or sees the denser
+   table layout -- Theo was explicit that whatever changed here had to stay
+   simple to read on both phone and web, not just look more like Outbound
+   on desktop at the cost of mobile. */
+function listTableHtml(filtered, now){
+  var rows = filtered.map(function(t){ return tableRowHtml(t, now); }).join("");
+  return '<table class="trucktable"><thead><tr>'+
+    '<th>'+tr("tableColStatus")+'</th>'+
+    '<th>'+tr("tableColPo")+'</th>'+
+    '<th>'+tr("tableColCarrier")+'</th>'+
+    '<th>'+tr("tableColPlant")+'</th>'+
+    '<th>'+tr("tableColDate")+'</th>'+
+    '<th>'+tr("tableColLots")+'</th>'+
+  '</tr></thead><tbody>'+rows+'</tbody></table>';
+}
 function sortWeight(t, now){
   var d = derive(t, now);
   if(d==="urgent"||d==="late") return 0;
@@ -179,8 +216,14 @@ function listHtml(trucks, now){
   // large blank area below the cards that reads as broken rather than
   // intentional. This closing line turns that empty space into a deliberate
   // "end of list" instead of an unexplained void.
-  return filtered.map(function(t){ return cardHtml(t, now); }).join("")+
+  var cards = filtered.map(function(t){ return cardHtml(t, now); }).join("")+
     '<div class="list-end">'+tr("endOfList")+'</div>';
+  // Both views are built from the exact same `filtered`/sorted array and
+  // both always end up in the DOM -- see listTableHtml() above for why only
+  // one is ever visible at a time (a pure CSS media-query toggle, so this
+  // never has to guess the viewport width itself).
+  return '<div class="list-cards">'+cards+'</div>'+
+    '<div class="list-table">'+listTableHtml(filtered, now)+'</div>';
 }
 
 function sheetHtml(now){
@@ -562,6 +605,43 @@ function offlineQueueBadgeHtml(){
   if(!n) return "";
   return '<span class="queuebadge">'+esc(tr("offlineQueuePending").replace("{n}", n))+'</span>';
 }
+/* Visible "next refresh in…" countdown next to the sync dot (Round 21,
+   mirroring MON's Outbound admin tool) -- absent entirely in local-only
+   mode (nothing to poll, so ui.nextPollAt stays null, see main.js/state.js).
+   Only the initial text comes from here; every second after that, tick()
+   (js/ticking.js) updates #pollCountdownEl directly without a full
+   render() -- see the comment there for why. */
+function pollCountdownHtml(now){
+  if(!supabaseEnabled() || ui.nextPollAt == null) return "";
+  return '<span class="pollcountdown mono" id="pollCountdownEl" aria-label="'+tr("nextRefreshAria")+'">'+
+    fmtElapsed(ui.nextPollAt - now)+'</span>';
+}
+/* Collapsed-by-default legend explaining every status color/badge (Round
+   21) -- Outbound's admin tool has an always-open one at the foot of its
+   order list ("คำอธิบายสถานะ / Status Legend"); kept as a native <details>
+   here instead of always-open so it doesn't cost a driver any screen space
+   on a phone until they actually want it (Theo's condition on this whole
+   round: stay simple to look at on both phone and web). "duesoon" is
+   additive to "scheduled" everywhere else in this file (see isDueSoon() in
+   js/status.js) and has no entry of its own in STATUS_KEYS, so it gets its
+   own title string here rather than reusing one meant for something else. */
+function statusLegendHtml(){
+  var entries = [
+    {cls:"pending", title:tr("status_pending"), desc:tr("legendDesc_pending")},
+    {cls:"urgent", title:tr("status_urgent"), desc:tr("legendDesc_urgent")},
+    {cls:"scheduled", title:tr("status_scheduled"), desc:tr("legendDesc_scheduled")},
+    {cls:"duesoon", title:tr("legendDueSoonTitle"), desc:tr("legendDesc_duesoon")},
+    {cls:"late", title:tr("status_late"), desc:tr("legendDesc_late")},
+    {cls:"unloading", title:tr("status_unloading"), desc:tr("legendDesc_unloading")},
+    {cls:"done", title:tr("status_done"), desc:tr("legendDesc_done")}
+  ];
+  var rows = entries.map(function(e){
+    return '<div class="legendrow"><span class="legendswatch '+e.cls+'"></span>'+
+      '<div class="legendtext"><b>'+esc(e.title)+'</b><span>'+esc(e.desc)+'</span></div></div>';
+  }).join("");
+  return '<details class="statuslegend"><summary>📊 '+tr("legendTitle")+'</summary>'+
+    '<div class="legendgrid">'+rows+'</div></details>';
+}
 
 export function render(){
   // Every render() replaces the *entire* #app subtree (no framework, no
@@ -613,12 +693,13 @@ export function render(){
         '</div></div>'+
       '<div class="clockbox"><div class="clock" id="clockEl">'+clockStr(now)+'</div>'+
       '<div class="clockdate">'+longDate(now)+'</div>'+
-      '<div class="syncrow"><span class="syncdot '+syncDotClass()+'"></span>'+syncLabel()+offlineQueueBadgeHtml()+'</div></div>'+
+      '<div class="syncrow"><span class="syncdot '+syncDotClass()+'"></span>'+syncLabel()+offlineQueueBadgeHtml()+pollCountdownHtml(now)+'</div></div>'+
     '</div>'+
     (showTabs ? tabsHtml(visibleTrucks) : '<div class="dayheading">'+tr("todaysTrucks")+'</div>')+
     '<div class="kpis">'+kpiHtml(visibleTrucks, now)+'</div>'+
     searchRowHtml()+
     '<div class="list">'+listHtml(visibleTrucks, now)+'</div>'+
+    statusLegendHtml()+
     (ui.role === "admin" ? '<button class="fab" data-add="1" aria-label="'+tr("addTruckAria")+'">+</button>' : '')+
     sheetHtml(now)+
     roleGateHtml()+

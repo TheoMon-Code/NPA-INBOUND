@@ -151,6 +151,11 @@ textarea{font:inherit;color:inherit}
    action queue (js/offlineQueue.js) has anything waiting to go out --
    independent of whatever the last live call's status happened to be. */
 .queuebadge{background:rgba(244,197,99,.18);color:#F4C563;border-radius:8px;padding:1px 6px;margin-left:2px;font-weight:600}
+/* Visible "next refresh in…" countdown (Round 21) next to the sync dot --
+   text content itself is written/updated by JS (render.js for the first
+   paint, then ticking.js once a second, see the comment there), this rule
+   only handles how it looks. */
+.pollcountdown{margin-left:4px;opacity:.85;font-size:10px}
 
 /* tabs */
 /* Outer row (Round 13): the 3 quick tabs (yesterday/today/tomorrow) plus a
@@ -256,19 +261,85 @@ textarea{font:inherit;color:inherit}
 .card-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .card-id{font-family:"IBM Plex Mono";font-weight:600;font-size:14.5px}
 .pill{
-  font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;flex:none;
+  font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;flex:none;
   white-space:nowrap;
 }
-.pill.pending{background:var(--surface-3);color:var(--ink-dim)}
-.pill.urgent{background:var(--bad-soft);color:var(--bad)}
-.pill.scheduled{background:var(--brand-soft);color:var(--brand)}
-.pill.late{background:var(--bad-soft);color:var(--bad)}
-.pill.unloading{background:var(--warn-soft);color:var(--warn)}
-.pill.done{background:var(--good-soft);color:var(--good)}
-.pill.duesoon{background:var(--warn-soft);color:var(--warn)}
+/* Round 21: solid colored badges (white text on the status color itself)
+   instead of the previous soft-tint chips, closer to MON's Outbound admin
+   tool ("Loading"/"Shipped" etc.) -- same status->color mapping as .stripe
+   just above, kept as the single source of truth for which color means
+   what (see also .legendswatch, css class names line up on purpose). */
+.pill.pending{background:var(--ink-dim);color:#fff}
+.pill.urgent{background:var(--bad);color:#fff}
+.pill.scheduled{background:var(--brand);color:#fff}
+.pill.late{background:var(--bad);color:#fff}
+.pill.unloading{background:var(--warn);color:#fff}
+.pill.done{background:var(--good);color:#fff}
+.pill.duesoon{background:var(--accent);color:#fff}
 .card-carrier{font-size:13.5px;font-weight:600;margin-top:4px;color:var(--ink)}
 .card-meta{font-size:11.5px;color:var(--ink-dim);margin-top:3px;display:flex;gap:6px;flex-wrap:wrap}
 .card-meta span:not(:last-child)::after{content:"·";margin-left:6px;color:var(--line-strong)}
+
+/* Round 21 -- table view of the day's trucks for a wide (desktop/web)
+   screen, alongside the existing card view for a phone. Both markups are
+   always in the DOM (see listHtml()/listTableHtml() in js/render.js); which
+   one is actually visible is decided purely here, by viewport width, so a
+   phone never pays for or renders the denser table layout. `display:contents`
+   on .list-cards below the breakpoint makes it "disappear" as a box so its
+   children (the .card buttons + the "end of list" line) become direct flex
+   items of .list, exactly as if this wrapper div didn't exist -- meaning
+   the original card layout/spacing needed zero changes to make room for
+   this. */
+.list-cards{display:contents}
+.list-table{display:none}
+@media (min-width:760px){
+  .list-cards{display:none}
+  .list-table{
+    display:block; background:var(--surface); border:1px solid var(--line);
+    border-radius:var(--radius); overflow:hidden; box-shadow:0 1px 3px var(--shadow);
+  }
+}
+.trucktable{width:100%;border-collapse:collapse;font-size:13px}
+.trucktable thead th{
+  text-align:left;font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;
+  color:var(--ink-faint);padding:10px 14px;border-bottom:1px solid var(--line);
+  background:var(--surface-2);white-space:nowrap;
+}
+.trucktable tbody td{padding:9px 14px;border-bottom:1px solid var(--line);vertical-align:middle;color:var(--ink)}
+.trucktable tbody td.mono{font-weight:600}
+.trucktable tbody tr.truckrow{cursor:pointer;transition:background .15s}
+.trucktable tbody tr.truckrow:hover{background:var(--surface-2)}
+.trucktable tbody tr.truckrow:active{background:var(--surface-3)}
+.trucktable tbody tr.truckrow:last-child td{border-bottom:none}
+
+/* Round 21 -- collapsed-by-default legend explaining each status color,
+   closer to MON's Outbound admin tool (which shows one, always open, at the
+   foot of its order list) -- kept collapsible here so it costs a driver
+   nothing on a phone screen until they actually tap it open. */
+.statuslegend{
+  margin:14px 16px 0;padding:12px 14px;background:var(--surface);
+  border:1px solid var(--line);border-radius:var(--radius);
+}
+.statuslegend summary{
+  font-size:12.5px;font-weight:700;color:var(--ink-dim);cursor:pointer;
+  list-style:none;-webkit-tap-highlight-color:transparent;
+}
+.statuslegend summary::-webkit-details-marker{display:none}
+.statuslegend[open] summary{margin-bottom:10px}
+.legendgrid{display:grid;grid-template-columns:1fr;gap:10px}
+@media (min-width:520px){.legendgrid{grid-template-columns:1fr 1fr}}
+.legendrow{display:flex;align-items:flex-start;gap:8px}
+.legendswatch{width:12px;height:12px;border-radius:4px;flex:none;margin-top:2px}
+.legendswatch.pending{background:var(--ink-dim)}
+.legendswatch.urgent{background:var(--bad)}
+.legendswatch.scheduled{background:var(--brand)}
+.legendswatch.duesoon{background:var(--accent)}
+.legendswatch.late{background:var(--bad)}
+.legendswatch.unloading{background:var(--warn)}
+.legendswatch.done{background:var(--good)}
+.legendtext{display:flex;flex-direction:column;gap:1px}
+.legendtext b{font-size:12.5px}
+.legendtext span{font-size:11px;color:var(--ink-dim)}
 
 /* fab */
 .fab{

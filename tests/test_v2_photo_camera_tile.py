@@ -73,7 +73,13 @@ async def handle(route, request):
 async def main():
     async with async_playwright() as p:
         browser = await p.chromium.launch(executable_path=os.environ.get("PLAYWRIGHT_CHROMIUM_PATH") or None)
-        page = await browser.new_page()
+        # Explicit phone-width viewport -- Playwright's own default
+        # (1280x720) is wide enough to trigger the wide-screen table view
+        # added in Round 21 (>=760px, see css/app.css), under which .card
+        # is intentionally not the visible markup. Not a bug in the app;
+        # this test is about something else and just needs pinning down
+        # to the card view like every other suite here.
+        page = await browser.new_page(viewport={"width":390,"height":800})
         await page.route(re.compile(r"wezkonqnlkmkthbfimai\.supabase\.co.*"), handle)
 
         page.on("console", lambda msg: print("CONSOLE:", msg.type, msg.text))

@@ -88,7 +88,18 @@ export const ui = {
   // isn't actually gone yet, so an accidental delete (or a change of mind)
   // can still be undone.
   pendingDeleteId: null,
-  pendingDeleteLabel: null
+  pendingDeleteLabel: null,
+  // Timestamp (ms) of the next scheduled Supabase poll (see main.js's
+  // setInterval), shown as a live countdown next to the sync dot (Round 21
+  // -- a manager compared this app to MON's Outbound admin tool, which
+  // shows its own auto-refresh countdown). Updated directly by tick() every
+  // second (js/ticking.js), the same lightweight pattern already used for
+  // the header clock and an open truck's live "unloading" timer, rather
+  // than through a full render() -- a full render every single second would
+  // reintroduce the "violent refresh" problem fixed in Round 11. Stays null
+  // (and the countdown simply isn't shown) in local-only mode, where there's
+  // no poll to count down to.
+  nextPollAt: null
 };
 ui.roleGateOpen = !ui.role;
 

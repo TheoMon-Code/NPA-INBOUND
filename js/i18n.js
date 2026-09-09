@@ -203,7 +203,27 @@ export const STRINGS = {
   truckDeletedUndo:{en:"{label} deleted — tap Undo to restore.",th:"ลบ {label} แล้ว — แตะ \"ยกเลิก\" เพื่อกู้คืน"},
   undo:{en:"Undo",th:"ยกเลิก"},
   reportExportCsvBtn:{en:"Export CSV",th:"ส่งออกเป็น CSV"},
-  reportExportFailed:{en:"Export failed: {err}",th:"ส่งออกไม่สำเร็จ: {err}"}
+  reportExportFailed:{en:"Export failed: {err}",th:"ส่งออกไม่สำเร็จ: {err}"},
+  // Round 21: visually closer to MON's Outbound admin tool -- a visible
+  // auto-refresh countdown, solid colored status badges (CSS only, no new
+  // keys needed there), a collapsible status legend, and a table view of
+  // the same day's trucks for wide/desktop screens.
+  nextRefreshAria:{en:"Time until the next automatic refresh",th:"เวลาจนกว่าจะรีเฟรชอัตโนมัติครั้งถัดไป"},
+  legendTitle:{en:"Status Legend",th:"คำอธิบายสถานะ"},
+  legendDueSoonTitle:{en:"Due soon",th:"ใกล้ถึงเวลา"},
+  legendDesc_pending:{en:"No arrival time set yet.",th:"ยังไม่ได้ระบุเวลาเข้า"},
+  legendDesc_urgent:{en:"The date has arrived and there's still no ETA — needs one now.",th:"ถึงวันแล้วแต่ยังไม่มี ETA — ต้องระบุด่วน"},
+  legendDesc_scheduled:{en:"On schedule, hasn't arrived yet.",th:"เป็นไปตามกำหนดการ ยังไม่ถึงเวลา"},
+  legendDesc_duesoon:{en:"Arriving within 15 minutes.",th:"จะมาถึงภายใน 15 นาที"},
+  legendDesc_late:{en:"Past its scheduled arrival time.",th:"เลยเวลาที่กำหนดไว้แล้ว"},
+  legendDesc_unloading:{en:"Currently being unloaded.",th:"กำลังขนถ่ายอยู่"},
+  legendDesc_done:{en:"Unloading finished.",th:"ขนถ่ายเสร็จสิ้นแล้ว"},
+  tableColStatus:{en:"Status",th:"สถานะ"},
+  tableColPo:{en:"PO / Ref",th:"PO / อ้างอิง"},
+  tableColCarrier:{en:"Carrier",th:"ผู้ขนส่ง"},
+  tableColPlant:{en:"Plant",th:"โรงงาน"},
+  tableColDate:{en:"Date",th:"วันที่"},
+  tableColLots:{en:"Lots",th:"ล็อต"}
 };
 
 export function tr(key){

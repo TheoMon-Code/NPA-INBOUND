@@ -47,6 +47,18 @@ export function tick(){
       liveTimer.textContent = fmtElapsed(new Date() - new Date(t.startedAt));
     }
   }
+  // Visible "next refresh" countdown (Round 21), updated directly every
+  // second like the two timers above -- deliberately NOT routed through the
+  // once-every-15-ticks render() below, which would make the countdown
+  // itself the thing forcing a full re-render every second (undoing the
+  // whole reason Round 11 moved to a periodic-only refresh in the first
+  // place). ui.nextPollAt is null in local-only mode (see main.js), so the
+  // element (rendered only when Supabase is enabled, see render.js) is
+  // simply absent and this is a no-op.
+  var pollEl = document.getElementById("pollCountdownEl");
+  if(pollEl && ui.nextPollAt != null){
+    pollEl.textContent = fmtElapsed(ui.nextPollAt - Date.now());
+  }
   if(!isInputSheetOpen() && count % 15 === 0){
     render();
   }

@@ -49,7 +49,14 @@ async def handle(route, request):
 async def main():
     async with async_playwright() as p:
         browser = await p.chromium.launch(executable_path=os.environ.get("PLAYWRIGHT_CHROMIUM_PATH") or None)
-        page = await browser.new_page()
+        # Explicit phone-width viewport (matching every other suite here) --
+        # this test is about the periodic-refresh guard, not screen width,
+        # but Playwright's own default viewport (1280x720) is wide enough to
+        # trigger the new wide-screen table view (Round 21, >=760px, see
+        # css/app.css), under which .card is intentionally not the visible
+        # markup. Not a bug in the app; just needed pinning down here like
+        # everywhere else so this test keeps exercising the card view.
+        page = await browser.new_page(viewport={"width":390,"height":800})
         page.on("pageerror", lambda exc: print("PAGEERROR:", exc))
         await page.route(re.compile(r"wezkonqnlkmkthbfimai\.supabase\.co.*"), handle)
 
