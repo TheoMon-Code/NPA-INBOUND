@@ -8,6 +8,11 @@ import { ROLE_KEY, LANG_KEY, NAME_KEY, DATA_KEY, PLANT_KEY, DEFAULT_PLANT, OFFLI
 
 export function loadRole(){ try{ return localStorage.getItem(ROLE_KEY); }catch(e){ return null; } }
 export function saveRoleLocal(r){ try{ localStorage.setItem(ROLE_KEY, r); }catch(e){} }
+// Logout (manual "🚪" button or the inactivity timer, see actions.js's
+// logout()) clears the stored role outright rather than saving a null/empty
+// value in its place -- loadRole() above then returns null on the next
+// render, same as a device that has never picked a role at all.
+export function clearRoleLocal(){ try{ localStorage.removeItem(ROLE_KEY); }catch(e){} }
 
 /* Most of the floor staff read Thai only, so Thai is the default; management
    can switch to English with the small EN/TH pill in the header. Not a
