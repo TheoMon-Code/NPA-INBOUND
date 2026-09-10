@@ -13,7 +13,7 @@ import {
   sbDeleteTruck, sbUploadPhoto, sbDeletePhoto, loadFromSupabase,
   sbSaveAppSettings
 } from "./api.js";
-import { loadSavedName, saveNameLocal, saveLocalData, saveRoleLocal } from "./storage.js";
+import { loadSavedName, saveNameLocal, saveLocalData, saveRoleLocal, clearRoleLocal } from "./storage.js";
 import { render } from "./render.js";
 import { buzz, readAndCompressImage } from "./photoUtils.js";
 import { enqueueOfflineAction } from "./offlineQueue.js";
@@ -120,6 +120,27 @@ export function focusPin(){
     var el = document.getElementById("pinInput");
     if(el){ el.value = ""; el.focus(); }
   }, 30);
+}
+/* Round 25 follow-up: "un bouton pour logout manuellement ca peut etre
+   utile" (Theo, alongside the 30-minute inactivity auto-logout in
+   ticking.js's tick(), which calls this same function). Unlike the
+   "switch role" button (data-role-switch in events.js), which just opens
+   the role-gate overlay while leaving the CURRENT role valid until a new
+   one is actually picked, this clears the role outright -- whoever's next
+   at this device must re-enter a PIN before anything role-gated is visible
+   again. Shared cleanup with closeSheet() above so no sheet/overlay is left
+   half-open behind the role gate. */
+export function logout(){
+  ui.role = null;
+  clearRoleLocal();
+  ui.roleGateOpen = true;
+  ui.roleGateStep = "choose";
+  ui.roleGateError = null;
+  ui.openId = null; ui.addOpen = false; ui.pinSettingsOpen = false;
+  ui.nameSettingsOpen = false; ui.importOpen = false; ui.reportOpen = false;
+  ui.settingsOpen = false; ui.settingsError = null;
+  ui.confirmDelete = null; ui.photoViewer = null;
+  render();
 }
 // Round 25: three roles now sit behind a PIN (Admin MON, Admin MON IT,
 // Nestlé) instead of just Admin -- each with its own code in state (see
