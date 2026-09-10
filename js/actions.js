@@ -121,11 +121,28 @@ export function focusPin(){
     if(el){ el.value = ""; el.focus(); }
   }, 30);
 }
+// Round 25: three roles now sit behind a PIN (Admin MON, Admin MON IT,
+// Nestlé) instead of just Admin -- each with its own code in state (see
+// state.js's DEFAULT_STATE / migration). This maps a role string to the
+// state field that holds its PIN, used by both submitPin() (checking the
+// PIN just typed) and savePin() (changing the PIN for whichever role is
+// currently logged in).
+function pinFieldForRole(role){
+  if(role === "admin_it") return "adminItCode";
+  if(role === "nestle") return "nestleCode";
+  return "adminMonCode";
+}
 export function submitPin(){
   var el = document.getElementById("pinInput");
   var v = el ? el.value : "";
-  if(v && v === state.adminCode){
-    pickRole("admin");
+  // roleGateStep is set generically by events.js from whichever
+  // data-role-step button was tapped (roleGateHtml() in render.js) -- "pin"
+  // is Admin MON (unchanged since Round 14, for backward compatibility),
+  // "pin_it" is Admin MON IT, "pin_nestle" is Nestlé.
+  var role = ui.roleGateStep === "pin_it" ? "admin_it" : ui.roleGateStep === "pin_nestle" ? "nestle" : "admin";
+  var field = pinFieldForRole(role);
+  if(v && v === state[field]){
+    pickRole(role);
   } else {
     ui.roleGateError = tr("incorrectPin");
     render();
@@ -136,10 +153,11 @@ export function savePin(){
   var cur = (document.getElementById("pin-current")||{}).value || "";
   var next = (document.getElementById("pin-new")||{}).value || "";
   var confirm = (document.getElementById("pin-confirm")||{}).value || "";
-  if(cur !== state.adminCode){ ui.pinSettingsError = tr("pinErrCurrent"); render(); return; }
+  var field = pinFieldForRole(ui.role);
+  if(cur !== state[field]){ ui.pinSettingsError = tr("pinErrCurrent"); render(); return; }
   if(!next || next.length < 6){ ui.pinSettingsError = tr("pinErrLength"); render(); return; }
   if(next !== confirm){ ui.pinSettingsError = tr("pinErrMismatch"); render(); return; }
-  persist(function(){ state.adminCode = next; });
+  persist(function(){ state[field] = next; });
   ui.pinSettingsOpen = false;
   showToast(tr("pinUpdatedToast"));
 }
