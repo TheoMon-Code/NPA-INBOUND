@@ -92,6 +92,9 @@ export const STRINGS = {
   incorrectPin:{en:"Incorrect PIN. Try again.",th:"รหัส PIN ไม่ถูกต้อง กรุณาลองอีกครั้ง"},
   unlockAdmin:{en:"Unlock Admin",th:"ปลดล็อกแอดมิน"},
   unlockBtn:{en:"Unlock",th:"ปลดล็อก"},
+  // Round 25 follow-up: manual logout button + 30-minute inactivity
+  // auto-logout (see actions.js's logout(), ticking.js's tick()).
+  logoutAria:{en:"Log out",th:"ออกจากระบบ"},
   back:{en:"Back",th:"ย้อนกลับ"},
   whoUsingDevice:{en:"Who's using this device?",th:"ใครกำลังใช้เครื่องนี้?"},
   chooseRoleSub:{en:"Choose a role for this phone. You can switch it later from the header.",th:"เลือกบทบาทสำหรับเครื่องนี้ เปลี่ยนภายหลังได้จากด้านบน"},
