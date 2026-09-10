@@ -30,23 +30,46 @@ function loadJSZip(){
 }
 
 // Round 24: Theo asked that a downloaded photo's filename lead with the
-// truck's date, then its scheduled time, then the PO -- easier to sort/scan
-// once photos from several trucks end up side by side outside the app (a
-// downloads folder, an email attachment) than the previous "PO first" naming
-// (still used, unchanged, for the file's actual name in Supabase Storage --
-// this only renames the copy that lands in the zip). Falls back to
-// placeholders when a truck has no ETA yet (still possible right up until a
-// truck is marked "Done") rather than producing a name with a bare colon or
-// trailing underscore.
+// truck's date, then its scheduled time, then the PO. First pass only
+// renamed the photos INSIDE the zip and left the zip's own file name as just
+// the PO -- Theo pointed out (with a screenshot of his download history
+// showing "4563867496-photos.zip") that he meant the outer zip's name too,
+// not just its contents. Both now share the same "<date>_<time>_<label>"
+// prefix (dateTimePrefix() below) -- the zip is
+// "<date>_<time>_<label>-photos.zip", each photo inside it
+// "<date>_<time>_<label>-<NN>.<ext>" with a zero-padded index (see
+// zipEntryName() below -- also added on Theo's request, so the photos sort
+// correctly and the scheme stays correct how ever many photos get added).
+// Falls back to placeholders when a truck has no ETA yet (still possible
+// right up until a truck is marked "Done") rather than producing a name with
+// a bare colon or trailing underscore. The underlying Supabase Storage file
+// name (still PO-first, from Round 9) is untouched either way -- this only
+// affects what lands in the downloads folder.
 function extOf(storagePath){
   var m = /\.([A-Za-z0-9]+)$/.exec(storagePath || "");
   return m ? m[1] : "jpg";
 }
-function zipEntryName(truckDate, truckEta, truckLabel, index, storagePath){
+function dateTimePrefix(truckDate, truckEta){
   var datePart = truckDate || "no-date";
+  // ":" is invalid in a Windows file name (Theo's own use case, see Round
+  // 17.1 -- this app is also used from a Windows PC) -- "h" keeps the time
+  // readable without breaking on save.
   var timePart = truckEta ? truckEta.replace(":", "h") : "no-time";
+  return datePart + "_" + timePart;
+}
+function zipEntryName(truckDate, truckEta, truckLabel, index, storagePath, totalCount){
   var safeLabel = String(truckLabel || "truck").replace(/[^A-Za-z0-9_-]+/g, "-");
-  return datePart + "_" + timePart + "_" + safeLabel + "-" + (index + 1) + "." + extOf(storagePath);
+  // Theo asked (right after the outer-zip-name fix above) that each photo's
+  // own index also stay zero-padded ("-01", "-02"...) instead of "-1", "-2" --
+  // both so entries sort correctly as plain text (a file manager would
+  // otherwise list "-10" right after "-1", ahead of "-2") and so the naming
+  // "stays scalable" as more photos get added to a truck (MAX_PHOTOS_PER_TRUCK
+  // is 40 today, see config.js). Width is derived from how many photos are
+  // actually in THIS zip (minimum 2 digits) rather than hardcoded to 2, so it
+  // keeps sorting correctly even if that cap is ever raised past 99 later.
+  var width = Math.max(2, String(totalCount || 1).length);
+  var n = String(index + 1).padStart(width, "0");
+  return dateTimePrefix(truckDate, truckEta) + "_" + safeLabel + "-" + n + "." + extOf(storagePath);
 }
 
 /* truckLabel is used for both the outer zip's filename and (now, Round 24)
@@ -65,7 +88,7 @@ export function downloadTruckPhotos(truckId, photos, truckLabel, truckDate, truc
         if(!res.ok) throw new Error("http " + res.status);
         return res.blob();
       }).then(function(blob){
-        var name = zipEntryName(truckDate, truckEta, truckLabel, i, p.storagePath);
+        var name = zipEntryName(truckDate, truckEta, truckLabel, i, p.storagePath, list.length);
         zip.file(name, blob);
       }).catch(function(){ failedCount++; });
     });
@@ -77,7 +100,7 @@ export function downloadTruckPhotos(truckId, photos, truckLabel, truckDate, truc
         var a = document.createElement("a");
         a.href = url;
         var safeLabel = String(truckLabel || "truck").replace(/[^A-Za-z0-9_-]+/g, "-");
-        a.download = safeLabel + "-photos.zip";
+        a.download = dateTimePrefix(truckDate, truckEta) + "_" + safeLabel + "-photos.zip";
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
