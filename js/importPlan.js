@@ -335,35 +335,59 @@ function importParseSheet(sheetsData, sheetName){
   var colMap = importDetectColumnMap(aoa[headerIdx]);
   return { rows: importExtractRows(aoa.slice(headerIdx+1), colMap, sheetName, aoa[headerIdx]), error:null };
 }
-function importDedupeKey(poNo, date, eta, carrier){
+/* Core identity of a delivery *slot* — PO + date + time + carrier — with NO
+   product/qty in it. Used only to spot when several source rows share the
+   same slot, so they can be numbered "Truck 1", "Truck 2", ... (see
+   importGroupRows below). Deliberately NOT used anymore to decide "is this
+   row already imported" — see importRowKey(). */
+function importCoreKey(poNo, date, eta, carrier){
   return (poNo||"")+"|"+(date||"")+"|"+(eta||"")+"|"+String(carrier||"").trim().toLowerCase();
 }
-/* One physical truck can show up as several rows in the source file — same
-   PO + date + time + carrier, but a different line item ("รายการ") for each
-   product/lot it's carrying. Confirmed against a real "Incoming plan" file:
-   e.g. one PO with two rows, "รายการ" 10 and 20, same delivery slot. Grouping
-   by the same key already used for dedupe (rather than deduping row-by-row,
-   which used to keep only the first row of a group and silently drop the
-   rest as if they were duplicates) turns each such group into ONE truck
-   carrying a `lots` array, so nothing from those extra rows is lost. A
-   single-row group still produces a truck with a one-item `lots` array —
-   same shape either way, so the rest of the app only has to special-case
-   the "more than one lot" *display*, not the data model. */
+/* Full dedupe key for one row: core slot key + product/qty, so two distinct
+   trucks that happen to share a PO+date+time+carrier (see importGroupRows'
+   comment below) are never mistaken for the same already-imported row just
+   because they share that slot. Used both for rows freshly read from the
+   source file and for rows already sitting in Supabase (sbFetchTrucksInRange
+   now returns sku_no/details/qtt too, purely so this function can be applied
+   the same way on both sides). */
+function importRowKey(poNo, date, eta, carrier, skuNo, details, qtt){
+  return importCoreKey(poNo, date, eta, carrier)+"|"+
+    String(skuNo||"").trim().toLowerCase()+"|"+
+    String(details||"").replace(/\s+/g," ").trim().toLowerCase()+"|"+
+    String(qtt||"").trim().toLowerCase();
+}
+/* Round 26: MON confirmed (real "Incoming plan" rows for PO 4563895042, four
+   rows, four different products/quantities/line numbers, identical date+
+   time+carrier) that several rows sharing a PO+date+time+carrier are
+   genuinely SEPARATE trucks, not several lots on one truck — reversing the
+   Round 10 decision to merge them into a single truck with a `lots` array.
+   Every row is now its own truck. The only thing importCoreKey() is still
+   used for is counting: when more than one row in this file shares the same
+   slot, each gets a `truckLabel` ("<PO> - Truck 1", "- Truck 2", ...) in
+   file order, so they still read as related in the dashboard; a row that
+   doesn't share its slot with anything else gets no label at all, same as
+   before this change. */
 function importGroupRows(rows){
-  var order = [], byKey = {};
+  var coreCounts = {};
   rows.forEach(function(r){
-    var key = importDedupeKey(r.po_no, r.order_date, r.eta, r.carrier);
-    if(!byKey[key]){
-      byKey[key] = {
-        key: key,
-        carrier: r.carrier, po_no: r.po_no, order_date: r.order_date, eta: r.eta,
-        lots: []
-      };
-      order.push(byKey[key]);
-    }
-    byKey[key].lots.push({ details:r.details, qtt:r.qtt, sku_no:r.sku_no, remark:r.remark, raw:r.raw });
+    var ck = importCoreKey(r.po_no, r.order_date, r.eta, r.carrier);
+    coreCounts[ck] = (coreCounts[ck]||0) + 1;
   });
-  return order;
+  var seen = {};
+  return rows.map(function(r){
+    var ck = importCoreKey(r.po_no, r.order_date, r.eta, r.carrier);
+    var truckLabel = null;
+    if(coreCounts[ck] > 1){
+      seen[ck] = (seen[ck]||0) + 1;
+      truckLabel = (r.po_no || "PO") + " - Truck " + seen[ck];
+    }
+    return {
+      key: importRowKey(r.po_no, r.order_date, r.eta, r.carrier, r.sku_no, r.details, r.qtt),
+      truckLabel: truckLabel,
+      carrier: r.carrier, po_no: r.po_no, order_date: r.order_date, eta: r.eta,
+      details: r.details, qtt: r.qtt, sku_no: r.sku_no, remark: r.remark, raw: r.raw
+    };
+  });
 }
 
 export function handleImportFile(file){
@@ -438,17 +462,17 @@ export function runImportPreview(){
   return existingLookup.then(function(existingTrucks){
     var existingKeys = {};
     existingTrucks.forEach(function(t){
-      existingKeys[importDedupeKey(t.poNo, t.date, t.eta, t.carrier)] = true;
+      existingKeys[importRowKey(t.poNo, t.date, t.eta, t.carrier, t.skuNo, t.details, t.qtt)] = true;
     });
-    // Group first (see importGroupRows), so several source rows for the same
-    // physical truck become one entry with multiple lots, THEN dedupe against
-    // already-imported trucks — one skip decision per truck, not per row. A
-    // truck already imported has all of its rows (lots included) counted into
-    // dupeCount, same total-rows meaning the count had before grouping existed.
+    // Round 26: each source row is now its own truck (see importGroupRows) —
+    // one skip decision per row, keyed on the full product-aware
+    // importRowKey(), not just the PO+date+time+carrier slot (several rows
+    // can legitimately share that slot — see the comment above
+    // importGroupRows).
     var groups = importGroupRows(kept);
     var dupeCount = 0, toImport = [];
     groups.forEach(function(g){
-      if(existingKeys[g.key]){ dupeCount += g.lots.length; return; }
+      if(existingKeys[g.key]){ dupeCount++; return; }
       toImport.push(g);
     });
     toImport.sort(function(a,b){
@@ -475,29 +499,26 @@ export function runImportConfirm(){
   var r = ui.importResult;
   if(!r || !r.toImport.length) return;
   ui.importBusy = true; ui.syncStatus = "saving"; render();
-  // Each entry in r.toImport is now a *group* (one physical truck, possibly
-  // several lots — see importGroupRows). The top-level details/qtt/sku_no/
-  // remark/raw always mirror lots[0], so a single-lot truck (still the
-  // common case) is stored exactly as before; `lots` carries the full list
-  // and is what a multi-lot truck's detail sheet reads to show every lot,
-  // not just the first.
+  // Round 26: each entry in r.toImport is now its own truck (one source row
+  // = one truck — see importGroupRows), carrying its own details/qtt/sku_no/
+  // remark/raw directly, plus truck_label when it shares its PO+date+time+
+  // carrier slot with other rows in this file ("<PO> - Truck 2", ...).
   var rows = r.toImport.map(function(g, idx){
-    var primary = g.lots[0] || {};
     return {
       reference_id: "T-"+Date.now().toString(36).toUpperCase()+idx.toString(36).toUpperCase(),
       carrier: g.carrier, plant: (ui.importPlant || DEFAULT_PLANT), im_ex_tr: "IM",
-      po_no: g.po_no, sku_no: primary.sku_no, qtt: primary.qtt,
-      remark: primary.remark, details: primary.details,
+      po_no: g.po_no, sku_no: g.sku_no, qtt: g.qtt,
+      remark: g.remark, details: g.details,
       order_date: g.order_date,
       eta: g.eta ? (g.order_date+"T"+g.eta+":00") : null,
       truck_state: "pending",
-      raw: primary.raw || null, /* every source column, verbatim — see supabase-schema.sql */
-      lots: g.lots.length > 1 ? g.lots : null
+      raw: g.raw || null, /* every source column, verbatim — see supabase-schema.sql */
+      truck_label: g.truckLabel || null
     };
   });
-  var totalLots = r.toImport.reduce(function(sum,g){ return sum + g.lots.length; }, 0);
+  var labeledCount = rows.filter(function(rw){ return !!rw.truck_label; }).length;
   var CHUNK = 40, i = 0;
-  var rawColumnMissing = false, lotsColumnMissing = false;
+  var rawColumnMissing = false, truckLabelColumnMissing = false;
   function stripKeys(chunk, keys){
     return chunk.map(function(r2){
       var c = {};
@@ -515,9 +536,9 @@ export function runImportConfirm(){
         rawColumnMissing = true;
         return attemptInsert(stripKeys(chunk, ["raw"]));
       }
-      if(!lotsColumnMissing && isMissingColumnError(err, "lots")){
-        lotsColumnMissing = true;
-        return attemptInsert(stripKeys(chunk, ["lots"]));
+      if(!truckLabelColumnMissing && isMissingColumnError(err, "truck_label")){
+        truckLabelColumnMissing = true;
+        return attemptInsert(stripKeys(chunk, ["truck_label"]));
       }
       throw err;
     });
@@ -530,13 +551,13 @@ export function runImportConfirm(){
         importCtx = null;
         var msg = tr("importDoneToast").replace("{n}", rows.length);
         if(rawColumnMissing) msg += " " + tr("importRawColumnMissing");
-        if(lotsColumnMissing && totalLots > rows.length) msg += " " + tr("importLotsColumnMissing");
+        if(truckLabelColumnMissing && labeledCount > 0) msg += " " + tr("importTruckLabelColumnMissing");
         showToast(msg);
       });
     }
     var already = [];
     if(rawColumnMissing) already.push("raw");
-    if(lotsColumnMissing) already.push("lots");
+    if(truckLabelColumnMissing) already.push("truck_label");
     var chunk = stripKeys(rows.slice(i, i+CHUNK), already);
     i += CHUNK;
     return attemptInsert(chunk).then(next);
