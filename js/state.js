@@ -15,11 +15,22 @@ import { loadRole, loadLang, loadSavedPlant } from "./storage.js";
 import { todayKey, addDays } from "./dateUtils.js";
 import { supabaseEnabled } from "./api.js";
 
-const DEFAULT_STATE = { seq: 10, trucks: [], adminCode: "748231" };
+const DEFAULT_STATE = { seq: 10, trucks: [], adminMonCode: "748231", adminItCode: "913647", nestleCode: "205918" };
 
 const dataEl = document.getElementById("app-data");
 const initialState = dataEl ? JSON.parse(dataEl.textContent) : DEFAULT_STATE;
-if(initialState.adminCode == null) initialState.adminCode = "748231";
+// Round 25: the single shared "adminCode" became three separate PIN codes,
+// one per role (Admin MON / Admin MON IT / Nestlé) -- see actions.js's
+// submitPin()/savePin(). Any device that already had a custom (or default)
+// adminCode saved keeps working: its value carries over to adminMonCode
+// once, here, rather than silently locking that device's admin out.
+if(initialState.adminCode != null && initialState.adminMonCode == null){
+  initialState.adminMonCode = initialState.adminCode;
+}
+delete initialState.adminCode;
+if(initialState.adminMonCode == null) initialState.adminMonCode = "748231";
+if(initialState.adminItCode == null) initialState.adminItCode = "913647";
+if(initialState.nestleCode == null) initialState.nestleCode = "205918";
 
 export const state = initialState;
 
@@ -131,7 +142,13 @@ export const ui = {
   // sheets (pinSettingsOpen, importOpen, ...) above.
   settingsOpen: false,
   settingsError: null,
-  settingsBusy: false
+  settingsBusy: false,
+  // Round 25: bulk photo-archive download (Admin MON IT only, Reporting
+  // screen) -- true while every truck+photo in the picked date range is
+  // being fetched and zipped. Purely a busy/spinner flag, same shape as
+  // reportBusy/importBusy above; the archive itself never touches Supabase
+  // beyond reading, and never deletes anything (Theo: "ca supprimes rien").
+  archiveBusy: false
 };
 ui.roleGateOpen = !ui.role;
 
