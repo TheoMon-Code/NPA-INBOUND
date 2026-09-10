@@ -4,9 +4,11 @@
    re-render every ~15s so relative things (late minutes, elapsed time on
    cards not currently open) stay fresh — but never while an input sheet is
    open, so it can't wipe out something the admin/driver is mid-typing. */
-import { state, ui, incrementTickCount } from "./state.js";
+import { state, ui, incrementTickCount, lastActivityAt } from "./state.js";
 import { clockStr, fmtElapsed } from "./dateUtils.js";
 import { render, tvTick } from "./render.js";
+import { logout } from "./actions.js";
+import { INACTIVITY_LOGOUT_MS } from "./config.js";
 
 export function isInputSheetOpen(){
   // Any open truck sheet — regardless of role or the truck's current status
@@ -39,6 +41,20 @@ export function isInputSheetOpen(){
 }
 
 export function tick(){
+  // Round 25 follow-up: auto-logout after INACTIVITY_LOGOUT_MS (config.js,
+  // 30 minutes) with no click/keydown/input anywhere in the app -- see
+  // touchActivity() in state.js (called from every listener in events.js).
+  // Checked every tick (every second) rather than with its own setTimeout so
+  // it self-corrects immediately if the device's clock or the tab's
+  // background-throttling makes ticks land late, instead of drifting.
+  // Guarded on ui.role so this is a no-op for a device that hasn't picked a
+  // role yet (nothing to log out of) and for TV mode (which never sets
+  // ui.role at all -- see main.js). logout() itself clears ui.role, so this
+  // can't re-fire on the next tick once it's already happened.
+  if(ui.role && (Date.now() - lastActivityAt) >= INACTIVITY_LOGOUT_MS){
+    logout();
+    return;
+  }
   var count = incrementTickCount();
   var clockEl = document.getElementById("clockEl");
   if(clockEl) clockEl.textContent = clockStr(new Date());
