@@ -166,6 +166,32 @@ export function sbFetchTrucksInRange(fromDate, toDate){
   });
 }
 
+/* Round 25: backs the Admin MON IT-only "photo archive" button (Reporting
+   screen, see reportSheetHtml()/archiveBlockHtml() in render.js) --
+   deliberately its own query rather than reusing sbFetchTrucksForReport()
+   above (which doesn't embed photos at all) or loadFromSupabase() (which
+   embeds photos but is scoped to the +/-MAX_DAY_OFFSET display window, not
+   an arbitrary manager-picked range). Selects only what
+   downloadPhotosArchive() (js/photoDownload.js) needs to name each zip
+   entry -- nothing here writes anything, and nothing downstream of it
+   deletes anything either, per Theo's explicit "ca supprimes rien". */
+export function sbFetchTrucksForArchive(fromDate, toDate){
+  var q = "trucks?select=id,po_no,reference_id,order_date,eta,photos(id,url,storage_path)"+
+    "&order_date=gte."+fromDate+"&order_date=lte."+toDate+
+    "&order=order_date.asc,eta.asc.nullslast";
+  return sbRest(q).then(function(rows){
+    return (rows || []).map(function(row){
+      return {
+        id: row.id,
+        label: row.po_no || row.reference_id || row.id,
+        date: row.order_date || "",
+        eta: row.eta ? row.eta.slice(11,16) : null,
+        photos: (row.photos || []).map(function(p){ return { id:p.id, url:p.url, storagePath:p.storage_path }; })
+      };
+    });
+  });
+}
+
 /* Conditional update: only applies if the truck is still in fromState — this
    is what protects against two phones acting on the same truck at once (see
    README). An empty result means someone else changed it first: the caller
