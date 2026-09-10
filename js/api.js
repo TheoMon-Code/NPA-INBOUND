@@ -59,6 +59,7 @@ export function mapRowToTruck(row){
     plant: row.plant || "",
     imExTr: row.im_ex_tr || "",
     poNo: row.po_no || "",
+    truckLabel: row.truck_label || null,
     skuNo: row.sku_no || "",
     qtt: row.qtt || "",
     contNo: row.cont_no || "",
@@ -157,11 +158,18 @@ export function sbFetchTrucksForReport(fromDate, toDate){
    state.trucks or call render(), it just answers "what's already there for
    these dates" for the dedupe check. */
 export function sbFetchTrucksInRange(fromDate, toDate){
-  var q = "trucks?select=po_no,order_date,eta,carrier"+
+  // Round 26: sku_no/details/qtt added to the select (and returned below) so
+  // importPlan.js's dedupe check can tell apart several genuinely separate
+  // trucks that happen to share a PO+date+time+carrier slot, instead of
+  // matching on that slot alone -- see importRowKey() in importPlan.js.
+  var q = "trucks?select=po_no,order_date,eta,carrier,sku_no,details,qtt"+
     "&order_date=gte."+fromDate+"&order_date=lte."+toDate;
   return sbRest(q).then(function(rows){
     return (rows || []).map(function(row){
-      return { poNo: row.po_no || "", date: row.order_date || "", eta: row.eta ? row.eta.slice(11,16) : null, carrier: row.carrier || "" };
+      return {
+        poNo: row.po_no || "", date: row.order_date || "", eta: row.eta ? row.eta.slice(11,16) : null,
+        carrier: row.carrier || "", skuNo: row.sku_no || "", details: row.details || "", qtt: row.qtt || ""
+      };
     });
   });
 }
@@ -176,14 +184,14 @@ export function sbFetchTrucksInRange(fromDate, toDate){
    entry -- nothing here writes anything, and nothing downstream of it
    deletes anything either, per Theo's explicit "ca supprimes rien". */
 export function sbFetchTrucksForArchive(fromDate, toDate){
-  var q = "trucks?select=id,po_no,reference_id,order_date,eta,photos(id,url,storage_path)"+
+  var q = "trucks?select=id,po_no,truck_label,reference_id,order_date,eta,photos(id,url,storage_path)"+
     "&order_date=gte."+fromDate+"&order_date=lte."+toDate+
     "&order=order_date.asc,eta.asc.nullslast";
   return sbRest(q).then(function(rows){
     return (rows || []).map(function(row){
       return {
         id: row.id,
-        label: row.po_no || row.reference_id || row.id,
+        label: row.truck_label || row.po_no || row.reference_id || row.id,
         date: row.order_date || "",
         eta: row.eta ? row.eta.slice(11,16) : null,
         photos: (row.photos || []).map(function(p){ return { id:p.id, url:p.url, storagePath:p.storage_path }; })
