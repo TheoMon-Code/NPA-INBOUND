@@ -464,7 +464,7 @@ export function addPhotos(truckId, files){
   // Same identifier shown on the truck's card (PO number, falling back to
   // the generated reference/id) — passed through so each photo's filename
   // in Supabase Storage is recognizable, not just a random string.
-  var truckLabel = truck ? (truck.poNo || truck.ref || truck.id) : "";
+  var truckLabel = truck ? (truck.truckLabel || truck.poNo || truck.ref || truck.id) : "";
   var already = (truck && truck.photos) ? truck.photos.length : 0;
   var maxPhotos = getMaxPhotosPerTruck();
   var remaining = Math.max(0, maxPhotos - already);
