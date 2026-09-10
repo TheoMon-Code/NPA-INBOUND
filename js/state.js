@@ -154,3 +154,12 @@ ui.roleGateOpen = !ui.role;
 
 export let tickCount = 0;
 export function incrementTickCount(){ tickCount++; return tickCount; }
+
+// Round 25 follow-up: last time anyone actually interacted with the app
+// (click/keydown/input/change -- see events.js, which calls touchActivity()
+// at the top of each of its listeners), used by the inactivity auto-logout
+// in ticking.js's tick(). Deliberately NOT reset by the periodic Supabase
+// poll/render -- only a real interaction counts, otherwise a phone just
+// sitting on the counter polling every 15s would never be considered idle.
+export let lastActivityAt = Date.now();
+export function touchActivity(){ lastActivityAt = Date.now(); }
