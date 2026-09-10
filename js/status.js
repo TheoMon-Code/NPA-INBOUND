@@ -2,8 +2,13 @@
    A truck's displayed status is computed from its stored status + the
    current time (rather than stored directly), so "late" appears/disappears
    automatically as the clock ticks without any extra bookkeeping. */
-import { GRACE_MIN, DUE_SOON_MIN } from "./config.js";
 import { todayKey, dateTimeOf } from "./dateUtils.js";
+// Round 23: these two used to be fixed config.js constants; now an Admin can
+// adjust them at runtime from the app settings screen (js/settings.js), so
+// every place that used to read GRACE_MIN/DUE_SOON_MIN directly now calls the
+// getter instead — same value by default (settings.js falls back to those
+// exact constants until an Admin overrides them), just no longer hard-coded.
+import { getGraceMin, getDueSoonMin } from "./settings.js";
 
 export function derive(t, now){
   if(t.status === "done") return "done";
@@ -13,7 +18,7 @@ export function derive(t, now){
   }
   if(t.date === todayKey()){
     var eta = dateTimeOf(t.date, t.eta);
-    if(now.getTime() > eta.getTime() + GRACE_MIN*60000) return "late";
+    if(now.getTime() > eta.getTime() + getGraceMin()*60000) return "late";
   }
   return "scheduled";
 }
@@ -30,7 +35,7 @@ export function isDueSoon(t, now){
   if(derive(t, now) !== "scheduled") return false;
   var eta = dateTimeOf(t.date, t.eta);
   var diffMin = (eta.getTime() - now.getTime()) / 60000;
-  return diffMin >= 0 && diffMin <= DUE_SOON_MIN;
+  return diffMin >= 0 && diffMin <= getDueSoonMin();
 }
 
 export function lateMinutes(t, now){

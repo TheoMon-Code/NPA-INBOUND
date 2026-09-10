@@ -7,16 +7,21 @@
    Supabase afterwards so every phone stays consistent. */
 import { pad2, addDays, todayKey } from "./dateUtils.js";
 import { tr } from "./i18n.js";
-import { MAX_PHOTOS_PER_TRUCK, UNDO_DELETE_MS } from "./config.js";
 import { state, ui } from "./state.js";
 import {
   supabaseEnabled, sbRest, sbPatchTruckConditional, sbCreateTruck,
-  sbDeleteTruck, sbUploadPhoto, sbDeletePhoto, loadFromSupabase
+  sbDeleteTruck, sbUploadPhoto, sbDeletePhoto, loadFromSupabase,
+  sbSaveAppSettings
 } from "./api.js";
 import { loadSavedName, saveNameLocal, saveLocalData, saveRoleLocal } from "./storage.js";
 import { render } from "./render.js";
 import { buzz, readAndCompressImage } from "./photoUtils.js";
 import { enqueueOfflineAction } from "./offlineQueue.js";
+// Round 23: these two used to be plain config.js constants -- now
+// admin-adjustable at runtime (see js/settings.js), so both call sites below
+// read the live getter instead. SETTINGS_DEFS/setSettingsOverrides back the
+// new app settings screen at the bottom of this file.
+import { getMaxPhotosPerTruck, getUndoDeleteMs, SETTINGS_DEFS, setSettingsOverrides } from "./settings.js";
 
 /* ---------- toast + persistence plumbing ---------- */
 export function showToast(msg, sticky){
@@ -90,7 +95,8 @@ export function openSheet(id){ ui.openId = id; ui.addOpen = false; ui.confirmDel
 export function closeSheet(){
   ui.openId = null; ui.addOpen = false; ui.pinSettingsOpen = false;
   ui.nameSettingsOpen = false; ui.importOpen = false; ui.reportOpen = false;
-  ui.confirmDelete = null;
+  ui.settingsOpen = false; ui.settingsError = null;
+  ui.confirmDelete = null; ui.photoViewer = null;
   render();
 }
 export function openAdd(){
@@ -330,7 +336,7 @@ export function deleteTruck(id){
   ui.pendingDeleteLabel = t ? (t.poNo || t.ref || id) : id;
   render();
   clearTimeout(pendingDeleteTimer);
-  pendingDeleteTimer = setTimeout(function(){ commitDelete(id); }, UNDO_DELETE_MS);
+  pendingDeleteTimer = setTimeout(function(){ commitDelete(id); }, getUndoDeleteMs());
 }
 function commitDelete(id){
   ui.pendingDeleteId = null; ui.pendingDeleteLabel = null;
@@ -421,11 +427,12 @@ export function addPhotos(truckId, files){
   // in Supabase Storage is recognizable, not just a random string.
   var truckLabel = truck ? (truck.poNo || truck.ref || truck.id) : "";
   var already = (truck && truck.photos) ? truck.photos.length : 0;
-  var remaining = Math.max(0, MAX_PHOTOS_PER_TRUCK - already);
+  var maxPhotos = getMaxPhotosPerTruck();
+  var remaining = Math.max(0, maxPhotos - already);
   var accepted = list.slice(0, remaining);
   var skippedCount = list.length - accepted.length;
   if(!accepted.length){
-    showToast(tr("photosLimitReached").replace("{max}", MAX_PHOTOS_PER_TRUCK));
+    showToast(tr("photosLimitReached").replace("{max}", maxPhotos));
     return;
   }
   showToast(tr("uploadingPhoto"), true);
@@ -436,7 +443,7 @@ export function addPhotos(truckId, files){
         ? tr("photosUploadedMulti").replace("{n}", accepted.length)
         : tr("photoUploaded");
       if(skippedCount > 0){
-        msg += " " + tr("photosLimitSkipped").replace("{n}", skippedCount).replace("{max}", MAX_PHOTOS_PER_TRUCK);
+        msg += " " + tr("photosLimitSkipped").replace("{n}", skippedCount).replace("{max}", maxPhotos);
       }
       showToast(msg);
       return Promise.resolve();
@@ -464,4 +471,86 @@ export function saveName(){
   saveNameLocal(nameVal.trim());
   ui.nameSettingsOpen = false;
   showToast(tr("nameSavedToast"));
+}
+
+/* ---------- fullscreen photo viewer (Round 23) ----------
+   Replaces the old "open the raw Storage URL in a new browser tab" behaviour
+   (target="_blank" on the thumbnail, since Round 5) with an in-app overlay
+   that can step through every other photo on the same truck and zoom in --
+   without ever leaving the app, so a manager reviewing damage photos doesn't
+   lose their place in the sheet behind a new tab. */
+export function openPhotoViewer(truckId, index){
+  ui.photoViewer = { truckId: truckId, index: index || 0, zoomed: false };
+  render();
+}
+export function closePhotoViewer(){
+  ui.photoViewer = null;
+  render();
+}
+/* Wraps in both directions (last photo -> next goes to the first, and back)
+   rather than stopping at the ends -- with the prev/next arrows only shown
+   at all when there's more than one photo (see photoViewerHtml() in
+   render.js), a truck with exactly 2 photos would otherwise need "prev" to
+   do nothing at photo 1, which reads as broken rather than intentional. */
+export function photoViewerStep(delta){
+  if(!ui.photoViewer) return;
+  var t = findTruck(ui.photoViewer.truckId);
+  var photos = (t && t.photos) || [];
+  if(!photos.length) return;
+  var n = photos.length;
+  ui.photoViewer.index = ((ui.photoViewer.index + delta) % n + n) % n;
+  ui.photoViewer.zoomed = false;
+  render();
+}
+export function togglePhotoZoom(){
+  if(!ui.photoViewer) return;
+  ui.photoViewer.zoomed = !ui.photoViewer.zoomed;
+  render();
+}
+
+/* ---------- admin settings screen (Round 23) ----------
+   Reads every SETTINGS_DEFS input by id (see settingsSheetHtml() in
+   render.js, which names each one "setting-<key>"), validates it's a real
+   number within that setting's range, converts it back from display units
+   to stored units (only undoDeleteMs differs -- seconds on screen,
+   milliseconds everywhere else, see settings.js), and either saves it to the
+   shared Supabase row (every device converges within one poll cycle, see
+   api.js/main.js) or, in local-only mode where there's no shared backend to
+   write to, just applies it for this browser's current session and says so
+   rather than pretending it was saved for everyone. */
+export function saveAppSettings(){
+  var vals = {};
+  var invalid = false;
+  SETTINGS_DEFS.forEach(function(defn){
+    var el = document.getElementById("setting-"+defn.key);
+    var raw = el ? parseInt(el.value, 10) : NaN;
+    if(!isFinite(raw) || raw < defn.min || raw > defn.max){ invalid = true; return; }
+    vals[defn.key] = raw * defn.divisor;
+  });
+  if(invalid){
+    ui.settingsError = tr("settingsErrRange");
+    render();
+    return;
+  }
+  ui.settingsError = null;
+  if(!supabaseEnabled()){
+    setSettingsOverrides(vals);
+    ui.settingsOpen = false;
+    render();
+    showToast(tr("settingsSavedLocalOnly"));
+    return;
+  }
+  ui.settingsBusy = true;
+  render();
+  sbSaveAppSettings(vals).then(function(){
+    setSettingsOverrides(vals);
+    ui.settingsBusy = false;
+    ui.settingsOpen = false;
+    render();
+    showToast(tr("settingsSaved"));
+  }).catch(function(err){
+    ui.settingsBusy = false;
+    ui.settingsError = (err && err.message) || tr("settingsSaveFailed");
+    render();
+  });
 }

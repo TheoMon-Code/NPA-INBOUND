@@ -5,13 +5,15 @@
    split-out modules instead of local closures. */
 import { ui } from "./state.js";
 import { render } from "./render.js";
-import { MAX_DAY_OFFSET } from "./config.js";
+import { getMaxDayOffset } from "./settings.js";
 import { saveLangLocal } from "./storage.js";
 import {
   pickRole, submitPin, focusPin, savePin, saveName,
   openSheet, openAdd, closeSheet, saveEta, startUnload, finishUnload,
   cancelUnload, reopenUnload, deleteTruck, undoDeleteTruck, createTruck,
-  addPhotos, removePhoto, saveDamageRemark, findTruck
+  addPhotos, removePhoto, saveDamageRemark, findTruck,
+  openPhotoViewer, closePhotoViewer, photoViewerStep, togglePhotoZoom,
+  saveAppSettings
 } from "./actions.js";
 import { openImportPlan, runImportPreview, runImportConfirm, handleImportFile } from "./importPlan.js";
 import { openReport, runReport, exportReportCsv } from "./reporting.js";
@@ -47,6 +49,11 @@ export function initEvents(){
       ui.nameSettingsOpen = true;
       ui.openId = null; ui.addOpen = false; render(); return;
     }
+    if(el.closest("[data-open-app-settings]")){
+      ui.settingsOpen = true; ui.settingsError = null;
+      ui.openId = null; ui.addOpen = false; render(); return;
+    }
+    if(el.closest("[data-save-settings]")){ saveAppSettings(); return; }
     if(el.closest("[data-open-import]")){ openImportPlan(); return; }
     if(el.closest("[data-open-report]")){ openReport(); return; }
     if(el.closest("[data-run-report]")){ runReport(); return; }
@@ -99,6 +106,19 @@ export function initEvents(){
       removePhoto(photoRmEl.getAttribute("data-photo-remove"), photoRmEl.getAttribute("data-photo-path"));
       return;
     }
+    // Fullscreen photo viewer (Round 23) -- data-view-photo sits on the
+    // thumbnail button itself (see photosHtml() in render.js); the small
+    // admin-only remove "✕" is a sibling, not a descendant, of that button,
+    // so tapping it can never also open the viewer.
+    var viewPhotoEl = el.closest("[data-view-photo]");
+    if(viewPhotoEl){
+      openPhotoViewer(viewPhotoEl.getAttribute("data-view-photo"), parseInt(viewPhotoEl.getAttribute("data-view-index"), 10) || 0);
+      return;
+    }
+    if(el.closest("[data-photo-viewer-close]")){ closePhotoViewer(); return; }
+    if(el.closest("[data-photo-viewer-prev]")){ photoViewerStep(-1); return; }
+    if(el.closest("[data-photo-viewer-next]")){ photoViewerStep(1); return; }
+    if(el.closest("[data-photo-viewer-zoom]")){ togglePhotoZoom(); return; }
     var downloadPhotosEl = el.closest("[data-download-photos]");
     if(downloadPhotosEl){
       var dpTruck = findTruck(downloadPhotosEl.getAttribute("data-download-photos"));
@@ -121,8 +141,9 @@ export function initEvents(){
     var dayNavEl = el.closest("[data-day-nav]");
     if(dayNavEl){
       var delta = parseInt(dayNavEl.getAttribute("data-day-nav"), 10);
+      var maxOffset = getMaxDayOffset();
       var next = ui.dayOffset + delta;
-      ui.dayOffset = Math.max(-MAX_DAY_OFFSET, Math.min(MAX_DAY_OFFSET, next));
+      ui.dayOffset = Math.max(-maxOffset, Math.min(maxOffset, next));
       render();
       return;
     }
@@ -140,8 +161,24 @@ export function initEvents(){
     }
   });
 
-  app.addEventListener("keydown", function(e){
+  // Round 23: attached to window, not `app` -- the photo viewer's own image
+  // is deliberately clickable (tap-to-zoom) but isn't a focusable element,
+  // and clicking a non-focusable element moves focus to <body> (outside
+  // #app) in every browser tested. An `app`-scoped listener would then stop
+  // seeing key presses the instant someone zoomed a photo, which defeats the
+  // very desktop-keyboard use case the comment below is about. Every branch
+  // already checks its own ui.xxx flag before acting, so listening on the
+  // whole window is exactly as safe and never fires when it shouldn't.
+  window.addEventListener("keydown", function(e){
     if(e.key === "Enter" && e.target && e.target.id === "pinInput"){ submitPin(); }
+    // Photo viewer (Round 23) -- a manager reviewing photos on a desktop
+    // (see Round 17.1: this app is also used from a Windows PC, not just a
+    // phone) will reach for the keyboard before tapping tiny arrow buttons.
+    if(ui.photoViewer){
+      if(e.key === "Escape"){ closePhotoViewer(); }
+      else if(e.key === "ArrowLeft"){ photoViewerStep(-1); }
+      else if(e.key === "ArrowRight"){ photoViewerStep(1); }
+    }
   });
 
   // Separate from the "change" listener below (which only fires on

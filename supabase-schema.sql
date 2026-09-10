@@ -79,10 +79,27 @@ create table if not exists public.photos (
 );
 create index if not exists photos_truck_id_idx on public.photos(truck_id);
 
+-- ---------- shared admin settings (Round 23) ----------
+-- One row (id=1) holding every threshold an Admin can adjust from the app's
+-- new settings screen (grace period before "Late", photo cap per truck, the
+-- day-nav range, the "due soon" window, the undo-delete window) as a single
+-- jsonb blob keyed by js/settings.js's own setting names — so adding a 6th
+-- adjustable setting later never needs another migration here, just a new
+-- key inside that same jsonb value. If this table doesn't exist yet on a
+-- given project (this file hasn't been re-run), the app just keeps using
+-- its config.js defaults everywhere, silently — same graceful-degradation
+-- pattern as trucks.raw/lots/damage_remark above.
+create table if not exists public.app_settings (
+  id int primary key default 1,
+  settings jsonb,
+  updated_at timestamptz not null default now()
+);
+
 -- ---------- row level security ----------
 -- RLS is ON, with permissive policies for the anon key (see the security note above).
 alter table public.trucks enable row level security;
 alter table public.photos enable row level security;
+alter table public.app_settings enable row level security;
 
 drop policy if exists "anon full access trucks" on public.trucks;
 create policy "anon full access trucks" on public.trucks
@@ -90,6 +107,10 @@ create policy "anon full access trucks" on public.trucks
 
 drop policy if exists "anon full access photos" on public.photos;
 create policy "anon full access photos" on public.photos
+  for all using (true) with check (true);
+
+drop policy if exists "anon full access app_settings" on public.app_settings;
+create policy "anon full access app_settings" on public.app_settings
   for all using (true) with check (true);
 
 -- ---------- storage bucket for photos ----------

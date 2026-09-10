@@ -417,7 +417,42 @@ textarea{font:inherit;color:inherit}
   display:flex;align-items:center;justify-content:center;
 }
 .photoslot-rm:active{background:rgba(10,14,24,.85)}
-.photoslot a{display:block;width:100%;height:100%}
+/* Round 23: was a plain <a target="_blank"> (opens the fullscreen viewer
+   below instead now) -- reset to look identical to that old link so this
+   change is invisible except for what tapping it actually does. */
+.photoslot-view{display:block;width:100%;height:100%;border:none;background:none;padding:0;margin:0;cursor:pointer}
+
+/* ---------- fullscreen photo viewer (Round 23) ----------
+   Opened by tapping any photo thumbnail (see photoViewerHtml() in
+   render.js) -- replaces the old "opens the raw URL in a new tab" behaviour.
+   Sits above .sheet/.scrim (z-index 30) since it's normally opened from
+   inside an already-open truck sheet, but below .rolegate (z-index 60),
+   which can never be open at the same time anyway. */
+.photoviewer{
+  position:fixed; inset:0; z-index:45; background:rgba(6,10,18,.92);
+  display:flex; align-items:center; justify-content:center;
+}
+.photoviewer-img{
+  max-width:92vw; max-height:82vh; object-fit:contain;
+  transition:transform .15s ease-out; cursor:zoom-in;
+}
+.photoviewer-img.zoomed{transform:scale(2);cursor:zoom-out}
+.photoviewer-close{
+  position:absolute; top:calc(14px + env(safe-area-inset-top)); right:16px;
+  width:36px;height:36px;border-radius:10px;border:none;
+  background:rgba(255,255,255,.14);color:#fff;font-size:17px;
+}
+.photoviewer-nav{
+  position:absolute; top:50%; transform:translateY(-50%);
+  width:46px;height:46px;border-radius:50%;border:none;
+  background:rgba(255,255,255,.14);color:#fff;font-size:26px;line-height:1;
+}
+.photoviewer-nav.prev{left:10px}
+.photoviewer-nav.next{right:10px}
+.photoviewer-count{
+  position:absolute; bottom:calc(18px + env(safe-area-inset-bottom)); left:50%; transform:translateX(-50%);
+  background:rgba(255,255,255,.14);color:#fff;font-size:12.5px;padding:5px 12px;border-radius:999px;
+}
 
 /* inbound-plan import (Admin: Excel/CSV → trucks) */
 .importsheetlist{display:flex; flex-direction:column; gap:8px; margin-top:8px}
@@ -555,6 +590,26 @@ body.tvmode .tvlegend{margin:18px 28px 0;padding:16px 20px}
 body.tvmode .tvlegend-title{font-size:15px;font-weight:700;color:var(--ink-dim);margin-bottom:12px}
 body.tvmode .legendtext b{font-size:15px}
 body.tvmode .legendtext span{font-size:13px}
+/* Page rotation (Round 23) -- a busy day's full truck list no longer runs
+   off the bottom of the screen; it's shown a page at a time instead (see
+   tvTick() in render.js), with this small "N of M" indicator so someone who
+   does glance at the board understands why the rows just changed. Absent
+   entirely on a quiet day (one page), same as before this round. */
+body.tvmode .tvpageinfo{font-size:14px;font-weight:700;color:var(--ink-dim);margin-bottom:10px;text-align:right}
+/* Persistent pulsing highlight on a late/urgent row (Round 23) -- continuous
+   rather than a one-off flash on the moment a truck tips over into Late, so
+   it's still noticeable to someone glancing at an unwatched board minutes
+   after the fact, not just in the instant it happened. rgba() below is
+   --bad (#D31A2B) at low opacity so it reads as a soft alert wash rather
+   than a jarring strobe. */
+@keyframes tvalertpulse{
+  0%,100%{background:transparent}
+  50%{background:rgba(211,26,43,.18)}
+}
+body.tvmode .trucktable tbody tr.tvalert{animation:tvalertpulse 2s ease-in-out infinite}
+@media (prefers-reduced-motion:reduce){
+  body.tvmode .trucktable tbody tr.tvalert{animation:none;background:rgba(211,26,43,.18)}
+}
 
 /* toast */
 .toast{

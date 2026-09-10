@@ -5,7 +5,7 @@
    timers (Supabase poll, 1s clock/tick) — exactly the same startup
    sequence as the original single-file app's bottom `<script>` block. */
 import { replaceState, ui } from "./state.js";
-import { supabaseEnabled, loadFromSupabase } from "./api.js";
+import { supabaseEnabled, loadFromSupabase, loadAppSettings } from "./api.js";
 import { loadLocalData } from "./storage.js";
 import { render } from "./render.js";
 import { tick, isInputSheetOpen } from "./ticking.js";
@@ -34,6 +34,11 @@ if(supabaseEnabled()){
      it now and keep polling it, skipping a refresh while someone has an input
      open (an ETA edit, the add form, PIN entry) so it doesn't get clobbered. */
   loadFromSupabase();
+  // Shared admin-configurable thresholds (Round 23, js/settings.js) -- fetched
+  // once now and again every poll below, same cadence as the trucks
+  // themselves, so a change an Admin saves from one device shows up
+  // everywhere else within one poll cycle.
+  loadAppSettings();
   // Anything queued from a previous session that ended offline (phone
   // killed/locked with no signal) gets one attempt right away; flushOfflineQueue()
   // is a no-op if the queue is empty, so this costs nothing on the common path.
@@ -53,7 +58,7 @@ if(supabaseEnabled()){
     // steady, predictable clock rather than pausing/jumping around whatever
     // else is open on screen.
     ui.nextPollAt = Date.now() + SUPABASE_POLL_MS;
-    if(!isInputSheetOpen()){ loadFromSupabase(); flushOfflineQueue(); }
+    if(!isInputSheetOpen()){ loadFromSupabase(); loadAppSettings(); flushOfflineQueue(); }
   }, SUPABASE_POLL_MS);
   /* Also refresh right away when someone comes back to the app (phone woken
      up, tab switched back to) instead of waiting for the next poll tick —

@@ -5,10 +5,11 @@
    APIs directly — no server code of our own to deploy, no SDK to install.
    Everything else (role, admin PIN, display language) still uses this
    browser's localStorage (see storage.js). */
-import { SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_BUCKET, MAX_DAY_OFFSET } from "./config.js";
+import { SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_BUCKET } from "./config.js";
 import { todayKey, addDays } from "./dateUtils.js";
 import { state, ui } from "./state.js";
 import { render } from "./render.js";
+import { setSettingsOverrides, getMaxDayOffset } from "./settings.js";
 
 export function supabaseEnabled(){ return !!SUPABASE_URL && !!SUPABASE_ANON_KEY; }
 
@@ -83,19 +84,24 @@ export function mapRowToTruck(row){
 }
 
 /* Every screen in the app only ever shows ONE day at a time (Admin's day-nav
-   is clamped to [-MAX_DAY_OFFSET, +MAX_DAY_OFFSET] from today, see
-   config.js/render.js — a driver is pinned to today only) — so nothing in
-   render.js ever needs a truck dated further out than that window, no matter
-   how much history has piled up in Supabase over months of real use. Before
-   this, loadFromSupabase() fetched *every* truck ever imported, every single
-   poll (every 15s) — fine while the table was small, but it would only get
-   slower over time as more months of trucks accumulate, for data that was
-   never going to be shown anyway. Scoping the query to that same window
-   server-side (PostgREST supports two conditions on one column, ANDed
-   together) keeps each poll's payload bounded regardless of how big the
-   table gets, with no visible change to what the app displays. */
+   is clamped to [-maxDayOffset, +maxDayOffset] from today, see
+   js/settings.js/render.js — a driver is pinned to today only) — so nothing
+   in render.js ever needs a truck dated further out than that window, no
+   matter how much history has piled up in Supabase over months of real use.
+   Before this, loadFromSupabase() fetched *every* truck ever imported, every
+   single poll (every 15s) — fine while the table was small, but it would
+   only get slower over time as more months of trucks accumulate, for data
+   that was never going to be shown anyway. Scoping the query to that same
+   window server-side (PostgREST supports two conditions on one column,
+   ANDed together) keeps each poll's payload bounded regardless of how big
+   the table gets, with no visible change to what the app displays.
+   getMaxDayOffset() (Round 23) reads live, so if an Admin widens the day-nav
+   range from the new settings screen, the very next poll starts fetching the
+   wider window too — otherwise the day-nav could let someone scroll to a day
+   this query never fetched, which would just look like an empty day. */
 function defaultWindow(){
-  return { from: addDays(todayKey(), -MAX_DAY_OFFSET), to: addDays(todayKey(), MAX_DAY_OFFSET) };
+  var span = getMaxDayOffset();
+  return { from: addDays(todayKey(), -span), to: addDays(todayKey(), span) };
 }
 
 export function loadFromSupabase(){
@@ -220,5 +226,37 @@ export function sbDeletePhoto(photoId, storagePath){
     method: "DELETE", headers: sbHeaders({})
   }).catch(function(){ /* ignore storage-delete errors, still remove the row */ }).then(function(){
     return sbRest("photos?id=eq."+encodeURIComponent(photoId), { method:"DELETE" });
+  });
+}
+
+/* ---------- shared admin settings (Round 23) ----------
+   One row (id=1) holding every adjustable threshold from js/settings.js as a
+   single jsonb blob — simpler than one column per setting, and it means
+   adding a 6th setting later never needs another supabase-schema.sql ALTER.
+   Fetched once at startup and again on every regular poll (see main.js), so
+   every phone/screen converges on the same values within one poll cycle,
+   the same way a truck edit does. */
+export function sbFetchAppSettings(){
+  return sbRest("app_settings?id=eq.1&select=settings").then(function(rows){
+    return (rows && rows[0] && rows[0].settings) || {};
+  });
+}
+/* Called at startup and every poll interval (main.js) -- errors (table/row
+   missing on a project that hasn't run the Round 23 SQL yet, or no network)
+   are swallowed on purpose: every getter in settings.js already falls back
+   to its config.js default when there's no override, so there is nothing
+   more useful to do here than just leave those defaults in place. */
+export function loadAppSettings(){
+  return sbFetchAppSettings().then(function(settings){
+    setSettingsOverrides(settings);
+  }).catch(function(){ /* keep whatever overrides (or defaults) were already in effect */ });
+}
+/* Upsert via PostgREST's "on_conflict" + merge-duplicates preference, so this
+   works whether or not the row already exists yet on a given project. */
+export function sbSaveAppSettings(obj){
+  return sbRest("app_settings?on_conflict=id", {
+    method:"POST",
+    headers:{ "Prefer":"resolution=merge-duplicates,return=representation" },
+    body:{ id:1, settings: obj, updated_at: new Date().toISOString() }
   });
 }

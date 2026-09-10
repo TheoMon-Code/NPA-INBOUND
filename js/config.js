@@ -32,6 +32,15 @@ export const MAX_PHOTOS_PER_TRUCK = 40;
 // today, in either direction (Round 13/15, Theo's request). The 3 quick tabs
 // (yesterday/today/tomorrow) always work regardless of this.
 export const MAX_DAY_OFFSET = 5;
+// TV mode (Round 22) shows every one of today's trucks in a single table with
+// nothing clickable and no scrollbar anyone will ever use — fine on a quiet
+// day, but a busy one (30-40 trucks) would just run off the bottom of a
+// screen nobody is there to scroll. Round 23: rotate through fixed-size pages
+// automatically instead, like a real airport departures board, rather than
+// try to shrink everything to fit (which would fight the whole point of a
+// board meant to be read from across the room).
+export const TV_ROWS_PER_PAGE = 10;
+export const TV_ROTATE_MS = 8000;
 
 /* localStorage keys (all per-device, never synced anywhere) */
 export const ROLE_KEY = "mon-inbound-role";

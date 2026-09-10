@@ -8,11 +8,17 @@ import { state, ui } from "./state.js";
 import { tr } from "./i18n.js";
 import { derive, lateMinutes, isDueSoon, STATUS_KEYS } from "./status.js";
 import { esc, shortDate, fmtElapsed, dateTimeOf, clockStr, addDays, todayKey } from "./dateUtils.js";
-import { DAY_LABELS, MONTH_LABELS, DAY_LABELS_TH, MONTH_LABELS_TH, MAX_PHOTOS_PER_TRUCK, MAX_DAY_OFFSET } from "./config.js";
+import { DAY_LABELS, MONTH_LABELS, DAY_LABELS_TH, MONTH_LABELS_TH, TV_ROWS_PER_PAGE, TV_ROTATE_MS } from "./config.js";
 import { loadSavedName } from "./storage.js";
 import { supabaseEnabled } from "./api.js";
 import { hasImportFile, importFileName, importSheetNames } from "./importPlan.js";
 import { offlineQueueCount } from "./offlineQueue.js";
+// Round 23: these two used to come straight from config.js; now an Admin can
+// override them from the new settings screen (js/settings.js), so every
+// place that read them as plain constants now calls the live getter instead.
+// SETTINGS_DEFS/getDueSoonMin drive the settings screen itself and the
+// status legend's "due soon" description below.
+import { getMaxPhotosPerTruck, getMaxDayOffset, getDueSoonMin, SETTINGS_DEFS } from "./settings.js";
 
 /* ---------- small bilingual text helpers (kept here since they're only
    ever used while building the sheet HTML below) ---------- */
@@ -158,7 +164,8 @@ function tabsHtml(trucks){
   // actually selected.
   var quick = [ {o:-1, label:tr("tabYesterday")}, {o:0, label:tr("tabToday")}, {o:1, label:tr("tabTomorrow")} ];
   var cur = ui.dayOffset;
-  var atMin = cur <= -MAX_DAY_OFFSET, atMax = cur >= MAX_DAY_OFFSET;
+  var maxOffset = getMaxDayOffset();
+  var atMin = cur <= -maxOffset, atMax = cur >= maxOffset;
   var quickHtml = quick.map(function(q){
     var key = addDays(todayKey(), q.o);
     var n = trucks.filter(function(t){ return t.date === key; }).length;
@@ -231,6 +238,7 @@ function sheetHtml(now){
   if(ui.reportOpen) return reportSheetHtml();
   if(ui.pinSettingsOpen) return pinSettingsHtml();
   if(ui.nameSettingsOpen) return nameSettingsHtml();
+  if(ui.settingsOpen) return settingsSheetHtml();
   if(ui.addOpen) return addSheetHtml();
   if(!ui.openId) return "";
   var t = state.trucks.find(function(x){ return x.id === ui.openId; });
@@ -420,6 +428,29 @@ function nameSettingsHtml(){
     '<button class="btn primary" data-save-name="1">'+tr("saveNameBtn")+'</button>'+
   '</div></div>';
 }
+/* Admin settings screen (Round 23) -- one numeric field per entry in
+   SETTINGS_DEFS (js/settings.js), so adding a 6th adjustable threshold later
+   is a one-line addition there, not a change here. Each field shows the
+   CURRENT effective value (an override already in place, or the config.js
+   default if none) in display units -- see settings.js for why undoDeleteMs
+   is the one exception (seconds here, milliseconds everywhere else). */
+function settingsSheetHtml(){
+  var rows = SETTINGS_DEFS.map(function(defn){
+    var current = Math.round(defn.get() / defn.divisor);
+    return '<div><div class="label">'+tr(defn.labelKey)+'</div>'+
+      '<input class="field" type="number" inputmode="numeric" id="setting-'+defn.key+'" min="'+defn.min+'" max="'+defn.max+'" value="'+current+'">'+
+      '<div class="hint">'+tr(defn.hintKey)+'</div></div>';
+  }).join("");
+  return '<div class="scrim" data-scrim="1"><div class="sheet">'+
+    '<div class="sheet-handle"></div>'+
+    '<div class="sheet-head"><div><div class="sheet-id title-lg">'+tr("appSettingsTitle")+'</div></div>'+
+    '<button class="sheet-close" data-close="1">✕</button></div>'+
+    '<div class="hint" style="margin-top:6px">'+tr("appSettingsIntro")+'</div>'+
+    '<div class="formgrid" style="margin-top:12px">'+rows+'</div>'+
+    (ui.settingsError ? '<div class="hint" style="color:var(--bad);margin-top:8px">'+esc(ui.settingsError)+'</div>' : '')+
+    '<button class="btn primary" data-save-settings="1" '+(ui.settingsBusy?"disabled":"")+'>'+(ui.settingsBusy?tr("reportLoading"):tr("appSettingsSaveBtn"))+'</button>'+
+  '</div></div>';
+}
 /* KPI grid over a picked date range, for a manager rather than whoever's
    watching the dock right now (see js/reporting.js). Reuses the same
    .kpi tile look as the everyday "today" strip at the top of the app,
@@ -523,11 +554,17 @@ function photosHtml(t){
       '<div class="hint" style="margin-top:6px">'+tr("photosNeedSupabase")+'</div></div>';
   }
   var photos = t.photos || [];
-  var slots = photos.map(function(p){
+  var maxPhotos = getMaxPhotosPerTruck();
+  // Round 23: each thumbnail used to be a plain <a target="_blank"> straight
+  // to the raw Storage URL -- taps it now instead of navigating away (see
+  // photoViewerHtml() below). The admin-only remove "✕" stays a sibling
+  // button, not nested inside the view button, so tapping it can never also
+  // open the viewer (see events.js's click delegation).
+  var slots = photos.map(function(p, idx){
     var rm = ui.role === "admin" ? '<button class="photoslot-rm" data-photo-remove="'+esc(p.id)+'" data-photo-truck="'+esc(t.id)+'" data-photo-path="'+esc(p.storagePath)+'" aria-label="Remove">✕</button>' : "";
-    return '<div class="photoslot"><a href="'+esc(p.url)+'" target="_blank" rel="noopener"><img src="'+esc(p.url)+'" loading="lazy"></a>'+rm+'</div>';
+    return '<div class="photoslot"><button class="photoslot-view" data-view-photo="'+esc(t.id)+'" data-view-index="'+idx+'"><img src="'+esc(p.url)+'" loading="lazy"></button>'+rm+'</div>';
   }).join("");
-  if(photos.length < MAX_PHOTOS_PER_TRUCK){
+  if(photos.length < maxPhotos){
     // Two separate tiles rather than one generic "+" (pre-Round 19): on a
     // real Android phone, the single file input below has no `capture`
     // attribute (removed at Round 9 so `multiple` could enable picking
@@ -557,8 +594,31 @@ function photosHtml(t){
     ? '<button class="btn ghost" data-download-photos="'+esc(t.id)+'" style="margin-top:8px">⬇️ '+tr("downloadPhotosBtn")+'</button>'
     : "";
   return '<div class="sheet-section"><div class="label">'+tr("photosTitle")+'</div>'+
-    '<div class="hint">'+tr("photosHint").replace("{n}", MAX_PHOTOS_PER_TRUCK)+'</div>'+
+    '<div class="hint">'+tr("photosHint").replace("{n}", maxPhotos)+'</div>'+
     '<div class="photogrid">'+slots+'</div>'+downloadBtn+'</div>';
+}
+
+/* Fullscreen photo viewer (Round 23) -- opened by tapping any thumbnail in
+   photosHtml() above. Looks the photo up fresh from state.trucks (rather
+   than trusting ui.photoViewer to have cached a copy) so a photo removed by
+   someone else mid-view (Supabase poll) is handled gracefully -- see the
+   empty-photos guard below, which just closes the viewer instead of
+   crashing on an out-of-range index. */
+function photoViewerHtml(){
+  if(!ui.photoViewer) return "";
+  var t = state.trucks.find(function(x){ return x.id === ui.photoViewer.truckId; });
+  var photos = (t && t.photos) || [];
+  if(!photos.length) return "";
+  var idx = Math.max(0, Math.min(ui.photoViewer.index, photos.length-1));
+  var p = photos[idx];
+  var multi = photos.length > 1;
+  return '<div class="photoviewer">'+
+    '<button class="photoviewer-close" data-photo-viewer-close="1" aria-label="'+tr("closeViewerAria")+'">✕</button>'+
+    (multi ? '<button class="photoviewer-nav prev" data-photo-viewer-prev="1" aria-label="'+tr("prevPhotoAria")+'">‹</button>' : '')+
+    '<img class="photoviewer-img'+(ui.photoViewer.zoomed?" zoomed":"")+'" src="'+esc(p.url)+'" data-photo-viewer-zoom="1" alt="">'+
+    (multi ? '<button class="photoviewer-nav next" data-photo-viewer-next="1" aria-label="'+tr("nextPhotoAria")+'">›</button>' : '')+
+    (multi ? '<div class="photoviewer-count mono">'+(idx+1)+' / '+photos.length+'</div>' : '')+
+  '</div>';
 }
 /* A single free-text remark per truck (not per photo, per Theo's choice) —
    e.g. noting which layer of the container damaged product was found on,
@@ -630,7 +690,11 @@ function legendRowsHtml(){
     {cls:"pending", title:tr("status_pending"), desc:tr("legendDesc_pending")},
     {cls:"urgent", title:tr("status_urgent"), desc:tr("legendDesc_urgent")},
     {cls:"scheduled", title:tr("status_scheduled"), desc:tr("legendDesc_scheduled")},
-    {cls:"duesoon", title:tr("legendDueSoonTitle"), desc:tr("legendDesc_duesoon")},
+    // Round 23: "due soon" used to hard-code "15 minutes" -- now that
+    // dueSoonMin is admin-adjustable (js/settings.js), the legend has to
+    // read the live value too, or it would start lying the moment someone
+    // changes it from the new settings screen.
+    {cls:"duesoon", title:tr("legendDueSoonTitle"), desc:tr("legendDesc_duesoon").replace("{n}", getDueSoonMin())},
     {cls:"late", title:tr("status_late"), desc:tr("legendDesc_late")},
     {cls:"unloading", title:tr("status_unloading"), desc:tr("legendDesc_unloading")},
     {cls:"done", title:tr("status_done"), desc:tr("legendDesc_done")}
@@ -667,7 +731,15 @@ function tvLegendHtml(){
    ETA instead of the date column (every row here is already "today"). */
 function tvRowHtml(t, now){
   var d = derive(t, now);
-  return '<tr>'+
+  // Round 23: a persistent pulsing highlight on any row that's late or
+  // urgent (needs an ETA at all), rather than a one-off flash the instant a
+  // truck crosses over -- Theo's ask was to make a late truck noticeable on
+  // a screen nobody is actively watching, and a brief flash could easily be
+  // missed by whoever glances at the board a minute later. A continuous cue
+  // is visible however long ago the truck actually went late. See
+  // body.tvmode tr.tvalert in css/app.css.
+  var alertCls = (d === "late" || d === "urgent") ? ' class="tvalert"' : '';
+  return '<tr'+alertCls+'>'+
     '<td>'+pill(d,t,now)+'</td>'+
     '<td class="mono">'+esc(t.poNo || t.ref || t.id)+'</td>'+
     '<td>'+esc(t.carrier||"—")+'</td>'+
@@ -688,9 +760,19 @@ function renderTv(){
   document.documentElement.setAttribute("lang", ui.lang === "th" ? "th" : "en");
   var todayTrucks = state.trucks.filter(function(t){ return t.date === todayKey(); });
   todayTrucks.sort(function(a,b){ return sortWeight(a,now) - sortWeight(b,now); });
+  // Round 23: a busy day (30-40 trucks) would otherwise just run off the
+  // bottom of a screen nobody is there to scroll -- rotate through
+  // fixed-size pages instead (see tvTick() below, which advances ui.tvPage
+  // every TV_ROTATE_MS). Clamped here too, defensively, in case the truck
+  // count shrank (fewer pages now than ui.tvPage points at) between the last
+  // page-flip and this particular render -- e.g. a render triggered by the
+  // regular Supabase poll rather than by tvTick() itself.
+  var totalPages = Math.max(1, Math.ceil(todayTrucks.length / TV_ROWS_PER_PAGE));
+  if(ui.tvPage >= totalPages) ui.tvPage = 0;
+  var pageTrucks = todayTrucks.slice(ui.tvPage*TV_ROWS_PER_PAGE, ui.tvPage*TV_ROWS_PER_PAGE + TV_ROWS_PER_PAGE);
   var tableHtml;
   if(todayTrucks.length){
-    var rows = todayTrucks.map(function(t){ return tvRowHtml(t, now); }).join("");
+    var rows = pageTrucks.map(function(t){ return tvRowHtml(t, now); }).join("");
     tableHtml = '<table class="trucktable"><thead><tr>'+
       '<th>'+tr("tableColStatus")+'</th>'+
       '<th>'+tr("tableColPo")+'</th>'+
@@ -702,6 +784,16 @@ function renderTv(){
   } else {
     tableHtml = '<div class="empty"><span class="empty-icon">🚚</span><div>'+tr("noTrucksToday")+'</div></div>';
   }
+  // Only shown once there's more than one page -- on a normal/quiet day
+  // (the common case) this stays entirely absent, exactly like before this
+  // round. data-tv-page/data-tv-total-pages give tests (and any future
+  // debugging) a language-agnostic hook, since the visible text is
+  // translated and the numbers alone aren't enough to search for reliably.
+  var pageInfoHtml = totalPages > 1
+    ? '<div class="tvpageinfo" data-tv-page="'+(ui.tvPage+1)+'" data-tv-total-pages="'+totalPages+'">'+
+        esc(tr("tvPageIndicator").replace("{cur}", ui.tvPage+1).replace("{total}", totalPages))+
+      '</div>'
+    : '';
   var html =
     '<div class="topbar tvtopbar">'+
       '<div class="brand-row">'+markSvg()+
@@ -713,10 +805,32 @@ function renderTv(){
       // countdown keeps working here for free.
       '<div class="syncrow"><span class="syncdot '+syncDotClass()+'"></span>'+syncLabel()+pollCountdownHtml(now)+'</div></div>'+
     '</div>'+
-    '<div class="tvtable">'+tableHtml+'</div>'+
+    '<div class="tvtable">'+pageInfoHtml+tableHtml+'</div>'+
     tvLegendHtml();
   document.body.classList.add("tvmode");
   document.getElementById("app").innerHTML = html;
+}
+
+/* Advances the TV board to its next page every TV_ROTATE_MS (js/config.js),
+   wrapping back to the first page after the last -- called once a second
+   from tick() (js/ticking.js), the same lightweight pattern already used for
+   the header clock, an open truck's live timer, and the refresh countdown.
+   A no-op outside TV mode, and a no-op whenever today's trucks all fit on
+   one page (nothing to rotate to), so this costs nothing on every other
+   screen or on a quiet day. */
+var tvPageChangedAt = 0;
+export function tvTick(now){
+  if(!ui.tvMode) return;
+  var total = state.trucks.filter(function(t){ return t.date === todayKey(); }).length;
+  var totalPages = Math.max(1, Math.ceil(total / TV_ROWS_PER_PAGE));
+  if(ui.tvPage >= totalPages) ui.tvPage = 0;
+  if(totalPages <= 1){ tvPageChangedAt = now; return; }
+  if(!tvPageChangedAt) tvPageChangedAt = now;
+  if(now - tvPageChangedAt >= TV_ROTATE_MS){
+    ui.tvPage = (ui.tvPage + 1) % totalPages;
+    tvPageChangedAt = now;
+    render();
+  }
 }
 
 export function render(){
@@ -764,6 +878,7 @@ export function render(){
           (ui.role==="admin" ? '<button class="rolebadge" data-open-import="1" aria-label="'+tr("importPlanAria")+'">📥</button>' : '')+
           (ui.role==="admin" ? '<button class="rolebadge" data-open-report="1" aria-label="'+tr("reportTitle")+'">📊</button>' : '')+
           (ui.role==="admin" ? '<button class="rolebadge" data-open-pin-settings="1" aria-label="'+tr("changePin")+'">⚙</button>' : '')+
+          (ui.role==="admin" ? '<button class="rolebadge" data-open-app-settings="1" aria-label="'+tr("appSettingsTitle")+'">🔧</button>' : '')+
           (ui.role==="driver" ? '<button class="rolebadge" data-open-name-settings="1">'+tr("setNamePill")+'</button>' : '')+
           '<button class="rolebadge langtoggle" data-toggle-lang="1" aria-label="Language / ภาษา">'+(ui.lang==="th"?"EN":"TH")+'</button>'+
         '</div>'+
@@ -779,6 +894,7 @@ export function render(){
     statusLegendHtml()+
     (ui.role === "admin" ? '<button class="fab" data-add="1" aria-label="'+tr("addTruckAria")+'">+</button>' : '')+
     sheetHtml(now)+
+    photoViewerHtml()+
     roleGateHtml()+
     toastHtml()+
     // Two hidden inputs, one per photo tile above (Round 19) — see the long

@@ -111,7 +111,27 @@ export const ui = {
   // is a completely separate render path from the normal admin/driver one
   // below (so nothing admin-only can ever leak onto a public screen through
   // a shared code path, and this stays unaffected by future changes there).
-  tvMode: false
+  tvMode: false,
+  // Round 23: which page of today's trucks the TV board is currently showing
+  // (0-based), advanced automatically by tvTick() in render.js every
+  // TV_ROTATE_MS (js/config.js) so a busy day's full list is still readable
+  // instead of running off the bottom of an unwatched screen. Meaningless
+  // outside TV mode.
+  tvPage: 0,
+  // Fullscreen photo viewer (Round 23) — replaces the old "open the raw URL
+  // in a new tab" behaviour with an in-app overlay that can step through a
+  // truck's other photos and zoom in, without ever leaving the app. null
+  // when closed; {truckId, index, zoomed} while a photo is open. See
+  // photoViewerHtml() in render.js and the openPhotoViewer()/etc. actions.
+  photoViewer: null,
+  // Admin settings screen (Round 23) — lets an Admin adjust the operational
+  // thresholds in js/settings.js (grace period, photo cap, day-nav range,
+  // "due soon" window, undo-delete window) from inside the app instead of
+  // editing js/config.js. Same open/error/busy shape as the other admin
+  // sheets (pinSettingsOpen, importOpen, ...) above.
+  settingsOpen: false,
+  settingsError: null,
+  settingsBusy: false
 };
 ui.roleGateOpen = !ui.role;
 

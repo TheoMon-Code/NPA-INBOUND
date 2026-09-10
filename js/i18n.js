@@ -214,7 +214,7 @@ export const STRINGS = {
   legendDesc_pending:{en:"No arrival time set yet.",th:"ยังไม่ได้ระบุเวลาเข้า"},
   legendDesc_urgent:{en:"The date has arrived and there's still no ETA — needs one now.",th:"ถึงวันแล้วแต่ยังไม่มี ETA — ต้องระบุด่วน"},
   legendDesc_scheduled:{en:"On schedule, hasn't arrived yet.",th:"เป็นไปตามกำหนดการ ยังไม่ถึงเวลา"},
-  legendDesc_duesoon:{en:"Arriving within 15 minutes.",th:"จะมาถึงภายใน 15 นาที"},
+  legendDesc_duesoon:{en:"Arriving within {n} minutes.",th:"จะมาถึงภายใน {n} นาที"},
   legendDesc_late:{en:"Past its scheduled arrival time.",th:"เลยเวลาที่กำหนดไว้แล้ว"},
   legendDesc_unloading:{en:"Currently being unloaded.",th:"กำลังขนถ่ายอยู่"},
   legendDesc_done:{en:"Unloading finished.",th:"ขนถ่ายเสร็จสิ้นแล้ว"},
@@ -227,7 +227,31 @@ export const STRINGS = {
   // TV mode (Round 22) shows only today's trucks, so a "Date" column would
   // always read the same value -- an ETA column is more useful on a board
   // meant to be read from across the room.
-  tvColEta:{en:"ETA",th:"เวลานัด"}
+  tvColEta:{en:"ETA",th:"เวลานัด"},
+  // Round 23: TV board pagination (a busy day rotates through fixed-size
+  // pages instead of running off the bottom of the screen), photo viewer,
+  // and the admin settings screen.
+  tvPageIndicator:{en:"Page {cur} of {total}",th:"หน้า {cur} จาก {total}"},
+  closeViewerAria:{en:"Close",th:"ปิด"},
+  prevPhotoAria:{en:"Previous photo",th:"รูปก่อนหน้า"},
+  nextPhotoAria:{en:"Next photo",th:"รูปถัดไป"},
+  appSettingsTitle:{en:"App settings",th:"ตั้งค่าแอป"},
+  appSettingsIntro:{en:"Adjust these thresholds for every phone and screen — saved once, applied everywhere within one refresh cycle.",th:"ปรับค่าเหล่านี้สำหรับทุกเครื่องและทุกหน้าจอ — บันทึกครั้งเดียว มีผลทุกที่ภายในรอบรีเฟรชถัดไป"},
+  appSettingsSaveBtn:{en:"Save settings",th:"บันทึกการตั้งค่า"},
+  settingsErrRange:{en:"One of these values is outside its allowed range.",th:"มีค่าหนึ่งที่อยู่นอกช่วงที่อนุญาต"},
+  settingsSaved:{en:"Settings saved — every screen picks this up within one refresh.",th:"บันทึกการตั้งค่าแล้ว — ทุกหน้าจอจะอัปเดตภายในรอบรีเฟรชถัดไป"},
+  settingsSavedLocalOnly:{en:"Saved for this device only — connect Supabase to share settings across every screen (see README).",th:"บันทึกไว้เฉพาะเครื่องนี้ — เชื่อมต่อ Supabase เพื่อแชร์การตั้งค่าไปยังทุกหน้าจอ (ดู README)"},
+  settingsSaveFailed:{en:"Could not save the settings.",th:"ไม่สามารถบันทึกการตั้งค่าได้"},
+  settingGraceMin:{en:"Grace period before \"Late\" (minutes)",th:"ระยะเวลาผ่อนผันก่อนถือว่า \"ล่าช้า\" (นาที)"},
+  settingGraceMinHint:{en:"How many minutes past the scheduled time before a truck is marked Late.",th:"เลยเวลานัดหมายไปกี่นาทีจึงจะถือว่ารถบรรทุกล่าช้า"},
+  settingMaxPhotos:{en:"Photo limit per truck",th:"จำนวนรูปภาพสูงสุดต่อคัน"},
+  settingMaxPhotosHint:{en:"Maximum number of photos that can be attached to one truck.",th:"จำนวนรูปภาพสูงสุดที่แนบได้ต่อรถบรรทุกหนึ่งคัน"},
+  settingMaxDayOffset:{en:"Day-nav range (± days)",th:"ช่วงเลื่อนดูวัน (± วัน)"},
+  settingMaxDayOffsetHint:{en:"How many days before/after today the Admin day-nav arrows can reach.",th:"ปุ่มเลื่อนวันของแอดมินสามารถย้อนหรือล่วงหน้าได้กี่วันจากวันนี้"},
+  settingDueSoonMin:{en:"\"Due soon\" window (minutes)",th:"ช่วงเวลา \"ใกล้ถึงเวลา\" (นาที)"},
+  settingDueSoonMinHint:{en:"A scheduled truck gets the ⏰ \"due soon\" cue this many minutes before its ETA.",th:"รถบรรทุกที่มีกำหนดการจะขึ้นสัญลักษณ์ ⏰ \"ใกล้ถึงเวลา\" กี่นาทีก่อนถึงเวลานัด"},
+  settingUndoDeleteSec:{en:"Undo-delete window (seconds)",th:"ระยะเวลายกเลิกการลบ (วินาที)"},
+  settingUndoDeleteSecHint:{en:"How long the \"Undo\" toast stays up after deleting a truck before it's actually removed.",th:"ข้อความ \"ยกเลิก\" จะแสดงอยู่นานเท่าใดหลังลบรถบรรทุก ก่อนที่จะลบจริง"}
 };
 
 export function tr(key){

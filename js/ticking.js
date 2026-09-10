@@ -6,7 +6,7 @@
    open, so it can't wipe out something the admin/driver is mid-typing. */
 import { state, ui, incrementTickCount } from "./state.js";
 import { clockStr, fmtElapsed } from "./dateUtils.js";
-import { render } from "./render.js";
+import { render, tvTick } from "./render.js";
 
 export function isInputSheetOpen(){
   // Any open truck sheet — regardless of role or the truck's current status
@@ -59,6 +59,10 @@ export function tick(){
   if(pollEl && ui.nextPollAt != null){
     pollEl.textContent = fmtElapsed(ui.nextPollAt - Date.now());
   }
+  // TV board page rotation (Round 23) -- a no-op outside TV mode, and a
+  // no-op whenever today's trucks all fit on one page, so this costs nothing
+  // on every other screen/day. See tvTick() in render.js.
+  tvTick(Date.now());
   if(!isInputSheetOpen() && count % 15 === 0){
     render();
   }
