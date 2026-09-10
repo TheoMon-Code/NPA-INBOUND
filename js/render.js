@@ -978,6 +978,14 @@ export function render(){
           ((isAdmin()||isNestle()) ? '<button class="rolebadge" data-open-pin-settings="1" aria-label="'+tr("changePin")+'">⚙</button>' : '')+
           (isAdmin() ? '<button class="rolebadge" data-open-app-settings="1" aria-label="'+tr("appSettingsTitle")+'">🔧</button>' : '')+
           (ui.role==="driver" ? '<button class="rolebadge" data-open-name-settings="1">'+tr("setNamePill")+'</button>' : '')+
+          // Round 25 follow-up: manual logout, alongside the 30-minute
+          // inactivity auto-logout (js/ticking.js) -- available to every
+          // role (unlike "switch role" ⇵ above, which leaves the current
+          // role valid until a new PIN is entered, this ends the session
+          // outright). Only shown once a role is actually picked -- nothing
+          // to log out of otherwise, and the role gate would already be
+          // covering everything underneath it in that case anyway.
+          (ui.role ? '<button class="rolebadge" data-logout="1" aria-label="'+tr("logoutAria")+'">🚪</button>' : '')+
           '<button class="rolebadge langtoggle" data-toggle-lang="1" aria-label="Language / ภาษา">'+(ui.lang==="th"?"EN":"TH")+'</button>'+
         '</div>'+
         '<div class="syncrow"><span class="syncdot '+syncDotClass()+'"></span>'+syncLabel()+offlineQueueBadgeHtml()+pollCountdownHtml(now)+'</div>'+
