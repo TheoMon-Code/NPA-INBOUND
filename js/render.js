@@ -93,7 +93,7 @@ function tableRowHtml(t, now){
   var d = derive(t, now);
   return '<tr class="truckrow" data-open="'+esc(t.id)+'">'+
     '<td>'+pill(d,t,now)+'</td>'+
-    '<td class="mono">'+esc(t.poNo || t.ref || t.id)+'</td>'+
+    '<td class="mono">'+esc(t.truckLabel || t.poNo || t.ref || t.id)+'</td>'+
     '<td>'+esc(t.carrier||"—")+'</td>'+
     '<td>'+(t.plant ? esc(t.plant) : "—")+'</td>'+
     '<td>'+shortDate(t.date)+'</td>'+
@@ -140,7 +140,7 @@ function cardHtml(t, now){
   return '<button class="card" data-open="'+esc(t.id)+'">'+
     '<span class="stripe '+d+(soon?" duesoon":"")+'"></span>'+
     '<span class="card-body">'+
-      '<span class="card-top"><span class="card-id mono">'+esc(t.poNo || t.ref || t.id)+"</span>"+pill(d,t,now)+"</span>"+
+      '<span class="card-top"><span class="card-id mono">'+esc(t.truckLabel || t.poNo || t.ref || t.id)+"</span>"+pill(d,t,now)+"</span>"+
       '<span class="card-carrier">'+esc(t.carrier)+"</span>"+
       '<span class="card-meta">'+
       (t.plant ? "<span>"+esc(t.plant)+"</span>" : "")+
@@ -326,7 +326,7 @@ function sheetHtml(now){
 
   return '<div class="scrim" data-scrim="1"><div class="sheet">'+
     '<div class="sheet-handle"></div>'+
-    '<div class="sheet-head"><div><div class="sheet-id mono">'+esc(t.poNo || t.ref || t.id)+'</div>'+
+    '<div class="sheet-head"><div><div class="sheet-id mono">'+esc(t.truckLabel || t.poNo || t.ref || t.id)+'</div>'+
     '<div class="sheet-carrier">'+esc(t.carrier)+'</div></div>'+
     '<button class="sheet-close" data-close="1">✕</button></div>'+
     '<div class="sheet-meta">'+
@@ -569,15 +569,14 @@ function importSheetHtml(){
       '</div>'+errHtml;
   } else if(ui.importStep === "preview"){
     var r = ui.importResult || { toImport:[], dupeCount:0, pastCount:0 };
-    // Each entry is a truck (a group of one or more lots — see
-    // importGroupRows in importPlan.js); show the first lot's product/qty
-    // like before, plus a "+N lots" badge when the truck actually has more,
-    // so a multi-lot truck doesn't look identical to a single-lot one here.
+    // Round 26: each entry is now its own truck (see importGroupRows in
+    // importPlan.js) — shown with its own product + quantity, plus a
+    // "<PO> - Truck N" chip when it shares its PO+date+time+carrier slot
+    // with other rows in this file, so those still read as related here.
     var rows = r.toImport.slice(0,12).map(function(g){
-      var primary = g.lots[0] || {};
-      var extra = g.lots.length > 1 ? (' <span class="chip">'+esc(tr("multiLotBadge").replace("{n}", g.lots.length))+'</span>') : "";
+      var label = g.truckLabel ? (' <span class="chip">'+esc(g.truckLabel)+'</span>') : "";
       return '<div class="importrow"><b>'+esc(g.order_date)+(g.eta?(" "+esc(g.eta)):"")+'</b> · '+esc(g.carrier||"—")+
-        (primary.details?(' · '+esc(primary.details)):"")+(primary.qtt?(' ('+esc(primary.qtt)+')'):"")+extra+'</div>';
+        (g.details?(' · '+esc(g.details)):"")+(g.qtt?(' ('+esc(g.qtt)+')'):"")+label+'</div>';
     }).join("");
     var more = r.toImport.length > 12 ? '<div class="hint" style="margin-top:4px">'+tr("importMoreRows").replace("{n}", r.toImport.length-12)+'</div>' : "";
     body = '<div class="hint" style="margin-top:6px">'+
@@ -810,7 +809,7 @@ function tvRowHtml(t, now){
   var alertCls = (d === "late" || d === "urgent") ? ' class="tvalert"' : '';
   return '<tr'+alertCls+'>'+
     '<td>'+pill(d,t,now)+'</td>'+
-    '<td class="mono">'+esc(t.poNo || t.ref || t.id)+'</td>'+
+    '<td class="mono">'+esc(t.truckLabel || t.poNo || t.ref || t.id)+'</td>'+
     '<td>'+esc(t.carrier||"—")+'</td>'+
     '<td>'+(t.plant ? esc(t.plant) : "—")+'</td>'+
     '<td>'+(t.eta || "—")+'</td>'+
