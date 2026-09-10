@@ -3,7 +3,7 @@
    element's data-* attribute. Matches the original single-file app exactly
    (same attributes, same order, same behavior) — just calling into the
    split-out modules instead of local closures. */
-import { ui } from "./state.js";
+import { ui, touchActivity } from "./state.js";
 import { render } from "./render.js";
 import { getMaxDayOffset } from "./settings.js";
 import { saveLangLocal } from "./storage.js";
@@ -13,7 +13,7 @@ import {
   cancelUnload, reopenUnload, deleteTruck, undoDeleteTruck, createTruck,
   addPhotos, removePhoto, saveDamageRemark, findTruck,
   openPhotoViewer, closePhotoViewer, photoViewerStep, togglePhotoZoom,
-  saveAppSettings
+  saveAppSettings, logout
 } from "./actions.js";
 import { openImportPlan, runImportPreview, runImportConfirm, handleImportFile } from "./importPlan.js";
 import { openReport, runReport, exportReportCsv, runPhotoArchive } from "./reporting.js";
@@ -23,6 +23,11 @@ export function initEvents(){
   var app = document.getElementById("app");
 
   app.addEventListener("click", function(e){
+    // Round 25 follow-up: any real interaction resets the 30-minute
+    // inactivity auto-logout timer (js/ticking.js) -- see touchActivity() in
+    // state.js. Deliberately at the very top, before any of the branches
+    // below, so it always runs regardless of which one (if any) matches.
+    touchActivity();
     var el = e.target;
     var pickEl = el.closest("[data-pick-role]");
     if(pickEl){ pickRole(pickEl.getAttribute("data-pick-role")); return; }
@@ -41,6 +46,10 @@ export function initEvents(){
       ui.roleGateOpen = true; ui.roleGateStep = "choose"; ui.roleGateError = null;
       ui.openId = null; ui.addOpen = false; render(); return;
     }
+    // Round 25 follow-up: manual logout (see actions.js's logout() for how
+    // this differs from "switch role" above -- this clears the role
+    // outright instead of just opening the picker while it stays valid).
+    if(el.closest("[data-logout]")){ logout(); return; }
     if(el.closest("[data-open-pin-settings]")){
       ui.pinSettingsOpen = true; ui.pinSettingsError = null;
       ui.openId = null; ui.addOpen = false; render(); return;
@@ -174,6 +183,7 @@ export function initEvents(){
   // already checks its own ui.xxx flag before acting, so listening on the
   // whole window is exactly as safe and never fires when it shouldn't.
   window.addEventListener("keydown", function(e){
+    touchActivity();
     if(e.key === "Enter" && e.target && e.target.id === "pinInput"){ submitPin(); }
     // Photo viewer (Round 23) -- a manager reviewing photos on a desktop
     // (see Round 17.1: this app is also used from a Windows PC, not just a
@@ -192,6 +202,7 @@ export function initEvents(){
   // which is what makes re-rendering on every character typed workable at
   // all given this app's whole-subtree render model.
   app.addEventListener("input", function(e){
+    touchActivity();
     if(e.target && e.target.id === "searchInput"){
       ui.searchQuery = e.target.value;
       render();
@@ -199,6 +210,7 @@ export function initEvents(){
   });
 
   app.addEventListener("change", function(e){
+    touchActivity();
     if(e.target && (e.target.id === "photoAddCameraInput" || e.target.id === "photoAddGalleryInput")){
       // input.files is a *live* FileList tied to the input's value: clearing
       // e.target.value below (needed so picking the same file twice in a row
