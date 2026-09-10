@@ -22,7 +22,20 @@ import { getMaxPhotosPerTruck, getMaxDayOffset, getDueSoonMin, SETTINGS_DEFS } f
 
 /* ---------- small bilingual text helpers (kept here since they're only
    ever used while building the sheet HTML below) ---------- */
-function roleLabel(r){ return r === "admin" ? tr("roleAdmin") : tr("roleDriver"); }
+// Round 25: three roles instead of one flat "admin" -- Admin MON IT is a
+// strict superset of Admin MON (isAdmin() below returns true for it too,
+// so every existing `isAdmin()`-gated feature keeps working for IT with no
+// extra code); Nestlé is its own restricted role, checked separately at
+// every gate below so nothing admin-only leaks to an external client.
+function isAdmin(){ return ui.role === "admin" || ui.role === "admin_it"; }
+function isAdminIt(){ return ui.role === "admin_it"; }
+function isNestle(){ return ui.role === "nestle"; }
+function roleLabel(r){
+  if(r === "admin") return tr("roleAdmin");
+  if(r === "admin_it") return tr("roleAdminIt");
+  if(r === "nestle") return tr("roleNestle");
+  return tr("roleDriver");
+}
 function lateHintAdminText(mins){ return ui.lang==="th" ? ("ล่าช้ากว่ากำหนด "+mins+" นาที") : ("Running "+mins+" min late against the scheduled time."); }
 function lateHintDriverText(mins){ return ui.lang==="th" ? ("ล่าช้ากว่ากำหนด "+mins+" นาที") : ("Running "+mins+" min late."); }
 function canStartOnText(dateStr){ return ui.lang==="th" ? ("เริ่มขนถ่ายได้ในวันที่ "+dateStr) : ("Unloading can start on "+dateStr+"."); }
@@ -251,10 +264,17 @@ function sheetHtml(now){
   if(!t) return "";
   var d = derive(t, now);
   var body = "";
-  var isAdmin = ui.role === "admin";
+  // Round 25: renamed from the old local `isAdmin` (which shadowed the new
+  // module-level isAdmin() below) to avoid a naming collision, and split
+  // into three branches everywhere in this sheet -- Admin (edit), Nestlé
+  // (read-only: "consultation + import + téléchargement seulement", no
+  // ETA edit / start / finish / cancel / reopen / delete), Driver
+  // (unchanged: no ETA edit, but can start/finish since that's their job).
+  var adminMode = isAdmin();
+  var nestleMode = isNestle();
 
   if(d==="pending" || d==="urgent" || d==="scheduled" || d==="late"){
-    if(isAdmin){
+    if(adminMode){
       body += '<div class="sheet-section"><div class="label">'+tr("etaLabel")+'</div>'+
         '<input class="field" type="time" id="etaInput" value="'+(t.eta||"")+'">'+
         '<button class="btn primary" data-save-eta="'+esc(t.id)+'">'+(t.eta?tr("updateTime"):tr("saveTime"))+'</button></div>';
@@ -270,8 +290,13 @@ function sheetHtml(now){
       } else {
         body += '<div class="timer" style="font-size:30px">'+t.eta+'</div><div class="timer-sub">'+tr("scheduledArrivalTime")+'</div>';
         if(d==="late") body += '<div class="hint" style="color:var(--bad);text-align:center;margin-top:6px">'+lateHintDriverText(lateMinutes(t,now))+'</div>';
-        if(t.date === todayKey()){
+        // Nestlé is consultation-only here -- no "Start unloading" button
+        // (that stays Admin's and the MHE Driver's job), just the same
+        // informational text the driver view already shows.
+        if(!nestleMode && t.date === todayKey()){
           body += '<button class="btn go" data-start="'+esc(t.id)+'">'+tr("startUnloading")+'</button>';
+        } else if(nestleMode && t.date === todayKey()){
+          body += '<div class="hint" style="text-align:center;margin-top:12px">'+tr("scheduledArrivalTime")+'</div>';
         } else {
           body += '<div class="hint" style="text-align:center;margin-top:12px">'+canStartOnText(shortDate(t.date))+'</div>';
         }
@@ -280,9 +305,11 @@ function sheetHtml(now){
   } else if(d==="unloading"){
     var elapsed = now - new Date(t.startedAt);
     body += '<div class="timer big-work" id="liveTimer">'+fmtElapsed(elapsed)+'</div>'+
-      '<div class="timer-sub">'+startedAtText(new Date(t.startedAt).toTimeString().slice(0,5))+'</div>'+
-      '<button class="btn stop" data-finish="'+esc(t.id)+'">'+tr("finishUnloading")+'</button>'+
-      '<button class="linklike" data-cancel="'+esc(t.id)+'">'+tr("cancelStartLink")+'</button>';
+      '<div class="timer-sub">'+startedAtText(new Date(t.startedAt).toTimeString().slice(0,5))+'</div>';
+    if(!nestleMode){
+      body += '<button class="btn stop" data-finish="'+esc(t.id)+'">'+tr("finishUnloading")+'</button>'+
+        '<button class="linklike" data-cancel="'+esc(t.id)+'">'+tr("cancelStartLink")+'</button>';
+    }
     if(t.startedBy) body += '<div class="hint" style="text-align:center;margin-top:8px">'+esc(startedByText(t.startedBy))+'</div>';
   } else if(d==="done"){
     var durMin = (new Date(t.finishedAt)-new Date(t.startedAt))/60000;
@@ -292,7 +319,7 @@ function sheetHtml(now){
       '<div><b>'+fmtHM(durMin)+'</b><span>'+tr("lblDuration")+'</span></div>'+
       '</div>';
     if(t.finishedBy) body += '<div class="hint" style="text-align:center;margin-top:2px">'+esc(finishedByText(t.finishedBy))+'</div>';
-    if(isAdmin) body += '<button class="linklike" data-reopen="'+esc(t.id)+'">'+tr("reopenUnloading")+'</button>';
+    if(adminMode) body += '<button class="linklike" data-reopen="'+esc(t.id)+'">'+tr("reopenUnloading")+'</button>';
   }
 
   body += deleteControl(t.id);
@@ -361,7 +388,7 @@ function rawDetailsHtml(t){
   return '<details class="sheet-section"><summary class="label" style="cursor:pointer">'+tr("allSourceFields")+'</summary><div class="detailgrid" style="margin-top:8px">'+rows+'</div></details>';
 }
 function deleteControl(id){
-  if(ui.role !== "admin") return "";
+  if(!isAdmin()) return "";
   if(ui.confirmDelete === id){
     return '<button class="linklike danger" data-delete-confirm="'+esc(id)+'">'+tr("confirmDeleteQ")+'</button>';
   }
@@ -391,13 +418,19 @@ function roleGateHtml(){
   // pill, so it needs its own reachable language toggle too — this matters
   // most on first launch, before a role (and its default language) is set.
   var langBtn = '<button class="langtoggle-card" data-toggle-lang="1" aria-label="Language / ภาษา">'+(ui.lang==="th"?"EN":"TH")+'</button>';
-  if(ui.roleGateStep === "pin"){
+  // Round 25: three PIN-gated roles now share this same sub-screen shape
+  // (Admin MON's "pin" step is unchanged from Round 14 for backward
+  // compatibility with existing devices/tests) -- pinStepTitles maps each
+  // step name (set generically by events.js from whichever data-role-step
+  // button was tapped below) to its title key.
+  var pinStepTitles = { pin: "adminPinTitle", pin_it: "adminItPinTitle", pin_nestle: "nestlePinTitle" };
+  if(pinStepTitles[ui.roleGateStep]){
     return '<div class="rolegate"><div class="rolecard">'+langBtn+closeBtn+
-      '<div class="rolecard-title">'+tr("adminPinTitle")+'</div>'+
+      '<div class="rolecard-title">'+tr(pinStepTitles[ui.roleGateStep])+'</div>'+
       '<div class="rolecard-sub">'+tr("enterPinSub")+'</div>'+
       '<input class="field" style="margin-top:14px;text-align:center;letter-spacing:6px;font-family:\'IBM Plex Mono\';font-size:20px" type="password" inputmode="numeric" autocomplete="off" maxlength="8" id="pinInput" placeholder="••••••">'+
       (ui.roleGateError ? '<div class="hint" style="color:var(--bad);text-align:center;margin-top:8px">'+esc(ui.roleGateError)+'</div>' : '')+
-      '<button class="btn primary" data-pin-submit="1">'+tr("unlockAdmin")+'</button>'+
+      '<button class="btn primary" data-pin-submit="1">'+tr("unlockBtn")+'</button>'+
       '<button class="linklike" data-role-back="1">'+tr("back")+'</button>'+
     '</div></div>';
   }
@@ -405,6 +438,8 @@ function roleGateHtml(){
     '<div class="rolecard-title">'+tr("whoUsingDevice")+'</div>'+
     '<div class="rolecard-sub">'+tr("chooseRoleSub")+'</div>'+
     '<button class="roleopt" data-role-step="pin"><b>'+tr("roleAdmin")+'</b><span>'+tr("roleAdminDesc")+'</span></button>'+
+    '<button class="roleopt" data-role-step="pin_it"><b>'+tr("roleAdminIt")+'</b><span>'+tr("roleAdminItDesc")+'</span></button>'+
+    '<button class="roleopt" data-role-step="pin_nestle"><b>'+tr("roleNestle")+'</b><span>'+tr("roleNestleDesc")+'</span></button>'+
     '<button class="roleopt" data-pick-role="driver"><b>'+tr("roleDriver")+'</b><span>'+tr("roleDriverDesc")+'</span></button>'+
   '</div></div>';
 }
@@ -499,7 +534,29 @@ function reportSheetHtml(){
     errHtml+
     '<button class="btn primary" data-run-report="1" '+(busy?"disabled":"")+'>'+(busy?tr("reportLoading"):tr("reportRunBtn"))+'</button>'+
     resultsHtml+
+    archiveBlockHtml()+
   '</div></div>';
+}
+/* Round 25: "Bon pour les archives on peut ajouter un bouton et ca
+   download tout mais ca supprimes rien. Mon departement IT s en occupera
+   eux meme de cela" -- Theo's final, locked-in spec. Admin MON IT only
+   (isAdminIt() -- the one capability that sets it apart from Admin MON),
+   reuses this same screen's own report-from/report-to date fields rather
+   than duplicating them. Purely a bulk download: see
+   downloadPhotosArchive() in photoDownload.js and runPhotoArchive() in
+   reporting.js -- neither one calls any delete endpoint. Any retention/
+   cleanup decision is entirely MON IT's own manual responsibility outside
+   this app. */
+function archiveBlockHtml(){
+  if(!isAdminIt()) return "";
+  var busy = !!ui.archiveBusy;
+  return '<div class="sheet-section" style="border-top:1px solid var(--line);margin-top:16px;padding-top:16px">'+
+    '<div class="label">'+tr("archiveTitle")+'</div>'+
+    '<div class="hint" style="margin-top:6px">'+tr("archiveHint")+'</div>'+
+    '<button class="btn ghost" data-download-archive="1" style="margin-top:10px" '+(busy?"disabled":"")+'>'+
+      (busy ? tr("archiveBusy") : "⬇️ "+tr("archiveDownloadBtn"))+
+    '</button>'+
+  '</div>';
 }
 function importSheetHtml(){
   var busy = !!ui.importBusy;
@@ -567,10 +624,13 @@ function photosHtml(t){
   // button, not nested inside the view button, so tapping it can never also
   // open the viewer (see events.js's click delegation).
   var slots = photos.map(function(p, idx){
-    var rm = ui.role === "admin" ? '<button class="photoslot-rm" data-photo-remove="'+esc(p.id)+'" data-photo-truck="'+esc(t.id)+'" data-photo-path="'+esc(p.storagePath)+'" aria-label="Remove">✕</button>' : "";
+    var rm = isAdmin() ? '<button class="photoslot-rm" data-photo-remove="'+esc(p.id)+'" data-photo-truck="'+esc(t.id)+'" data-photo-path="'+esc(p.storagePath)+'" aria-label="Remove">✕</button>' : "";
     return '<div class="photoslot"><button class="photoslot-view" data-view-photo="'+esc(t.id)+'" data-view-index="'+idx+'"><img src="'+esc(p.url)+'" loading="lazy"></button>'+rm+'</div>';
   }).join("");
-  if(photos.length < maxPhotos){
+  // Round 25: Nestlé can view and download photos but doesn't add any --
+  // Theo's own phrasing ("upload le fichier") was about the inbound-plan
+  // import, not photo uploads, so the two add-photo tiles stay hidden here.
+  if(photos.length < maxPhotos && !isNestle()){
     // Two separate tiles rather than one generic "+" (pre-Round 19): on a
     // real Android phone, the single file input below has no `capture`
     // attribute (removed at Round 9 so `multiple` could enable picking
@@ -636,6 +696,9 @@ function photoViewerHtml(){
    photos, so it's hidden in local-only mode for the same reason. */
 function damageRemarkHtml(t){
   if(!supabaseEnabled()) return "";
+  // Round 25: locked in via AskUserQuestion -- Nestlé never sees the damage
+  // remark (list + ETA + photos + import only).
+  if(isNestle()) return "";
   return '<div class="sheet-section"><div class="label">'+tr("damageRemarkTitle")+'</div>'+
     '<div class="hint">'+tr("damageRemarkHint")+'</div>'+
     '<textarea class="field" rows="3" id="damageRemarkInput" placeholder="'+tr("damageRemarkPlaceholder")+'" style="margin-top:8px;resize:vertical">'+esc(t.damageRemark||"")+'</textarea>'+
@@ -863,7 +926,10 @@ export function render(){
     try{ focusInfo.start = activeEl.selectionStart; focusInfo.end = activeEl.selectionEnd; }catch(e){}
   }
   var now = new Date();
-  var showTabs = ui.role === "admin";
+  // Round 25: Nestlé gets the same day-by-day navigation as Admin
+  // ("consultation + import + téléchargement seulement" -- confirmed via
+  // AskUserQuestion), just none of the admin-only actions below.
+  var showTabs = isAdmin() || isNestle();
   // A truck pending deletion (tapped "Delete", inside the undo window --
   // see deleteTruck() in actions.js) is hidden from both the KPI strip and
   // the list right away, even though it hasn't actually been deleted yet.
@@ -903,10 +969,14 @@ export function render(){
       '</div>'+
       '<div class="topbar-row2">'+
         '<div class="rolebadgerow">'+
-          (ui.role==="admin" ? '<button class="rolebadge" data-open-import="1" aria-label="'+tr("importPlanAria")+'">📥</button>' : '')+
-          (ui.role==="admin" ? '<button class="rolebadge" data-open-report="1" aria-label="'+tr("reportTitle")+'">📊</button>' : '')+
-          (ui.role==="admin" ? '<button class="rolebadge" data-open-pin-settings="1" aria-label="'+tr("changePin")+'">⚙</button>' : '')+
-          (ui.role==="admin" ? '<button class="rolebadge" data-open-app-settings="1" aria-label="'+tr("appSettingsTitle")+'">🔧</button>' : '')+
+          // Round 25 capability matrix (locked in via AskUserQuestion):
+          // Nestlé gets import + PIN self-service alongside Admin/Admin IT;
+          // Reporting (KPIs/CSV) and the app-settings screen stay
+          // Admin-only (isAdmin() covers both admin and admin_it).
+          ((isAdmin()||isNestle()) ? '<button class="rolebadge" data-open-import="1" aria-label="'+tr("importPlanAria")+'">📥</button>' : '')+
+          (isAdmin() ? '<button class="rolebadge" data-open-report="1" aria-label="'+tr("reportTitle")+'">📊</button>' : '')+
+          ((isAdmin()||isNestle()) ? '<button class="rolebadge" data-open-pin-settings="1" aria-label="'+tr("changePin")+'">⚙</button>' : '')+
+          (isAdmin() ? '<button class="rolebadge" data-open-app-settings="1" aria-label="'+tr("appSettingsTitle")+'">🔧</button>' : '')+
           (ui.role==="driver" ? '<button class="rolebadge" data-open-name-settings="1">'+tr("setNamePill")+'</button>' : '')+
           '<button class="rolebadge langtoggle" data-toggle-lang="1" aria-label="Language / ภาษา">'+(ui.lang==="th"?"EN":"TH")+'</button>'+
         '</div>'+
@@ -918,7 +988,10 @@ export function render(){
     searchRowHtml()+
     '<div class="list">'+listHtml(visibleTrucks, now)+'</div>'+
     statusLegendHtml()+
-    (ui.role === "admin" ? '<button class="fab" data-add="1" aria-label="'+tr("addTruckAria")+'">+</button>' : '')+
+    // Manual "add truck" stays Admin-only (Admin MON + Admin MON IT) -- a
+    // judgment call: Theo described Nestlé's write capability only as
+    // "upload le fichier" (the import flow), never manual creation.
+    (isAdmin() ? '<button class="fab" data-add="1" aria-label="'+tr("addTruckAria")+'">+</button>' : '')+
     sheetHtml(now)+
     photoViewerHtml()+
     roleGateHtml()+
