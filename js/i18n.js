@@ -7,11 +7,19 @@ import { ui } from "./state.js";
 
 export const STRINGS = {
   selectRole:{en:"Select role",th:"เลือกบทบาท"},
-  roleAdmin:{en:"Admin",th:"แอดมิน"},
+  roleAdmin:{en:"Admin MON",th:"แอดมิน MON"},
   roleDriver:{en:"MHE Driver",th:"พนักงาน MHE"},
-  roleAdminDesc:{en:"Set arrival times, add trucks, manage the schedule — PIN required",th:"ตั้งเวลาเข้า เพิ่มรถบรรทุก จัดการตารางงาน — ต้องใช้รหัส PIN"},
+  roleAdminDesc:{en:"Set arrival times, add trucks, delete trucks, manage the schedule — PIN required",th:"ตั้งเวลาเข้า เพิ่ม/ลบรถบรรทุก จัดการตารางงาน — ต้องใช้รหัส PIN"},
   roleDriverDesc:{en:"Start and finish unloading at the dock — no login needed",th:"เริ่มและจบการขนถ่ายที่ท่าเทียบ — ไม่ต้องเข้าสู่ระบบ"},
-  changePin:{en:"Change admin PIN",th:"เปลี่ยนรหัส PIN แอดมิน"},
+  // Round 25: two more roles alongside Admin MON / MHE Driver above --
+  // Admin MON IT (everything Admin MON can do, plus the photo-archive
+  // download) and Nestlé (the client who books the trucks: read-only
+  // schedule + import + photo download, see render.js's isNestle() gating).
+  roleAdminIt:{en:"Admin MON IT",th:"แอดมิน MON IT"},
+  roleAdminItDesc:{en:"Everything Admin MON can do, plus downloading the full photo archive — PIN required",th:"ทำได้ทุกอย่างเหมือนแอดมิน MON และดาวน์โหลดคลังภาพถ่ายทั้งหมด — ต้องใช้รหัส PIN"},
+  roleNestle:{en:"Nestlé",th:"เนสท์เล่"},
+  roleNestleDesc:{en:"View trucks, import the inbound plan, and download photos — PIN required",th:"ดูรถบรรทุก นำเข้าแผนอินบาวด์ และดาวน์โหลดรูปภาพ — ต้องใช้รหัส PIN"},
+  changePin:{en:"Change PIN",th:"เปลี่ยนรหัส PIN"},
   sync_local:{en:"Local mode",th:"โหมดในเครื่อง"},
   sync_connecting:{en:"Connecting…",th:"กำลังเชื่อมต่อ…"},
   sync_saving:{en:"Saving…",th:"กำลังบันทึก…"},
@@ -77,14 +85,17 @@ export const STRINGS = {
   phRef:{en:"e.g. PO-10021",th:"เช่น PO-10021"},
   addTruckBtn:{en:"Add Truck",th:"เพิ่มรถบรรทุก"},
   addTruckAria:{en:"Add a truck",th:"เพิ่มรถบรรทุก"},
-  adminPinTitle:{en:"Admin PIN",th:"รหัส PIN แอดมิน"},
-  enterPinSub:{en:"Enter the admin PIN to manage schedules and trucks.",th:"กรอกรหัส PIN แอดมินเพื่อจัดการตารางงานและรถบรรทุก"},
+  adminPinTitle:{en:"Admin MON PIN",th:"รหัส PIN แอดมิน MON"},
+  adminItPinTitle:{en:"Admin MON IT PIN",th:"รหัส PIN แอดมิน MON IT"},
+  nestlePinTitle:{en:"Nestlé PIN",th:"รหัส PIN เนสท์เล่"},
+  enterPinSub:{en:"Enter the PIN for this role.",th:"กรอกรหัส PIN สำหรับบทบาทนี้"},
   incorrectPin:{en:"Incorrect PIN. Try again.",th:"รหัส PIN ไม่ถูกต้อง กรุณาลองอีกครั้ง"},
   unlockAdmin:{en:"Unlock Admin",th:"ปลดล็อกแอดมิน"},
+  unlockBtn:{en:"Unlock",th:"ปลดล็อก"},
   back:{en:"Back",th:"ย้อนกลับ"},
   whoUsingDevice:{en:"Who's using this device?",th:"ใครกำลังใช้เครื่องนี้?"},
   chooseRoleSub:{en:"Choose a role for this phone. You can switch it later from the header.",th:"เลือกบทบาทสำหรับเครื่องนี้ เปลี่ยนภายหลังได้จากด้านบน"},
-  changePinTitle:{en:"Admin PIN",th:"เปลี่ยนรหัส PIN"},
+  changePinTitle:{en:"Change PIN",th:"เปลี่ยนรหัส PIN"},
   curPin:{en:"Current PIN",th:"รหัส PIN ปัจจุบัน"},
   newPin:{en:"New PIN",th:"รหัส PIN ใหม่"},
   confirmNewPin:{en:"Confirm new PIN",th:"ยืนยันรหัส PIN ใหม่"},
@@ -93,6 +104,15 @@ export const STRINGS = {
   pinErrMismatch:{en:"New PIN and confirmation don't match.",th:"รหัส PIN ใหม่และการยืนยันไม่ตรงกัน"},
   updatePinBtn:{en:"Update PIN",th:"อัปเดตรหัส PIN"},
   pinUpdatedToast:{en:"PIN updated.",th:"อัปเดตรหัส PIN แล้ว"},
+  // Round 25: bulk photo-archive download (Reporting screen, Admin MON IT
+  // only) -- reuses the report screen's own date-range fields, see
+  // reportSheetHtml() in render.js and runPhotoArchive() in reporting.js.
+  archiveTitle:{en:"Photo archive",th:"คลังภาพถ่าย"},
+  archiveHint:{en:"Download every photo from every truck in this date range as one .zip file. Nothing is deleted from the app or from Supabase — cleanup is handled separately by MON IT.",th:"ดาวน์โหลดรูปภาพทั้งหมดจากรถบรรทุกทุกคันในช่วงวันที่นี้เป็นไฟล์ .zip เดียว ไม่มีการลบข้อมูลออกจากแอปหรือ Supabase — การจัดการข้อมูลเก่าเป็นหน้าที่ของ MON IT แยกต่างหาก"},
+  archiveDownloadBtn:{en:"Download all photos (.zip)",th:"ดาวน์โหลดรูปภาพทั้งหมด (.zip)"},
+  archiveBusy:{en:"Preparing archive…",th:"กำลังเตรียมคลังภาพถ่าย…"},
+  archiveNoPhotos:{en:"No photos found in this date range.",th:"ไม่พบรูปภาพในช่วงวันที่นี้"},
+  archiveReady:{en:"Archive downloaded.",th:"ดาวน์โหลดคลังภาพถ่ายแล้ว"},
   viewArrivalPhoto:{en:"📷 View arrival photo",th:"📷 ดูภาพถ่ายตอนมาถึง"},
   viewCompletionPhoto:{en:"📷 View completion photo",th:"📷 ดูภาพถ่ายตอนเสร็จสิ้น"},
   confirmArrival:{en:"Confirm arrival",th:"ยืนยันการมาถึง"},
