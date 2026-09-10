@@ -41,6 +41,13 @@ export const MAX_DAY_OFFSET = 5;
 // board meant to be read from across the room).
 export const TV_ROWS_PER_PAGE = 10;
 export const TV_ROTATE_MS = 8000;
+// Round 25 follow-up: auto-logout after this long with no click/keydown/
+// input anywhere in the app (see js/state.js's touchActivity() and the check
+// in js/ticking.js's tick()) -- applies to every role (Admin MON, Admin MON
+// IT, Nestlé, Driver) alike. A manual "🚪" logout button (render.js/
+// events.js/actions.js's logout()) works regardless of this timer, for
+// anyone who wants to log out immediately rather than wait it out.
+export const INACTIVITY_LOGOUT_MS = 30 * 60 * 1000;
 
 /* localStorage keys (all per-device, never synced anywhere) */
 export const ROLE_KEY = "mon-inbound-role";
