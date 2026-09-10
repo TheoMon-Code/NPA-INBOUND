@@ -126,7 +126,12 @@ export function loadFromSupabase(){
    scoped to for everyday display. Selects only the columns the report's KPIs
    actually use, rather than the full row (photos, raw, lots, ...). */
 export function sbFetchTrucksForReport(fromDate, toDate){
-  var q = "trucks?select=order_date,eta,truck_state,act_arrival,act_dept,damage_remark"+
+  // po_no/carrier appended at the END of the select list (Round 24, Theo
+  // asked for both in the CSV export) rather than inserted earlier in it --
+  // keeps the "order_date,eta,truck_state" prefix this query has always had
+  // intact, which is what tests/test_v2_reporting.py's date-window check
+  // matches against.
+  var q = "trucks?select=order_date,eta,truck_state,act_arrival,act_dept,damage_remark,po_no,carrier"+
     "&order_date=gte."+fromDate+"&order_date=lte."+toDate;
   return sbRest(q).then(function(rows){
     return (rows || []).map(function(row){
@@ -136,7 +141,9 @@ export function sbFetchTrucksForReport(fromDate, toDate){
         truckState: row.truck_state || "pending",
         actArrival: row.act_arrival || null,
         actDept: row.act_dept || null,
-        damageRemark: row.damage_remark || ""
+        damageRemark: row.damage_remark || "",
+        poNo: row.po_no || "",
+        carrier: row.carrier || ""
       };
     });
   });

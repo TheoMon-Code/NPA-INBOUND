@@ -103,7 +103,18 @@ async def main():
         zip_files = await page.evaluate("window.__zipFiles")
         print("files bundled into the zip:", zip_files)
         assert len(zip_files) == 3, "expected all 3 photos to be fetched and added to the zip"
-        assert set(zip_files) == {"PO-77701-1-aaa.jpg", "PO-77701-2-bbb.jpg", "PO-77701-3-ccc.jpg"}
+        # Round 24: Theo asked that each photo's name inside the zip lead with
+        # the truck's date then its scheduled time then the PO (easier to sort
+        # once several trucks' photos land in the same downloads folder) --
+        # the outer zip's own filename (asserted above) is unchanged, only the
+        # entries inside it are renamed. TRUCK's eta is "09:00:00" (mapped to
+        # "09:00" by mapRowToTruck, then "h"-joined here instead of ":", which
+        # isn't valid in a Windows filename).
+        assert set(zip_files) == {
+            TODAY+"_09h00_PO-77701-1.jpg",
+            TODAY+"_09h00_PO-77701-2.jpg",
+            TODAY+"_09h00_PO-77701-3.jpg",
+        }
 
         await page.wait_for_timeout(300)
         toast_text = await page.text_content(".toast")

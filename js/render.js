@@ -84,7 +84,13 @@ function tableRowHtml(t, now){
     '<td>'+esc(t.carrier||"—")+'</td>'+
     '<td>'+(t.plant ? esc(t.plant) : "—")+'</td>'+
     '<td>'+shortDate(t.date)+'</td>'+
-    '<td>'+(t.lots && t.lots.length > 1 ? esc(tr("multiLotBadge").replace("{n}", t.lots.length)) : "—")+'</td>'+
+    // Round 24: was the multi-lot badge (Round 10) -- "—" for the ~90% of
+    // trucks with only one lot, so it wasn't pulling its weight as a column
+    // Theo scans on every row. ETA is useful for every truck instead, and
+    // mirrors what the TV table already shows (tvColEta, its own separate
+    // key/column since renderTv() is a different render path with its own
+    // wording to tweak independently).
+    '<td>'+(t.eta || "—")+'</td>'+
   '</tr>';
 }
 /* Table-shaped view of the same day's trucks as listHtml()'s cards, for a
@@ -104,7 +110,7 @@ function listTableHtml(filtered, now){
     '<th>'+tr("tableColCarrier")+'</th>'+
     '<th>'+tr("tableColPlant")+'</th>'+
     '<th>'+tr("tableColDate")+'</th>'+
-    '<th>'+tr("tableColLots")+'</th>'+
+    '<th>'+tr("tableColEta")+'</th>'+
   '</tr></thead><tbody>'+rows+'</tbody></table>';
 }
 function sortWeight(t, now){
@@ -866,15 +872,37 @@ export function render(){
     : state.trucks;
   document.documentElement.setAttribute("lang", ui.lang === "th" ? "th" : "en");
   var html =
+    // Round 24: Theo found the mobile topbar cramped -- logo, tagline, role
+    // switch, four admin icons, lang toggle, clock, date and sync status all
+    // fighting for one row. Split into two explicit rows: row 1 is "who/when"
+    // (logo + role + clock/date), row 2 is "settings" (the admin/driver
+    // icons, lang toggle, sync status) -- his own suggested split ("en haut
+    // logo + la date + ADMIN ou MHE, en dessous tous les settings"). Applied
+    // at every width, not just mobile, so desktop matches rather than having
+    // two different topbar shapes to maintain. Every existing class/id/data-
+    // attr is kept exactly (rolebadgerow, rolebadge, clockbox, clock#clockEl,
+    // clockdate, syncrow, syncdot, brand-row, brand-word) -- only which
+    // wrapper they sit in changed -- so click delegation (events.js) and the
+    // safe-area-top test (which only checks .topbar/.brand-word bounding
+    // rects, not their nesting) are unaffected. New wrappers: .topbar-row1,
+    // .topbar-row2, .idline.
     '<div class="topbar">'+
-      '<div class="brand-row">'+markSvg()+
-        // "MON" is no longer repeated as text here -- it's now baked into
-        // markSvg()'s full logo image (hexagon + wordmark), so only the
-        // app-specific "INBOUND" tagline remains, to avoid showing "MON"
-        // twice side by side.
-        '<div class="brand-word"><span class="tagline">INBOUND</span>'+
-        '<div class="rolebadgerow">'+
+      '<div class="topbar-row1">'+
+        '<div class="brand-row">'+markSvg()+
+          // "MON" is no longer repeated as text here -- it's now baked into
+          // markSvg()'s full logo image (hexagon + wordmark), so only the
+          // app-specific "INBOUND" tagline remains, to avoid showing "MON"
+          // twice side by side.
+          '<div class="brand-word"><span class="tagline">INBOUND</span></div>'+
+        '</div>'+
+        '<div class="idline">'+
           '<button class="rolebadge" data-role-switch="1">'+(ui.role?roleLabel(ui.role):tr("selectRole"))+' ⇵</button>'+
+          '<div class="clockbox"><div class="clock" id="clockEl">'+clockStr(now)+'</div>'+
+          '<div class="clockdate">'+longDate(now)+'</div></div>'+
+        '</div>'+
+      '</div>'+
+      '<div class="topbar-row2">'+
+        '<div class="rolebadgerow">'+
           (ui.role==="admin" ? '<button class="rolebadge" data-open-import="1" aria-label="'+tr("importPlanAria")+'">📥</button>' : '')+
           (ui.role==="admin" ? '<button class="rolebadge" data-open-report="1" aria-label="'+tr("reportTitle")+'">📊</button>' : '')+
           (ui.role==="admin" ? '<button class="rolebadge" data-open-pin-settings="1" aria-label="'+tr("changePin")+'">⚙</button>' : '')+
@@ -882,10 +910,8 @@ export function render(){
           (ui.role==="driver" ? '<button class="rolebadge" data-open-name-settings="1">'+tr("setNamePill")+'</button>' : '')+
           '<button class="rolebadge langtoggle" data-toggle-lang="1" aria-label="Language / ภาษา">'+(ui.lang==="th"?"EN":"TH")+'</button>'+
         '</div>'+
-        '</div></div>'+
-      '<div class="clockbox"><div class="clock" id="clockEl">'+clockStr(now)+'</div>'+
-      '<div class="clockdate">'+longDate(now)+'</div>'+
-      '<div class="syncrow"><span class="syncdot '+syncDotClass()+'"></span>'+syncLabel()+offlineQueueBadgeHtml()+pollCountdownHtml(now)+'</div></div>'+
+        '<div class="syncrow"><span class="syncdot '+syncDotClass()+'"></span>'+syncLabel()+offlineQueueBadgeHtml()+pollCountdownHtml(now)+'</div>'+
+      '</div>'+
     '</div>'+
     (showTabs ? tabsHtml(visibleTrucks) : '<div class="dayheading">'+tr("todaysTrucks")+'</div>')+
     '<div class="kpis">'+kpiHtml(visibleTrucks, now)+'</div>'+

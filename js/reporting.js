@@ -105,10 +105,13 @@ export function exportReportCsv(){
   // thing". Any failure now surfaces as a toast with the actual error instead.
   try {
     var rows = ui.reportRows || [];
-    var header = ["date","eta","truck_state","act_arrival","act_dept","damage_remark"];
+    // po_no/carrier added right after eta (Round 24, Theo asked for both so
+    // the export identifies which truck each row is without cross-referencing
+    // the app) -- sbFetchTrucksForReport() (js/api.js) already returns them.
+    var header = ["date","eta","po_no","carrier","truck_state","act_arrival","act_dept","damage_remark"];
     var lines = [header.join(",")];
     rows.forEach(function(r){
-      lines.push([r.date, r.eta, r.truckState, r.actArrival, r.actDept, r.damageRemark].map(csvField).join(","));
+      lines.push([r.date, r.eta, r.poNo, r.carrier, r.truckState, r.actArrival, r.actDept, r.damageRemark].map(csvField).join(","));
     });
     // Leading BOM so Excel (still the default on a manager's laptop) opens the
     // file as UTF-8 rather than guessing a local codepage -- harmless for the

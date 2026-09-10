@@ -64,12 +64,18 @@ async def main():
         text = raw.decode("utf-8-sig")
         rows = list(csv.reader(io.StringIO(text)))
         print("CSV rows:", rows)
-        assert rows[0] == ["date","eta","truck_state","act_arrival","act_dept","damage_remark"]
+        # Round 24: Theo asked for the PO number and carrier in the export too
+        # (so a row identifies which truck it is without cross-referencing the
+        # app) -- added right after eta, ahead of the columns that were already
+        # here, which shifts damage_remark from index 5 to index 7.
+        assert rows[0] == ["date","eta","po_no","carrier","truck_state","act_arrival","act_dept","damage_remark"]
         assert len(rows) == 3  # header + 2 trucks
         assert rows[1][0] == d(-2)
         assert rows[2][0] == d(-1)
+        assert rows[1][2] == "PO-1" and rows[1][3] == "A"
+        assert rows[2][2] == "PO-2" and rows[2][3] == "B"
         # the comma-and-quote-containing damage remark must round-trip intact
-        assert rows[2][5] == 'Layer 2 crushed, has a "note, with comma"'
+        assert rows[2][7] == 'Layer 2 crushed, has a "note, with comma"'
 
         await browser.close()
         print("REPORT CSV EXPORT TEST PASSED")

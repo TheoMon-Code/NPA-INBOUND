@@ -69,6 +69,13 @@ img{max-width:100%}
 button{font:inherit;color:inherit}
 input{font:inherit;color:inherit}
 textarea{font:inherit;color:inherit}
+/* Round 24: Theo noticed the plain black blinking text cursor in every field
+   ("les |") and wanted it in line with the rest of the app's look rather than
+   the browser default -- caret-color is the one thing that actually controls
+   it (a text caret can't be recolored via border/outline tricks). Every real
+   text input in the app already sits on a white/light card background, so the
+   brand blue reads clearly here without needing a light/dark split. */
+input, textarea{caret-color:var(--brand)}
 ::selection{background:var(--brand-soft)}
 .mono{font-family:"IBM Plex Mono","IBM Plex Sans Thai",ui-monospace,monospace;font-variant-numeric:tabular-nums}
 .display{font-family:"Archivo","IBM Plex Sans Thai",system-ui,sans-serif}
@@ -102,12 +109,21 @@ textarea{font:inherit;color:inherit}
      phone. env() resolves to 0 on a device with no notch/status-bar overlay,
      so this is a no-op there. */
   padding:calc(14px + env(safe-area-inset-top)) 16px 12px;
+  /* Round 24: was a single flex row cramming logo/tagline/role/four admin
+     icons/lang toggle/clock/date/sync status together -- Theo found this
+     unworkable on a phone. Now a column of two rows (.topbar-row1/.topbar-row2
+     below): row 1 is "who/when" (logo + role + clock/date), row 2 is
+     "settings" (admin/driver icons + lang toggle + sync status). Kept the
+     same at every width rather than only on mobile, for one layout to
+     maintain instead of two. */
   display:flex;
-  align-items:flex-start;
-  justify-content:space-between;
-  gap:10px;
+  flex-direction:column;
+  gap:8px;
   position:sticky; top:0; z-index:20;
 }
+.topbar-row1{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.topbar-row2{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.idline{display:flex;align-items:center;gap:10px}
 .brand-row{display:flex;align-items:center;gap:10px}
 /* white "badge" behind the full-color logo (Round 13) -- Theo asked for his
    real logo, unmodified/uncolored, rather than the white-monochrome version
@@ -127,7 +143,11 @@ textarea{font:inherit;color:inherit}
 .mark{height:100%;width:auto;max-width:120px;object-fit:contain;display:block}
 .brand-word{line-height:1.05}
 .brand-word .tagline{display:block;font-family:"Archivo";font-weight:700;font-size:11px;letter-spacing:2.4px;color:#BFD0FF;margin-top:1px}
-.rolebadgerow{margin-top:7px; display:flex; gap:6px; align-items:center}
+/* Round 24: no longer nested under the tagline (see render.js) -- it's now a
+   direct child of .topbar-row2, laid out side by side with .syncrow rather
+   than stacked under .brand-word, so the top margin that used to space it
+   below the tagline is no longer needed. */
+.rolebadgerow{display:flex; gap:6px; align-items:center; flex-wrap:wrap}
 .rolebadge{
   font-size:10.5px; font-weight:700; letter-spacing:.3px;
   background:rgba(255,255,255,.16); color:#fff; border:none; padding:4px 9px;
@@ -139,7 +159,10 @@ textarea{font:inherit;color:inherit}
 .clockbox{text-align:right}
 .clock{font-family:"IBM Plex Mono";font-weight:600;font-size:16px;letter-spacing:.5px}
 .clockdate{font-size:10.5px;color:#BFD0FF;margin-top:2px}
-.syncrow{display:flex;align-items:center;gap:5px;justify-content:flex-end;margin-top:4px;font-size:10px;color:#BFD0FF}
+/* Round 24: no longer nested under .clockdate (see render.js) -- it's now a
+   direct child of .topbar-row2 next to .rolebadgerow, so the top margin that
+   used to space it below the clock/date is no longer needed. */
+.syncrow{display:flex;align-items:center;gap:5px;justify-content:flex-end;font-size:10px;color:#BFD0FF}
 .syncdot{width:6px;height:6px;border-radius:50%;background:#8FE3B8;flex:none}
 .syncdot.local{background:#C7D2EB}
 .syncdot.saving{background:#F4C563;animation:pulse 1s infinite}

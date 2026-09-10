@@ -29,11 +29,31 @@ function loadJSZip(){
   return jszipLoadPromise;
 }
 
-/* truckLabel is only used for the downloaded file's name (PO/reference,
-   same identifier already used for each photo's own filename in Storage --
-   see sbUploadPhoto in api.js) -- sanitized since it ends up in a
-   filesystem path on whatever device downloads it. */
-export function downloadTruckPhotos(truckId, photos, truckLabel){
+// Round 24: Theo asked that a downloaded photo's filename lead with the
+// truck's date, then its scheduled time, then the PO -- easier to sort/scan
+// once photos from several trucks end up side by side outside the app (a
+// downloads folder, an email attachment) than the previous "PO first" naming
+// (still used, unchanged, for the file's actual name in Supabase Storage --
+// this only renames the copy that lands in the zip). Falls back to
+// placeholders when a truck has no ETA yet (still possible right up until a
+// truck is marked "Done") rather than producing a name with a bare colon or
+// trailing underscore.
+function extOf(storagePath){
+  var m = /\.([A-Za-z0-9]+)$/.exec(storagePath || "");
+  return m ? m[1] : "jpg";
+}
+function zipEntryName(truckDate, truckEta, truckLabel, index, storagePath){
+  var datePart = truckDate || "no-date";
+  var timePart = truckEta ? truckEta.replace(":", "h") : "no-time";
+  var safeLabel = String(truckLabel || "truck").replace(/[^A-Za-z0-9_-]+/g, "-");
+  return datePart + "_" + timePart + "_" + safeLabel + "-" + (index + 1) + "." + extOf(storagePath);
+}
+
+/* truckLabel is used for both the outer zip's filename and (now, Round 24)
+   as one part of each photo's name inside it -- sanitized since it ends up
+   in a filesystem path on whatever device downloads it. truckDate/truckEta
+   are the truck's own order_date/eta (js/state.js shape), used as-is. */
+export function downloadTruckPhotos(truckId, photos, truckLabel, truckDate, truckEta){
   var list = photos || [];
   if(!list.length) return;
   showToast(tr("preparingPhotosZip"), true);
@@ -45,11 +65,7 @@ export function downloadTruckPhotos(truckId, photos, truckLabel){
         if(!res.ok) throw new Error("http " + res.status);
         return res.blob();
       }).then(function(blob){
-        // Same basename Supabase Storage already holds this file under
-        // (<truckId>/<name>.jpg -- see sbUploadPhoto in api.js) so a photo
-        // pulled out of the zip is still recognizable against the bucket;
-        // falls back to a plain index only if that's ever missing.
-        var name = (p.storagePath || "").split("/").pop() || ("photo-" + (i + 1) + ".jpg");
+        var name = zipEntryName(truckDate, truckEta, truckLabel, i, p.storagePath);
         zip.file(name, blob);
       }).catch(function(){ failedCount++; });
     });

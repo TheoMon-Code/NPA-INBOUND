@@ -122,7 +122,7 @@ export function initEvents(){
     var downloadPhotosEl = el.closest("[data-download-photos]");
     if(downloadPhotosEl){
       var dpTruck = findTruck(downloadPhotosEl.getAttribute("data-download-photos"));
-      if(dpTruck) downloadTruckPhotos(dpTruck.id, dpTruck.photos, dpTruck.poNo || dpTruck.ref || dpTruck.id);
+      if(dpTruck) downloadTruckPhotos(dpTruck.id, dpTruck.photos, dpTruck.poNo || dpTruck.ref || dpTruck.id, dpTruck.date, dpTruck.eta);
       return;
     }
     var cancelEl = el.closest("[data-cancel]");

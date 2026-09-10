@@ -224,6 +224,14 @@ export const STRINGS = {
   tableColPlant:{en:"Plant",th:"โรงงาน"},
   tableColDate:{en:"Date",th:"วันที่"},
   tableColLots:{en:"Lots",th:"ล็อต"},
+  // Round 24: replaces "Lots" as the 6th column of the normal desktop table
+  // (listTableHtml()/tableRowHtml() in render.js) -- Theo felt Lots wasn't
+  // pulling its weight there (it reads "—" for the ~90% of trucks with only
+  // one lot; see Round 10) and asked for something else in its place. ETA is
+  // useful on every row instead of a rare few, and mirrors what the TV table
+  // already shows (tvColEta, kept as its own key since that's a different
+  // table with its own wording to tweak independently).
+  tableColEta:{en:"ETA",th:"เวลานัด"},
   // TV mode (Round 22) shows only today's trucks, so a "Date" column would
   // always read the same value -- an ETA column is more useful on a board
   // meant to be read from across the room.
