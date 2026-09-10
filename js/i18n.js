@@ -210,6 +210,7 @@ export const STRINGS = {
   importSaveFailed:{en:"Import failed partway through — check your connection and try again (trucks already imported won't be duplicated).",th:"นำเข้าล้มเหลวระหว่างทาง — ตรวจสอบการเชื่อมต่อแล้วลองใหม่ (รายการที่นำเข้าไปแล้วจะไม่ซ้ำ)"},
   importRawColumnMissing:{en:"(The extra source columns weren't saved — ask ISD to run the \"raw\" column update in supabase-schema.sql.)",th:"(ข้อมูลคอลัมน์อื่น ๆ ยังไม่ถูกบันทึก — แจ้งทีม ISD ให้รันคำสั่งเพิ่มคอลัมน์ \"raw\" ใน supabase-schema.sql)"},
   importLotsColumnMissing:{en:"(Some trucks have several lots, but that detail wasn't saved — ask ISD to run the \"lots\" column update in supabase-schema.sql.)",th:"(รถบางคันมีหลายล็อต แต่รายละเอียดนี้ยังไม่ถูกบันทึก — แจ้งทีม ISD ให้รันคำสั่งเพิ่มคอลัมน์ \"lots\" ใน supabase-schema.sql)"},
+  importTruckLabelColumnMissing:{en:"(Some trucks share the same PO/date/time and should show a \"Truck 1/2/...\" label, but that wasn't saved — ask ISD to run the \"truck_label\" column update in supabase-schema.sql.)",th:"(รถบางคันมี PO/วันที่/เวลาเดียวกันและควรมีป้าย \"Truck 1/2/...\" แต่ยังไม่ถูกบันทึก — แจ้งทีม ISD ให้รันคำสั่งเพิ่มคอลัมน์ \"truck_label\" ใน supabase-schema.sql)"},
   allSourceFields:{en:"All imported fields (from the source file)",th:"ข้อมูลทั้งหมดจากไฟล์ต้นฉบับ"},
   // A single import row can turn out to be several lots for the very same
   // physical truck (same PO + date + time + carrier in the source file,
