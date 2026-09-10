@@ -31,9 +31,11 @@ export function isInputSheetOpen(){
   // longer bubble up to the listener on #app (it's not attached to the
   // document anymore), so the picked photo silently never uploads. Treat a
   // pending pick like any other open input so it can't be wiped out.
+  // Round 25: three PIN sub-screens now share this pause condition (typing
+  // a PIN for any of Admin MON / Admin MON IT / Nestlé, not just "pin").
   return !!(ui.addOpen || ui.pinSettingsOpen || ui.nameSettingsOpen || ui.importOpen || truckSheetOpen ||
     ui.pendingPhotoTruckId ||
-    (ui.roleGateOpen && ui.roleGateStep === "pin"));
+    (ui.roleGateOpen && (ui.roleGateStep === "pin" || ui.roleGateStep === "pin_it" || ui.roleGateStep === "pin_nestle")));
 }
 
 export function tick(){
