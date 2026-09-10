@@ -117,3 +117,70 @@ export function downloadTruckPhotos(truckId, photos, truckLabel, truckDate, truc
     showToast(tr("photosDownloadFailed"), true);
   });
 }
+
+/* ---------- bulk "photo archive" (Round 25, Admin MON IT only) ----------
+   Theo's final, locked-in spec after weighing (and rejecting) a Supabase
+   Pro upgrade and an automated SharePoint-move-then-delete pipeline: "on
+   peut ajouter un bouton et ca download tout mais ca supprimes rien...
+   c'est pas a moi de le faire" -- a single button that bundles every photo
+   from every truck in a picked date range into one .zip, and nothing else.
+   No delete call is made anywhere in this function or anything it calls --
+   cleanup of old Supabase Storage is entirely MON IT's own manual process,
+   outside this app. `trucks` is the shape sbFetchTrucksForArchive() (api.js)
+   returns: {id, label, date, eta, photos:[{id,url,storagePath}]}. Each
+   truck's photos land in their own subfolder inside the zip so a manager
+   opening it later can still tell which truck each photo came from,
+   reusing the same dateTimePrefix()/zipEntryName() naming as the
+   single-truck download above. */
+export function downloadPhotosArchive(trucks, fromDate, toDate){
+  var list = trucks || [];
+  var totalPhotos = 0;
+  list.forEach(function(t){ totalPhotos += (t.photos || []).length; });
+  if(!totalPhotos){
+    showToast(tr("archiveNoPhotos"), true);
+    return Promise.resolve();
+  }
+  showToast(tr("archiveBusy"), true);
+  return loadJSZip().then(function(){
+    var zip = new window.JSZip();
+    var failedCount = 0;
+    var truckPromises = list.map(function(t){
+      var photos = t.photos || [];
+      if(!photos.length) return Promise.resolve();
+      var safeLabel = String(t.label || t.id || "truck").replace(/[^A-Za-z0-9_-]+/g, "-");
+      var folder = dateTimePrefix(t.date, t.eta) + "_" + safeLabel;
+      var fetches = photos.map(function(p, i){
+        return fetch(p.url).then(function(res){
+          if(!res.ok) throw new Error("http " + res.status);
+          return res.blob();
+        }).then(function(blob){
+          var name = zipEntryName(t.date, t.eta, t.label, i, p.storagePath, photos.length);
+          zip.file(folder + "/" + name, blob);
+        }).catch(function(){ failedCount++; });
+      });
+      return Promise.all(fetches);
+    });
+    return Promise.all(truckPromises).then(function(){
+      var succeeded = totalPhotos - failedCount;
+      if(!succeeded) throw new Error("all photos failed to download");
+      return zip.generateAsync({ type: "blob" }).then(function(blob){
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement("a");
+        a.href = url;
+        a.download = "archive_" + fromDate + "_" + toDate + ".zip";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+        if(failedCount > 0){
+          showToast(tr("photosZipPartial").replace("{n}", failedCount));
+        } else {
+          showToast(tr("archiveReady"));
+        }
+      });
+    });
+  }).catch(function(err){
+    console.error("Photo archive download failed:", err);
+    showToast(tr("photosDownloadFailed"), true);
+  });
+}
