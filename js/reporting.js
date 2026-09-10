@@ -14,9 +14,10 @@
 import { ui } from "./state.js";
 import { tr } from "./i18n.js";
 import { render } from "./render.js";
-import { sbFetchTrucksForReport } from "./api.js";
+import { sbFetchTrucksForReport, sbFetchTrucksForArchive } from "./api.js";
 import { GRACE_MIN } from "./config.js";
 import { showToast } from "./actions.js";
+import { downloadPhotosArchive } from "./photoDownload.js";
 
 export function openReport(){
   ui.reportOpen = true;
@@ -78,6 +79,34 @@ export function runReport(){
   }).catch(function(err){
     ui.reportBusy = false;
     ui.reportError = (err && err.message) || tr("reportLoadFailed");
+    render();
+  });
+}
+
+/* Round 25: Admin MON IT-only bulk photo download, reusing this same
+   screen's date-range fields (report-from/report-to) rather than a
+   separate pair -- Theo's spec was "un bouton" on this screen, not a new
+   one. Sets ui.archiveBusy around the whole fetch+zip so the button can
+   show a spinner state and be disabled against a double-click; reset in
+   the final .then() (success or failure alike) rather than duplicated in
+   both a .then and a .catch. downloadPhotosArchive() (js/photoDownload.js)
+   itself shows the busy/no-photos/ready/partial toast -- this only needs
+   to handle the fetch failing outright. */
+export function runPhotoArchive(){
+  var fromEl = document.getElementById("report-from");
+  var toEl = document.getElementById("report-to");
+  var from = (fromEl && fromEl.value) || ui.reportFrom;
+  var to = (toEl && toEl.value) || ui.reportTo;
+  if(from > to){ ui.reportError = tr("reportFromAfterTo"); render(); return; }
+  ui.reportError = null;
+  ui.archiveBusy = true; render();
+  sbFetchTrucksForArchive(from, to).then(function(trucks){
+    return downloadPhotosArchive(trucks, from, to);
+  }).catch(function(err){
+    console.error("Photo archive failed:", err);
+    showToast((err && err.message) || tr("photosDownloadFailed"), true);
+  }).then(function(){
+    ui.archiveBusy = false;
     render();
   });
 }
