@@ -340,6 +340,15 @@ input, textarea{caret-color:var(--brand)}
 .trucktable tbody td{padding:9px 14px;border-bottom:1px solid var(--line);vertical-align:middle;color:var(--ink)}
 .trucktable tbody td.mono{font-weight:600}
 .trucktable tbody tr.truckrow{cursor:pointer;transition:background .15s}
+/* Round 28: subtle row tint for a truck's material type (RM/PM), read from
+   trucks.mat_type -- see matTypeBadge() in render.js for the card-view
+   equivalent (a colored chip instead, since a full row tint would fight the
+   status stripe on a card). Placed BEFORE the hover/active rules below on
+   purpose: both are two-class selectors of equal specificity, so source
+   order decides the tie -- keeping hover/active later in the file means
+   they still visibly darken a tinted row instead of being masked by it. */
+.trucktable tbody tr.truckrow.matrm{background:var(--brand-soft)}
+.trucktable tbody tr.truckrow.matpm{background:var(--accent-soft)}
 .trucktable tbody tr.truckrow:hover{background:var(--surface-2)}
 .trucktable tbody tr.truckrow:active{background:var(--surface-3)}
 .trucktable tbody tr.truckrow:last-child td{border-bottom:none}
@@ -656,4 +665,36 @@ body.tvmode .trucktable tbody tr.tvalert{animation:tvalertpulse 2s ease-in-out i
   font-weight:700; font-size:12.5px; padding:6px 12px; border-radius:8px;
 }
 .toast-retry:active{background:rgba(255,255,255,.3)}
+
+/* ---------- Round 27: carrier/plant filter dropdowns ---------- */
+/* Sits in its own .searchrow (same flex/gap as the search input + late-only
+   chip above it), so both selects share the row 50/50 via .field's existing
+   flex:1 -- min-width:0 keeps a long carrier name from forcing the row
+   wider than the screen. */
+.filterselect{min-width:0; font-size:13.5px}
+
+/* ---------- Round 27: carrier on-time ranking (Reporting screen) ---------- */
+.carrierranking{display:flex; flex-direction:column; gap:14px}
+.carrierrow-head{display:flex; justify-content:space-between; align-items:baseline; font-size:13.5px}
+.carrierbar-track{
+  margin-top:6px; height:9px; border-radius:5px; background:var(--surface-2);
+  overflow:hidden;
+}
+.carrierbar-fill{height:100%; border-radius:5px}
+
+/* ---------- Round 27: signature pad ---------- */
+.signature-canvas{
+  width:100%; max-width:300px; height:140px; display:block; margin:0 auto;
+  background:#fff; border:1px solid var(--line-strong); border-radius:11px;
+  /* Stops a finger-drag on the canvas from also scrolling the sheet behind
+     it on a touch device -- see the pointer-event comment in events.js. */
+  touch-action:none; cursor:crosshair;
+}
+.signature-actions{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:6px}
+.signature-actions .btn{width:auto; flex:none; margin-top:0; padding:10px 18px}
+.signature-actions .linklike{width:auto; padding:10px 4px}
+.signature-preview{
+  display:block; max-width:300px; width:100%; background:#fff;
+  border:1px solid var(--line-strong); border-radius:11px; margin:0 auto;
+}
 @keyframes rise{from{transform:translateY(10px);opacity:0}to{transform:translateY(0);opacity:1}}
