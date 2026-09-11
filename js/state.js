@@ -148,7 +148,18 @@ export const ui = {
   // being fetched and zipped. Purely a busy/spinner flag, same shape as
   // reportBusy/importBusy above; the archive itself never touches Supabase
   // beyond reading, and never deletes anything (Theo: "ca supprimes rien").
-  archiveBusy: false
+  archiveBusy: false,
+  // Round 26: Admin-only "truck history" screen (js/history.js) -- an
+  // append-only audit trail read back over a manager-picked date range,
+  // same open/from/to/busy/error/rows shape as the Reporting screen above
+  // (reportOpen/reportFrom/...), just its own separate flag/fields since
+  // it's a genuinely separate screen answering a different question.
+  historyOpen: false,
+  historyFrom: addDays(todayKey(), -6),
+  historyTo: todayKey(),
+  historyBusy: false,
+  historyError: null,
+  historyRows: null
 };
 ui.roleGateOpen = !ui.role;
 
