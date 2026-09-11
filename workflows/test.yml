@@ -1,0 +1,39 @@
+name: Test suite
+
+# Runs the app's whole Playwright test suite (tests/) automatically on every
+# push and pull request, so a regression (like the desktop FAB bug from
+# Round 15 -- caught by Theo in production, not by anyone testing beforehand)
+# gets flagged before it reaches a deployed preview. See tests/run_all.sh and
+# the README's "Pour l'équipe ISD" section.
+on:
+  push:
+  pull_request:
+
+jobs:
+  playwright-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install test dependencies
+        run: pip install -r tests/requirements.txt
+
+      - name: Install Chromium (for Playwright)
+        run: playwright install --with-deps chromium
+
+      - name: Start a local server for the app
+        run: |
+          python3 -m http.server 8934 &
+          for _ in $(seq 1 20); do
+            curl -fs http://127.0.0.1:8934/index.html > /dev/null && break
+            sleep 0.5
+          done
+
+      - name: Run the test suite
+        run: bash tests/run_all.sh
