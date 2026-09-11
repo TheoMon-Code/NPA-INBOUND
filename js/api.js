@@ -131,8 +131,12 @@ export function sbFetchTrucksForReport(fromDate, toDate){
   // asked for both in the CSV export) rather than inserted earlier in it --
   // keeps the "order_date,eta,truck_state" prefix this query has always had
   // intact, which is what tests/test_v2_reporting.py's date-window check
-  // matches against.
-  var q = "trucks?select=order_date,eta,truck_state,act_arrival,act_dept,damage_remark,po_no,carrier"+
+  // matches against. truck_label (Round 26) appended the same way, right
+  // after carrier, for the same reason. started_by/finished_by (Round 26
+  // follow-up, Theo: "ca serait bien d'avoir ca dans le rapport CSV") appended
+  // last -- whoever's saved device name (js/storage.js's loadSavedName())
+  // was in effect when that truck was started/finished.
+  var q = "trucks?select=order_date,eta,truck_state,act_arrival,act_dept,damage_remark,po_no,carrier,truck_label,started_by,finished_by"+
     "&order_date=gte."+fromDate+"&order_date=lte."+toDate;
   return sbRest(q).then(function(rows){
     return (rows || []).map(function(row){
@@ -144,7 +148,10 @@ export function sbFetchTrucksForReport(fromDate, toDate){
         actDept: row.act_dept || null,
         damageRemark: row.damage_remark || "",
         poNo: row.po_no || "",
-        carrier: row.carrier || ""
+        carrier: row.carrier || "",
+        truckLabel: row.truck_label || "",
+        startedBy: row.started_by || "",
+        finishedBy: row.finished_by || ""
       };
     });
   });
@@ -195,6 +202,44 @@ export function sbFetchTrucksForArchive(fromDate, toDate){
         date: row.order_date || "",
         eta: row.eta ? row.eta.slice(11,16) : null,
         photos: (row.photos || []).map(function(p){ return { id:p.id, url:p.url, storagePath:p.storage_path }; })
+      };
+    });
+  });
+}
+
+/* Round 26: lightweight append-only audit trail -- who did what to which
+   truck, and when (see js/actions.js's logTruckEvent(), called next to
+   every meaningful truck action). Fire-and-forget: the caller never awaits
+   this and swallows any error itself here, so a slow/offline logging call
+   can never block or fail the real action it's describing. That includes
+   the "truck_events table doesn't exist yet" case (an older Supabase
+   project that hasn't re-run supabase-schema.sql) -- exact same graceful-
+   degradation spirit as the raw/lots/truck_label columns above, just
+   swallowed at the source instead of surfaced, since there's nothing a user
+   tapping "Start unloading" could usefully do about a missing log table. */
+export function sbLogTruckEvent(fields){
+  return sbRest("truck_events", { method:"POST", headers:{ "Prefer":"return=minimal" }, body: fields }).catch(function(){});
+}
+
+/* Used only by the Admin-only history screen (js/history.js) -- explicit
+   date range, same reasoning as sbFetchTrucksInRange/sbFetchTrucksForReport
+   above. created_at is a timestamp (not a plain date like trucks.order_date),
+   so the range is widened to the full "to" day rather than an exact date
+   match. Capped at 500 rows -- this screen is meant for "what happened
+   recently/in this range", not a full unbounded export. */
+export function sbFetchTruckEvents(fromDate, toDate){
+  var q = "truck_events?select=created_at,action,truck_label,actor,detail"+
+    "&created_at=gte."+fromDate+"T00:00:00"+
+    "&created_at=lte."+toDate+"T23:59:59"+
+    "&order=created_at.desc&limit=500";
+  return sbRest(q).then(function(rows){
+    return (rows || []).map(function(row){
+      return {
+        createdAt: row.created_at || null,
+        action: row.action || "",
+        truckLabel: row.truck_label || "",
+        actor: row.actor || "",
+        detail: row.detail || ""
       };
     });
   });
