@@ -72,7 +72,15 @@ async def main():
         assert ("order_date=gte."+from_val) in seen_report_urls[-1]
         assert ("order_date=lte."+to_val) in seen_report_urls[-1]
 
-        kpi_text = await page.text_content(".kpis:last-of-type")
+        # Round 27: used to be ".kpis:last-of-type" -- that relied on this
+        # report's own .kpis div being the LAST div-type sibling in the
+        # sheet, which broke the moment the carrier-ranking section
+        # (carrierRankingHtml() in render.js) was appended right after it.
+        # ".sheet .kpis" is unambiguous on its own merits instead: the report
+        # sheet only ever has one .kpis div (the day-view's own KPI strip
+        # lives outside .sheet entirely), so this never depended on sibling
+        # order in the first place.
+        kpi_text = await page.text_content(".sheet .kpis")
         print("report KPIs:", kpi_text)
         assert "4" in kpi_text   # total trucks
         assert "3" in kpi_text   # completed
@@ -81,6 +89,21 @@ async def main():
         # never got an arrival logged so it's not rated either way.
         assert "67%" in kpi_text # on-time = 2 of 3 rated
         assert "1" in kpi_text   # damage remarks / no-arrival-logged (both are 1)
+
+        # ---- Round 27: carrier on-time ranking, grouped from the same rows ----
+        # carrier A: on time (100%); carrier B: late (0%); carrier C: no rated
+        # arrival (shown as "—", not 0%); carrier D: on time (100%) + 1 damage
+        # remark. Sorted worst-on-time-first, with no-rated-arrival carriers
+        # sorted last -- so the expected order is B, then A/D (both 100%, tied
+        # -- order between them is whichever the grouping produced first,
+        # not asserted here), then C last.
+        carrier_rows = await page.locator(".carrierrow").all_text_contents()
+        print("carrier ranking rows:", carrier_rows)
+        assert len(carrier_rows) == 4
+        assert carrier_rows[0].startswith("B") and "0%" in carrier_rows[0]
+        assert carrier_rows[-1].startswith("C") and "—" in carrier_rows[-1]
+        d_row = next(r for r in carrier_rows if r.startswith("D"))
+        assert "100%" in d_row and "1" in d_row  # 1 damage remark
 
         note = await page.text_content(".hint")
         # just confirm the "rated on N trucks" note rendered without throwing
