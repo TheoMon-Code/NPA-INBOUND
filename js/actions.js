@@ -122,12 +122,21 @@ function logTruckEvent(truckId, label, action, detail){
 
 /* ---------- sheet / navigation ---------- */
 export function findTruck(id){ return state.trucks.find(function(t){ return t.id === id; }); }
-export function openSheet(id){ ui.openId = id; ui.addOpen = false; ui.confirmDelete = null; render(); }
+export function openSheet(id){
+  ui.openId = id; ui.addOpen = false; ui.confirmDelete = null;
+  // Round 27: always start a freshly-opened sheet in "view" mode, not
+  // whatever ui.signatureEditing happened to be left at from a previously
+  // opened truck (a stray true here would show truck B's signature pad
+  // instead of truck A's already-saved image the moment B is opened).
+  ui.signatureEditing = false;
+  render();
+}
 export function closeSheet(){
   ui.openId = null; ui.addOpen = false; ui.pinSettingsOpen = false;
   ui.nameSettingsOpen = false; ui.importOpen = false; ui.reportOpen = false;
   ui.settingsOpen = false; ui.settingsError = null; ui.historyOpen = false;
-  ui.confirmDelete = null; ui.photoViewer = null;
+  ui.archiveListOpen = false; ui.archiveListError = null;
+  ui.confirmDelete = null; ui.photoViewer = null; ui.signatureEditing = false;
   render();
 }
 export function openAdd(){
@@ -170,7 +179,8 @@ export function logout(){
   ui.openId = null; ui.addOpen = false; ui.pinSettingsOpen = false;
   ui.nameSettingsOpen = false; ui.importOpen = false; ui.reportOpen = false;
   ui.settingsOpen = false; ui.settingsError = null; ui.historyOpen = false;
-  ui.confirmDelete = null; ui.photoViewer = null;
+  ui.archiveListOpen = false; ui.archiveListError = null;
+  ui.confirmDelete = null; ui.photoViewer = null; ui.signatureEditing = false;
   render();
 }
 // Round 25: three roles now sit behind a PIN (Admin MON, Admin MON IT,
@@ -294,6 +304,56 @@ function saveDamageRemark_send(id, v){
       // just a missing migration step.
       if(isMissingColumnError(err, "damage_remark")){
         showToast(tr("remarkColumnMissing"), true);
+        return;
+      }
+      showToast((err && err.message) || tr("couldNotSaveSheet"), true);
+    });
+}
+/* An optional signature (driver or receiving-side confirmation) captured on
+   the <canvas> in signatureHtml() (js/render.js) -- the drawing itself is
+   handled directly by events.js's pointer listeners (never through render(),
+   see that file's comment), this is only the "turn the finished drawing into
+   a PNG and save it" step, called once someone taps "Save signature". Same
+   plain-unconditional-PATCH shape as saveDamageRemark above (not tied to the
+   truck's start/finish lifecycle, editable/re-signable any time). */
+export function saveSignature(id){
+  var canvas = document.getElementById("signatureCanvas");
+  if(!canvas) return;
+  var dataUrl = canvas.toDataURL("image/png");
+  var t = findTruck(id);
+  if(!t) return;
+  if(supabaseEnabled()){
+    saveSignature_send(id, dataUrl);
+    return;
+  }
+  persist(function(){ t.signature = dataUrl; });
+  ui.signatureEditing = false;
+  showToast(tr("signatureSaved"));
+}
+function saveSignature_send(id, dataUrl){
+  var label = truckLabelFor(id);
+  sbRest("trucks?id=eq."+encodeURIComponent(id), { method:"PATCH", headers:{"Prefer":"return=representation"}, body:{signature:dataUrl} })
+    .then(function(){
+      // Kept short on purpose -- the audit trail logs THAT a signature was
+      // saved, never the image data itself (truck_events.detail is a plain
+      // text column, not meant to carry a data URL's worth of base64).
+      logTruckEvent(id, label, "signature_saved", null);
+      ui.signatureEditing = false;
+      return loadFromSupabase().then(function(){ showToast(tr("signatureSaved")); });
+    })
+    .catch(function(err){
+      if(err && err.networkFailure){
+        enqueueOfflineAction({ kind:"patchPlain", id: id, patch: { signature: dataUrl } });
+        ui.signatureEditing = false;
+        showToast(tr("queuedOffline"));
+        return;
+      }
+      // The "signature" column update (supabase-schema.sql) hasn't been run
+      // on this Supabase project yet -- same graceful-degradation pattern as
+      // "damage_remark" above: tell the user plainly, leave the drawing on
+      // screen (don't flip back to view mode) so nothing is silently lost.
+      if(isMissingColumnError(err, "signature")){
+        showToast(tr("signatureColumnMissing"), true);
         return;
       }
       showToast((err && err.message) || tr("couldNotSaveSheet"), true);
