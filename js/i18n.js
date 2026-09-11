@@ -281,6 +281,7 @@ export const STRINGS = {
   tableColStatus:{en:"Status",th:"สถานะ"},
   tableColPo:{en:"PO / Ref",th:"PO / อ้างอิง"},
   tableColCarrier:{en:"Carrier",th:"ผู้ขนส่ง"},
+  tableColCarrierTh:{en:"Thai name",th:"ชื่อภาษาไทย"},
   tableColPlant:{en:"Plant",th:"โรงงาน"},
   tableColDate:{en:"Date",th:"วันที่"},
   tableColLots:{en:"Product / Qty",th:"สินค้า/จำนวน"},
