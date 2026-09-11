@@ -91,9 +91,18 @@ function pill(derived, t, now){
    so putting data-open directly on the <tr> works with zero JS changes. */
 function tableRowHtml(t, now){
   var d = derive(t, now);
+  // Round 26: when this truck shares its PO+date+time+carrier slot with
+  // others (t.truckLabel set — see importGroupRows() in importPlan.js), show
+  // its product + qty right under the label so the several "Truck 1/2/3"
+  // rows for the same PO can still be told apart at a glance, per Theo's
+  // confirmed choice. Left off entirely for the common single-truck case so
+  // this table doesn't grow a column that's "—" almost every row (the same
+  // reasoning Round 24 removed the old lots column for).
+  var detailsLine = (t.truckLabel && (t.details || t.qtt)) ?
+    '<div class="hint" style="font-weight:400">'+esc(t.details||"")+(t.qtt?(" ("+esc(t.qtt)+")"):"")+'</div>' : "";
   return '<tr class="truckrow" data-open="'+esc(t.id)+'">'+
     '<td>'+pill(d,t,now)+'</td>'+
-    '<td class="mono">'+esc(t.truckLabel || t.poNo || t.ref || t.id)+'</td>'+
+    '<td class="mono">'+esc(t.truckLabel || t.poNo || t.ref || t.id)+detailsLine+'</td>'+
     '<td>'+esc(t.carrier||"—")+'</td>'+
     '<td>'+(t.plant ? esc(t.plant) : "—")+'</td>'+
     '<td>'+shortDate(t.date)+'</td>'+
@@ -151,6 +160,11 @@ function cardHtml(t, now){
       // ETA here means it's never hidden, however late the truck gets.
       (t.eta ? "<span>"+tr("pill_eta")+" "+esc(t.eta)+"</span>" : "")+
       (t.lots && t.lots.length > 1 ? "<span>"+esc(tr("multiLotBadge").replace("{n}", t.lots.length))+"</span>" : "")+
+      // Round 26: same reasoning as tableRowHtml() above — product + qty
+      // shown only for a truck that shares its slot with others, so the
+      // "Truck 1/2/3" cards for one PO are distinguishable without opening
+      // each one.
+      (t.truckLabel && (t.details || t.qtt) ? "<span>"+esc(t.details||"")+(t.qtt?(" ("+esc(t.qtt)+")"):"")+"</span>" : "")+
       "</span>"+
     "</span>"+
   "</button>";
@@ -813,7 +827,14 @@ function tvRowHtml(t, now){
     '<td>'+esc(t.carrier||"—")+'</td>'+
     '<td>'+(t.plant ? esc(t.plant) : "—")+'</td>'+
     '<td>'+(t.eta || "—")+'</td>'+
-    '<td>'+(t.lots && t.lots.length > 1 ? esc(tr("multiLotBadge").replace("{n}", t.lots.length)) : "—")+'</td>'+
+    // Round 26: this column used to show a "N lots" badge (only ever
+    // populated for the old merged-lots trucks); now shows product + qty
+    // whenever the truck shares its PO+date+time+carrier slot with others
+    // (t.truckLabel set) so the "Truck 1/2/3" rows for one PO stay
+    // distinguishable on the TV board too. Old data that still has an
+    // un-migrated `lots` array falls back to the old badge.
+    '<td>'+(t.truckLabel && (t.details || t.qtt) ? esc(t.details||"")+(t.qtt?(" ("+esc(t.qtt)+")"):"") :
+      (t.lots && t.lots.length > 1 ? esc(tr("multiLotBadge").replace("{n}", t.lots.length)) : "—"))+'</td>'+
   '</tr>';
 }
 /* TV mode (Round 22) -- a completely separate render path from the normal
