@@ -247,7 +247,7 @@ export const STRINGS = {
   tableColCarrier:{en:"Carrier",th:"ผู้ขนส่ง"},
   tableColPlant:{en:"Plant",th:"โรงงาน"},
   tableColDate:{en:"Date",th:"วันที่"},
-  tableColLots:{en:"Lots",th:"ล็อต"},
+  tableColLots:{en:"Product / Qty",th:"สินค้า/จำนวน"},
   // Round 24: replaces "Lots" as the 6th column of the normal desktop table
   // (listTableHtml()/tableRowHtml() in render.js) -- Theo felt Lots wasn't
   // pulling its weight there (it reads "—" for the ~90% of trucks with only
