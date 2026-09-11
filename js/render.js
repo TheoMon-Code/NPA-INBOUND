@@ -19,6 +19,11 @@ import { offlineQueueCount } from "./offlineQueue.js";
 // SETTINGS_DEFS/getDueSoonMin drive the settings screen itself and the
 // status legend's "due soon" description below.
 import { getMaxPhotosPerTruck, getMaxDayOffset, getDueSoonMin, SETTINGS_DEFS } from "./settings.js";
+// Round 27: carrier on-time ranking shown at the bottom of the Reporting
+// screen (see carrierRankingHtml() below) -- computed from the same rows
+// (ui.reportRows) the KPI tiles and CSV export already use, just grouped
+// differently.
+import { computeCarrierStats } from "./reporting.js";
 
 /* ---------- small bilingual text helpers (kept here since they're only
    ever used while building the sheet HTML below) ---------- */
@@ -94,6 +99,22 @@ function damageBadge(t){
   if(!t.damageRemark || !t.damageRemark.trim()) return "";
   return '<span class="chip" style="background:var(--bad-soft);color:var(--bad)" title="'+esc(t.damageRemark)+'">'+esc(tr("damageBadge"))+'</span>';
 }
+/* Round 28: small colored chip for a truck's material type (RM = raw
+   material, PM = packaging material) -- read straight from trucks.mat_type
+   (see supabase-schema.sql / importExtractRows() in importPlan.js). Only
+   ever populated for rows imported from the "RM PM incoming" sheet -- the
+   "Indirect incoming" sheet has no such column, and neither does a manually
+   created truck, so those show nothing here (same "additive, never assumed"
+   pattern as damageBadge() above). Reuses the app's own brand/accent
+   palette (Theo's confirmed choice) rather than introducing new hues; see
+   the matching row tint on the desktop table (css/app.css, .matrm/.matpm)
+   for the same two colors applied to a whole row instead of a chip. */
+function matTypeBadge(t){
+  if(t.matType !== "RM" && t.matType !== "PM") return "";
+  var bg = t.matType === "RM" ? "var(--brand-soft)" : "var(--accent-soft)";
+  var fg = t.matType === "RM" ? "var(--brand-ink)" : "var(--accent-ink)";
+  return '<span class="chip" style="background:'+bg+';color:'+fg+'">'+esc(t.matType)+'</span>';
+}
 /* One row of the wide-screen table view (see listTableHtml() below) --
    reuses pill() as-is for the status cell so the exact same live text
    (ETA/late-minutes/elapsed/duration) shows in both views without
@@ -111,10 +132,15 @@ function tableRowHtml(t, now){
   // reasoning Round 24 removed the old lots column for).
   var detailsLine = (t.truckLabel && (t.details || t.qtt)) ?
     '<div class="hint" style="font-weight:400">'+esc(t.details||"")+(t.qtt?(" ("+esc(t.qtt)+")"):"")+'</div>' : "";
-  return '<tr class="truckrow" data-open="'+esc(t.id)+'">'+
+  // Round 28: the Thai name/note captured alongside the carrier (see
+  // api.js's mapRowToTruck) shown as a second, lighter line under the
+  // carrier's own name -- same pattern as detailsLine just above.
+  var carrierThLine = t.carrierTh ? '<div class="hint" style="font-weight:400">'+esc(t.carrierTh)+'</div>' : "";
+  var matCls = t.matType === "RM" ? " matrm" : (t.matType === "PM" ? " matpm" : "");
+  return '<tr class="truckrow'+matCls+'" data-open="'+esc(t.id)+'">'+
     '<td>'+pill(d,t,now)+damageBadge(t)+'</td>'+
     '<td class="mono">'+esc(t.truckLabel || t.poNo || t.ref || t.id)+detailsLine+'</td>'+
-    '<td>'+esc(t.carrier||"—")+'</td>'+
+    '<td>'+esc(t.carrier||"—")+carrierThLine+'</td>'+
     '<td>'+(t.plant ? esc(t.plant) : "—")+'</td>'+
     '<td>'+shortDate(t.date)+'</td>'+
     // Round 24: was the multi-lot badge (Round 10) -- "—" for the ~90% of
@@ -160,8 +186,8 @@ function cardHtml(t, now){
   return '<button class="card" data-open="'+esc(t.id)+'">'+
     '<span class="stripe '+d+(soon?" duesoon":"")+'"></span>'+
     '<span class="card-body">'+
-      '<span class="card-top"><span class="card-id mono">'+esc(t.truckLabel || t.poNo || t.ref || t.id)+"</span>"+pill(d,t,now)+"</span>"+
-      '<span class="card-carrier">'+esc(t.carrier)+"</span>"+
+      '<span class="card-top"><span class="card-id mono">'+esc(t.truckLabel || t.poNo || t.ref || t.id)+"</span>"+matTypeBadge(t)+pill(d,t,now)+"</span>"+
+      '<span class="card-carrier">'+esc(t.carrier)+(t.carrierTh?(' · '+esc(t.carrierTh)):"")+"</span>"+
       '<span class="card-meta">'+
       (t.plant ? "<span>"+esc(t.plant)+"</span>" : "")+
       "<span>"+shortDate(t.date)+"</span>"+
@@ -236,6 +262,12 @@ function matchesListFilters(t, now){
     var d = derive(t, now);
     if(d !== "late" && d !== "urgent") return false;
   }
+  // Round 27: structured carrier/plant filters, additional to (and combined
+  // with, same AND logic as filterLateOnly above) the free-text search below
+  // -- picking an exact value from a dropdown rather than typing a substring
+  // that might match several similarly-named carriers/plants at once.
+  if(ui.filterCarrier && (t.carrier || "") !== ui.filterCarrier) return false;
+  if(ui.filterPlant && (t.plant || "") !== ui.filterPlant) return false;
   var q = (ui.searchQuery || "").trim().toLowerCase();
   if(q){
     // Round 26: product + qty (t.details/t.qtt) and the "<PO> - Truck N"
@@ -247,10 +279,32 @@ function matchesListFilters(t, now){
   }
   return true;
 }
-function searchRowHtml(){
+/* Round 27: one <select> of the distinct carriers (or plants) present among
+   the day's own trucks, plus a leading "All" option -- built from `dayTrucks`
+   (the same set listHtml() below is about to filter/display), so the choices
+   offered are always exactly what's actually on this day, never a stale or
+   unrelated list. Kept selected even if it stops matching anything (e.g. the
+   day changes) -- same "leave it as typed" behavior as the free-text search. */
+function filterOptionsHtml(dayTrucks, field, current, id, allLabel){
+  var seen = {};
+  var values = [];
+  dayTrucks.forEach(function(t){
+    var v = (t[field] || "").trim();
+    if(v && !seen[v]){ seen[v] = true; values.push(v); }
+  });
+  values.sort();
+  var opts = '<option value="">'+esc(allLabel)+'</option>'+
+    values.map(function(v){ return '<option value="'+esc(v)+'"'+(v===current?" selected":"")+'>'+esc(v)+'</option>'; }).join("");
+  return '<select class="field filterselect" id="'+id+'">'+opts+'</select>';
+}
+function searchRowHtml(dayTrucks){
   return '<div class="searchrow">'+
     '<input class="field" type="text" id="searchInput" placeholder="'+tr("searchPlaceholder")+'" value="'+esc(ui.searchQuery)+'">'+
     '<button class="filterchip'+(ui.filterLateOnly?" active":"")+'" data-toggle-late-filter="1">'+tr("filterLateOnly")+'</button>'+
+  '</div>'+
+  '<div class="searchrow">'+
+    filterOptionsHtml(dayTrucks, "carrier", ui.filterCarrier, "filterCarrierSelect", tr("filterAllCarriers"))+
+    filterOptionsHtml(dayTrucks, "plant", ui.filterPlant, "filterPlantSelect", tr("filterAllPlants"))+
   '</div>';
 }
 function listHtml(trucks, now){
@@ -286,6 +340,7 @@ function sheetHtml(now){
   if(ui.importOpen) return importSheetHtml();
   if(ui.reportOpen) return reportSheetHtml();
   if(ui.historyOpen) return historySheetHtml();
+  if(ui.archiveListOpen) return archiveListSheetHtml();
   if(ui.pinSettingsOpen) return pinSettingsHtml();
   if(ui.nameSettingsOpen) return nameSettingsHtml();
   if(ui.settingsOpen) return settingsSheetHtml();
@@ -358,7 +413,7 @@ function sheetHtml(now){
   return '<div class="scrim" data-scrim="1"><div class="sheet">'+
     '<div class="sheet-handle"></div>'+
     '<div class="sheet-head"><div><div class="sheet-id mono">'+esc(t.truckLabel || t.poNo || t.ref || t.id)+'</div>'+
-    '<div class="sheet-carrier">'+esc(t.carrier)+'</div></div>'+
+    '<div class="sheet-carrier">'+esc(t.carrier)+(t.carrierTh?(' · '+esc(t.carrierTh)):"")+'</div></div>'+
     '<button class="sheet-close" data-close="1">✕</button></div>'+
     '<div class="sheet-meta">'+
     (t.plant?'<span class="chip">'+esc(t.plant)+'</span>':"")+
@@ -370,6 +425,7 @@ function sheetHtml(now){
     rawDetailsHtml(t)+
     photosHtml(t)+
     damageRemarkHtml(t)+
+    signatureHtml(t)+
     body+
   '</div></div>';
 }
@@ -574,7 +630,8 @@ function reportSheetHtml(){
         tr("reportRatedNote").replace("{n}", d.onTimeRated)+
       '</div>'+
       '<div class="kpis" style="margin-top:8px">'+reportKpiTilesHtml(d)+'</div>'+
-      '<button class="btn ghost" data-export-report-csv="1">⬇️ '+tr("reportExportCsvBtn")+'</button>';
+      '<button class="btn ghost" data-export-report-csv="1">⬇️ '+tr("reportExportCsvBtn")+'</button>'+
+      carrierRankingHtml(ui.reportRows);
   }
   return '<div class="scrim" data-scrim="1"><div class="sheet">'+
     '<div class="sheet-handle"></div>'+
@@ -605,7 +662,8 @@ function historyActionLabel(action){
     reopened: tr("histActionReopened"),
     eta_changed: tr("histActionEtaChanged"),
     remark_updated: tr("histActionRemarkUpdated"),
-    deleted: tr("histActionDeleted")
+    deleted: tr("histActionDeleted"),
+    signature_saved: tr("histActionSignatureSaved")
   };
   return map[action] || action;
 }
@@ -645,6 +703,93 @@ function historySheetHtml(){
     '<button class="btn primary" data-run-history="1" '+(busy?"disabled":"")+'>'+(busy?tr("reportLoading"):tr("reportRunBtn"))+'</button>'+
     resultsHtml+
   '</div></div>';
+}
+/* ---------- Admin "Archive" screen (Round 27) ----------
+   Read-only browse of actual trucks (not aggregated numbers) over a picked
+   date range, driven by js/archiveList.js's openArchiveList()/
+   runArchiveList() -- same "pick a date range, Generate, show a list" shape
+   as Reporting/History just above, see js/archiveList.js's own top comment
+   for why this stays look-only rather than opening the normal truck sheet. */
+function archiveListStateLabel(s){
+  if(s === "completed") return tr("status_done");
+  if(s === "arrived") return tr("status_unloading");
+  return tr("status_pending");
+}
+function archiveListRowHtml(r){
+  var productLine = r.details ? (' · '+esc(r.details)+(r.qtt?(' ('+esc(r.qtt)+')'):'')) : "";
+  var damage = (r.damageRemark && r.damageRemark.trim())
+    ? ' · <span style="color:var(--bad)">⚠ '+esc(tr("damageBadge"))+'</span>' : "";
+  return '<div class="importrow">'+
+    '<b>'+shortDate(r.date)+(r.eta?(' '+esc(r.eta)):'')+'</b> · '+esc(r.truckLabel||r.poNo||"—")+
+    (r.carrier?(' · '+esc(r.carrier)):'')+
+    (r.plant?(' · '+esc(r.plant)):'')+
+    productLine+
+    ' · '+esc(archiveListStateLabel(r.truckState))+
+    damage+
+  '</div>';
+}
+function archiveListSheetHtml(){
+  var busy = !!ui.archiveListBusy;
+  var errHtml = ui.archiveListError ? '<div class="hint" style="color:var(--bad);margin-top:10px">'+esc(ui.archiveListError)+'</div>' : "";
+  var rows = ui.archiveListRows;
+  var resultsHtml = "";
+  if(rows){
+    if(rows.length){
+      resultsHtml = '<div class="importpreview" style="margin-top:12px">'+rows.map(archiveListRowHtml).join("")+'</div>';
+      if(rows.length >= 1000){
+        resultsHtml += '<div class="hint" style="margin-top:6px">'+tr("archiveListTooMany")+'</div>';
+      }
+    } else {
+      resultsHtml = '<div class="hint" style="margin-top:12px">'+tr("archiveListNoRows")+'</div>';
+    }
+  }
+  return '<div class="scrim" data-scrim="1"><div class="sheet">'+
+    '<div class="sheet-handle"></div>'+
+    '<div class="sheet-head"><div><div class="sheet-id title-lg">'+tr("archiveListTitle")+'</div></div>'+
+    '<button class="sheet-close" data-close="1">✕</button></div>'+
+    '<div class="hint" style="margin-top:6px">'+tr("archiveListIntro")+'</div>'+
+    '<div class="formgrid" style="margin-top:12px">'+
+      '<div><div class="label">'+tr("reportFrom")+'</div><input class="field" type="date" id="archive-list-from" value="'+esc(ui.archiveListFrom)+'"></div>'+
+      '<div><div class="label">'+tr("reportTo")+'</div><input class="field" type="date" id="archive-list-to" value="'+esc(ui.archiveListTo)+'"></div>'+
+    '</div>'+
+    errHtml+
+    '<button class="btn primary" data-run-archive-list="1" '+(busy?"disabled":"")+'>'+(busy?tr("reportLoading"):tr("reportRunBtn"))+'</button>'+
+    resultsHtml+
+  '</div></div>';
+}
+/* ---------- Carrier on-time ranking (Round 27) ----------
+   A small always-relative (never a second axis) horizontal-bar ranking under
+   the Reporting screen's own KPI tiles -- same rows (ui.reportRows), grouped
+   per carrier by computeCarrierStats() (js/reporting.js) instead of summed
+   into one total. Sorted worst-on-time-first so the carrier most worth a
+   conversation is the first thing seen, not something to hunt for. Bar color
+   reuses the exact same good/bad threshold (>=80% good) the KPI tile above
+   already uses (reportKpiTilesHtml) -- one consistent meaning for that color
+   across this whole screen, not a second palette to learn. No dual axis, one
+   measure per bar, direct label (name + %) -- kept deliberately as simple as
+   every other number on this screen (no tooltip/hover), consistent with the
+   fact that nothing else in this app is an interactive chart either. */
+function carrierRankingHtml(rows){
+  if(!rows || !rows.length) return "";
+  var stats = computeCarrierStats(rows);
+  if(!stats.length) return "";
+  var items = stats.map(function(s){
+    var known = s.onTimePct != null;
+    var barColor = known && s.onTimePct < 80 ? "var(--bad)" : "var(--good)";
+    var bar = known
+      ? '<div class="carrierbar-track"><div class="carrierbar-fill" style="width:'+s.onTimePct+'%;background:'+barColor+'"></div></div>'
+      : '';
+    return '<div class="carrierrow">'+
+      '<div class="carrierrow-head"><b>'+esc(s.carrier)+'</b><span class="mono">'+(known?(s.onTimePct+"%"):"—")+'</span></div>'+
+      bar+
+      '<div class="hint">'+tr("reportCarrierMeta").replace("{total}", s.total).replace("{damage}", s.damageCount)+'</div>'+
+    '</div>';
+  }).join("");
+  return '<div class="sheet-section" style="border-top:1px solid var(--line);margin-top:16px;padding-top:16px">'+
+    '<div class="label">'+tr("reportCarrierTitle")+'</div>'+
+    '<div class="hint" style="margin-top:4px">'+tr("reportCarrierHint")+'</div>'+
+    '<div class="carrierranking" style="margin-top:10px">'+items+'</div>'+
+  '</div>';
 }
 /* Round 25: "Bon pour les archives on peut ajouter un bouton et ca
    download tout mais ca supprimes rien. Mon departement IT s en occupera
@@ -811,6 +956,38 @@ function damageRemarkHtml(t){
     '<div class="hint">'+tr("damageRemarkHint")+'</div>'+
     '<textarea class="field" rows="3" id="damageRemarkInput" placeholder="'+tr("damageRemarkPlaceholder")+'" style="margin-top:8px;resize:vertical">'+esc(t.damageRemark||"")+'</textarea>'+
     '<button class="btn primary" data-save-remark="'+esc(t.id)+'" style="margin-top:8px">'+tr("saveRemarkBtn")+'</button></div>';
+}
+/* Round 27: an optional signature (driver or receiving-side confirmation),
+   captured on whatever device is at hand (phone or the Windows PC some
+   managers use, see Round 17.1) -- stored as a small PNG data URL
+   (trucks.signature), same "plain field + button", edit-any-time shape as
+   the damage remark above rather than being tied to the truck's start/
+   finish lifecycle. Needs Supabase (nothing to sync locally) and stays out
+   of Nestlé's view, both for the same reasons damageRemarkHtml() above does.
+   The actual drawing happens on a <canvas> via direct pointer-event
+   delegation in events.js, deliberately bypassing render() for every single
+   stroke (rebuilding #app mid-stroke would wipe the canvas clean) -- this
+   function only ever renders one of two states (blank canvas to draw a new
+   one, or the already-saved image), toggled by ui.signatureEditing. */
+function signatureHtml(t){
+  if(!supabaseEnabled()) return "";
+  if(isNestle()) return "";
+  var editing = ui.signatureEditing || !t.signature;
+  var body;
+  if(editing){
+    body = '<canvas id="signatureCanvas" class="signature-canvas" width="300" height="140"></canvas>'+
+      '<div class="signature-actions">'+
+        '<button class="linklike" data-clear-signature="1">'+tr("signatureClearBtn")+'</button>'+
+        '<button class="btn primary" data-save-signature="'+esc(t.id)+'">'+tr("signatureSaveBtn")+'</button>'+
+      '</div>';
+  } else {
+    body = '<img class="signature-preview" src="'+esc(t.signature)+'" alt="'+esc(tr("signatureTitle"))+'">'+
+      '<button class="linklike" data-edit-signature="1">'+tr("signatureRedoBtn")+'</button>';
+  }
+  return '<div class="sheet-section"><div class="label">'+tr("signatureTitle")+'</div>'+
+    '<div class="hint">'+tr("signatureHint")+'</div>'+
+    '<div style="margin-top:8px">'+body+'</div>'+
+  '</div>';
 }
 function toastHtml(){
   // A pending delete (see deleteTruck() in actions.js) pre-empts whatever
@@ -1097,6 +1274,10 @@ export function render(){
           // same gate as Reports/app-settings above (isAdmin() covers both
           // Admin MON and Admin MON IT).
           (isAdmin() ? '<button class="rolebadge" data-open-history="1" aria-label="'+tr("historyTitle")+'">📜</button>' : '')+
+          // Round 27: browse actual past trucks over a picked date range
+          // (read-only, see js/archiveList.js) -- Admin-only, same gate as
+          // Reports/History/app-settings above.
+          (isAdmin() ? '<button class="rolebadge" data-open-archive-list="1" aria-label="'+tr("archiveListTitle")+'">🗄️</button>' : '')+
           (ui.role==="driver" ? '<button class="rolebadge" data-open-name-settings="1">'+tr("setNamePill")+'</button>' : '')+
           // Round 25 follow-up: manual logout, alongside the 30-minute
           // inactivity auto-logout (js/ticking.js) -- available to every
@@ -1113,7 +1294,11 @@ export function render(){
     '</div>'+
     (showTabs ? tabsHtml(visibleTrucks) : '<div class="dayheading">'+tr("todaysTrucks")+'</div>')+
     '<div class="kpis">'+kpiHtml(visibleTrucks, now)+'</div>'+
-    searchRowHtml()+
+    // Round 27: the carrier/plant filter dropdowns need the same day-scoped
+    // subset listHtml() below filters/displays (so their options are always
+    // exactly what's on this day) -- computed once here and passed in,
+    // rather than recomputed a second, slightly different way.
+    searchRowHtml(visibleTrucks.filter(function(t){ return t.date === addDays(todayKey(), effectiveDayOffset()); }))+
     '<div class="list">'+listHtml(visibleTrucks, now)+'</div>'+
     statusLegendHtml()+
     // Manual "add truck" stays Admin-only (Admin MON + Admin MON IT) -- a
