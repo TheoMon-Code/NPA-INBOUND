@@ -83,6 +83,17 @@ function pill(derived, t, now){
   }
   return '<span class="pill '+derived+(soon?" duesoon":"")+'">'+esc(txt)+"</span>";
 }
+/* Round 26: a truck with a damage/claim remark (t.damageRemark, entered via
+   damageRemarkHtml()'s textarea below) used to be visible only by opening
+   its detail sheet -- easy to miss on a busy day. This surfaces it as a
+   small warning chip right on the card/row/TV board itself, so "something's
+   not right with this one" is visible at a glance instead of buried in the
+   sheet. Purely a display of the existing field -- no new column, no new
+   status enum. */
+function damageBadge(t){
+  if(!t.damageRemark || !t.damageRemark.trim()) return "";
+  return '<span class="chip" style="background:var(--bad-soft);color:var(--bad)" title="'+esc(t.damageRemark)+'">'+esc(tr("damageBadge"))+'</span>';
+}
 /* One row of the wide-screen table view (see listTableHtml() below) --
    reuses pill() as-is for the status cell so the exact same live text
    (ETA/late-minutes/elapsed/duration) shows in both views without
@@ -101,7 +112,7 @@ function tableRowHtml(t, now){
   var detailsLine = (t.truckLabel && (t.details || t.qtt)) ?
     '<div class="hint" style="font-weight:400">'+esc(t.details||"")+(t.qtt?(" ("+esc(t.qtt)+")"):"")+'</div>' : "";
   return '<tr class="truckrow" data-open="'+esc(t.id)+'">'+
-    '<td>'+pill(d,t,now)+'</td>'+
+    '<td>'+pill(d,t,now)+damageBadge(t)+'</td>'+
     '<td class="mono">'+esc(t.truckLabel || t.poNo || t.ref || t.id)+detailsLine+'</td>'+
     '<td>'+esc(t.carrier||"—")+'</td>'+
     '<td>'+(t.plant ? esc(t.plant) : "—")+'</td>'+
@@ -166,6 +177,7 @@ function cardHtml(t, now){
       // each one.
       (t.truckLabel && (t.details || t.qtt) ? "<span>"+esc(t.details||"")+(t.qtt?(" ("+esc(t.qtt)+")"):"")+"</span>" : "")+
       "</span>"+
+      damageBadge(t)+
     "</span>"+
   "</button>";
 }
@@ -226,7 +238,11 @@ function matchesListFilters(t, now){
   }
   var q = (ui.searchQuery || "").trim().toLowerCase();
   if(q){
-    var hay = ((t.poNo||"")+" "+(t.ref||"")+" "+(t.carrier||"")+" "+(t.plant||"")).toLowerCase();
+    // Round 26: product + qty (t.details/t.qtt) and the "<PO> - Truck N"
+    // label added to the match text -- now that several trucks can share a
+    // PO (see importGroupRows() in importPlan.js), typing the product name
+    // or "Truck 2" is often how someone finds the specific one they mean.
+    var hay = ((t.poNo||"")+" "+(t.truckLabel||"")+" "+(t.ref||"")+" "+(t.carrier||"")+" "+(t.plant||"")+" "+(t.details||"")+" "+(t.qtt||"")).toLowerCase();
     if(hay.indexOf(q) === -1) return false;
   }
   return true;
@@ -269,6 +285,7 @@ function listHtml(trucks, now){
 function sheetHtml(now){
   if(ui.importOpen) return importSheetHtml();
   if(ui.reportOpen) return reportSheetHtml();
+  if(ui.historyOpen) return historySheetHtml();
   if(ui.pinSettingsOpen) return pinSettingsHtml();
   if(ui.nameSettingsOpen) return nameSettingsHtml();
   if(ui.settingsOpen) return settingsSheetHtml();
@@ -471,6 +488,28 @@ function pinSettingsHtml(){
     '<button class="btn primary" data-save-pin="1">'+tr("updatePinBtn")+'</button>'+
   '</div></div>';
 }
+/* Round 26: names already used on this project's own trucks (started_by/
+   finished_by, whatever previous devices have saved here — see
+   loadSavedName()/saveNameLocal() in storage.js), offered as native browser
+   autocomplete (<datalist>) rather than a hard dropdown -- there's no
+   maintained driver roster anywhere in this app, so forcing a fixed list
+   would either be empty on day one or need its own new admin screen to
+   maintain. This gets most of the same benefit (picking a name already used
+   instead of retyping a slightly different spelling of it) with zero new
+   data model. */
+function driverNamesDatalistHtml(){
+  var seen = {};
+  var names = [];
+  state.trucks.forEach(function(t){
+    [t.startedBy, t.finishedBy].forEach(function(n){
+      n = (n||"").trim();
+      if(n && !seen[n]){ seen[n] = true; names.push(n); }
+    });
+  });
+  if(!names.length) return "";
+  names.sort();
+  return '<datalist id="driverNamesList">'+names.map(function(n){ return '<option value="'+esc(n)+'">'; }).join("")+'</datalist>';
+}
 function nameSettingsHtml(){
   return '<div class="scrim" data-scrim="1"><div class="sheet">'+
     '<div class="sheet-handle"></div>'+
@@ -478,7 +517,8 @@ function nameSettingsHtml(){
     '<button class="sheet-close" data-close="1">✕</button></div>'+
     '<div class="hint" style="margin-top:6px">'+tr("yourNameSub")+'</div>'+
     '<div class="formgrid" style="margin-top:8px">'+
-      '<input class="field" id="name-input" placeholder="'+tr("namePlaceholder")+'" value="'+esc(loadSavedName())+'">'+
+      '<input class="field" id="name-input" list="driverNamesList" placeholder="'+tr("namePlaceholder")+'" value="'+esc(loadSavedName())+'">'+
+      driverNamesDatalistHtml()+
     '</div>'+
     '<button class="btn primary" data-save-name="1">'+tr("saveNameBtn")+'</button>'+
   '</div></div>';
@@ -549,6 +589,61 @@ function reportSheetHtml(){
     '<button class="btn primary" data-run-report="1" '+(busy?"disabled":"")+'>'+(busy?tr("reportLoading"):tr("reportRunBtn"))+'</button>'+
     resultsHtml+
     archiveBlockHtml()+
+  '</div></div>';
+}
+/* ---------- Admin truck-history screen (Round 26) ----------
+   Read side of the audit trail js/actions.js writes to (logTruckEvent() ->
+   sbLogTruckEvent() in api.js) next to every meaningful truck action. Same
+   "pick a date range, Generate, show a list" shape as the Reports screen
+   just above, driven by js/history.js's openHistory()/runHistory(). */
+function historyActionLabel(action){
+  var map = {
+    created: tr("histActionCreated"),
+    arrived: tr("histActionArrived"),
+    completed: tr("histActionCompleted"),
+    cancelled: tr("histActionCancelled"),
+    reopened: tr("histActionReopened"),
+    eta_changed: tr("histActionEtaChanged"),
+    remark_updated: tr("histActionRemarkUpdated"),
+    deleted: tr("histActionDeleted")
+  };
+  return map[action] || action;
+}
+function historyRowHtml(r){
+  var when = "";
+  if(r.createdAt){
+    var dt = new Date(r.createdAt);
+    if(!isNaN(dt.getTime())) when = shortDate(dt.toISOString().slice(0,10)) + " " + dt.toTimeString().slice(0,5);
+  }
+  return '<div class="importrow">'+
+    '<b>'+esc(when)+'</b> · '+esc(historyActionLabel(r.action))+
+    (r.truckLabel ? ' · <span class="mono">'+esc(r.truckLabel)+'</span>' : '')+
+    (r.actor ? ' · '+esc(r.actor) : '')+
+    (r.detail ? ' — '+esc(r.detail) : '')+
+  '</div>';
+}
+function historySheetHtml(){
+  var busy = !!ui.historyBusy;
+  var errHtml = ui.historyError ? '<div class="hint" style="color:var(--bad);margin-top:10px">'+esc(ui.historyError)+'</div>' : "";
+  var rows = ui.historyRows;
+  var resultsHtml = "";
+  if(rows){
+    resultsHtml = rows.length
+      ? '<div class="importpreview" style="margin-top:12px">'+rows.map(historyRowHtml).join("")+'</div>'
+      : '<div class="hint" style="margin-top:12px">'+tr("historyNoRows")+'</div>';
+  }
+  return '<div class="scrim" data-scrim="1"><div class="sheet">'+
+    '<div class="sheet-handle"></div>'+
+    '<div class="sheet-head"><div><div class="sheet-id title-lg">'+tr("historyTitle")+'</div></div>'+
+    '<button class="sheet-close" data-close="1">✕</button></div>'+
+    '<div class="hint" style="margin-top:6px">'+tr("historyIntro")+'</div>'+
+    '<div class="formgrid" style="margin-top:12px">'+
+      '<div><div class="label">'+tr("reportFrom")+'</div><input class="field" type="date" id="history-from" value="'+esc(ui.historyFrom)+'"></div>'+
+      '<div><div class="label">'+tr("reportTo")+'</div><input class="field" type="date" id="history-to" value="'+esc(ui.historyTo)+'"></div>'+
+    '</div>'+
+    errHtml+
+    '<button class="btn primary" data-run-history="1" '+(busy?"disabled":"")+'>'+(busy?tr("reportLoading"):tr("reportRunBtn"))+'</button>'+
+    resultsHtml+
   '</div></div>';
 }
 /* Round 25: "Bon pour les archives on peut ajouter un bouton et ca
@@ -822,7 +917,7 @@ function tvRowHtml(t, now){
   // body.tvmode tr.tvalert in css/app.css.
   var alertCls = (d === "late" || d === "urgent") ? ' class="tvalert"' : '';
   return '<tr'+alertCls+'>'+
-    '<td>'+pill(d,t,now)+'</td>'+
+    '<td>'+pill(d,t,now)+damageBadge(t)+'</td>'+
     '<td class="mono">'+esc(t.truckLabel || t.poNo || t.ref || t.id)+'</td>'+
     '<td>'+esc(t.carrier||"—")+'</td>'+
     '<td>'+(t.plant ? esc(t.plant) : "—")+'</td>'+
@@ -997,6 +1092,11 @@ export function render(){
           (isAdmin() ? '<button class="rolebadge" data-open-report="1" aria-label="'+tr("reportTitle")+'">📊</button>' : '')+
           ((isAdmin()||isNestle()) ? '<button class="rolebadge" data-open-pin-settings="1" aria-label="'+tr("changePin")+'">⚙</button>' : '')+
           (isAdmin() ? '<button class="rolebadge" data-open-app-settings="1" aria-label="'+tr("appSettingsTitle")+'">🔧</button>' : '')+
+          // Round 26: audit trail (who created/started/finished/cancelled/
+          // reopened/edited/deleted which truck, and when) -- Admin-only,
+          // same gate as Reports/app-settings above (isAdmin() covers both
+          // Admin MON and Admin MON IT).
+          (isAdmin() ? '<button class="rolebadge" data-open-history="1" aria-label="'+tr("historyTitle")+'">📜</button>' : '')+
           (ui.role==="driver" ? '<button class="rolebadge" data-open-name-settings="1">'+tr("setNamePill")+'</button>' : '')+
           // Round 25 follow-up: manual logout, alongside the 30-minute
           // inactivity auto-logout (js/ticking.js) -- available to every
