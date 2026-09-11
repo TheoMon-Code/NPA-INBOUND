@@ -132,15 +132,17 @@ function tableRowHtml(t, now){
   // reasoning Round 24 removed the old lots column for).
   var detailsLine = (t.truckLabel && (t.details || t.qtt)) ?
     '<div class="hint" style="font-weight:400">'+esc(t.details||"")+(t.qtt?(" ("+esc(t.qtt)+")"):"")+'</div>' : "";
-  // Round 28: the Thai name/note captured alongside the carrier (see
-  // api.js's mapRowToTruck) shown as a second, lighter line under the
-  // carrier's own name -- same pattern as detailsLine just above.
-  var carrierThLine = t.carrierTh ? '<div class="hint" style="font-weight:400">'+esc(t.carrierTh)+'</div>' : "";
   var matCls = t.matType === "RM" ? " matrm" : (t.matType === "PM" ? " matpm" : "");
   return '<tr class="truckrow'+matCls+'" data-open="'+esc(t.id)+'">'+
     '<td>'+pill(d,t,now)+damageBadge(t)+'</td>'+
     '<td class="mono">'+esc(t.truckLabel || t.poNo || t.ref || t.id)+detailsLine+'</td>'+
-    '<td>'+esc(t.carrier||"—")+carrierThLine+'</td>'+
+    '<td>'+esc(t.carrier||"—")+'</td>'+
+    // Round 28 (follow-up): the Thai name/note captured alongside the
+    // carrier (api.js's mapRowToTruck) -- Theo asked for its own column
+    // here instead of a smaller second line under the carrier, simpler to
+    // scan on a wide screen. "—" when a truck has none (imported from a
+    // sheet with no such column, or created manually).
+    '<td>'+(t.carrierTh ? esc(t.carrierTh) : "—")+'</td>'+
     '<td>'+(t.plant ? esc(t.plant) : "—")+'</td>'+
     '<td>'+shortDate(t.date)+'</td>'+
     // Round 24: was the multi-lot badge (Round 10) -- "—" for the ~90% of
@@ -167,6 +169,7 @@ function listTableHtml(filtered, now){
     '<th>'+tr("tableColStatus")+'</th>'+
     '<th>'+tr("tableColPo")+'</th>'+
     '<th>'+tr("tableColCarrier")+'</th>'+
+    '<th>'+tr("tableColCarrierTh")+'</th>'+
     '<th>'+tr("tableColPlant")+'</th>'+
     '<th>'+tr("tableColDate")+'</th>'+
     '<th>'+tr("tableColEta")+'</th>'+
