@@ -165,6 +165,14 @@ export const STRINGS = {
   saveRemarkBtn:{en:"Save remark",th:"บันทึกหมายเหตุ"},
   remarkSaved:{en:"Remark saved.",th:"บันทึกหมายเหตุแล้ว"},
   remarkColumnMissing:{en:"Could not save the remark yet — ask ISD to run the \"damage_remark\" column update in supabase-schema.sql.",th:"ยังบันทึกหมายเหตุไม่ได้ — แจ้งทีม ISD ให้รันคำสั่งเพิ่มคอลัมน์ \"damage_remark\" ใน supabase-schema.sql"},
+  // Round 27: signature pad.
+  signatureTitle:{en:"Signature",th:"ลายเซ็น"},
+  signatureHint:{en:"Optional — sign to confirm the delivery. Draw with your finger, mouse or pen.",th:"ไม่บังคับ — เซ็นชื่อเพื่อยืนยันการรับสินค้า วาดด้วยนิ้ว เมาส์ หรือปากกา"},
+  signatureClearBtn:{en:"Clear",th:"ล้าง"},
+  signatureSaveBtn:{en:"Save signature",th:"บันทึกลายเซ็น"},
+  signatureRedoBtn:{en:"Sign again",th:"เซ็นใหม่"},
+  signatureSaved:{en:"Signature saved.",th:"บันทึกลายเซ็นแล้ว"},
+  signatureColumnMissing:{en:"Could not save the signature yet — ask ISD to run the \"signature\" column update in supabase-schema.sql.",th:"ยังบันทึกลายเซ็นไม่ได้ — แจ้งทีม ISD ให้รันคำสั่งเพิ่มคอลัมน์ \"signature\" ใน supabase-schema.sql"},
   photoDeleted:{en:"Photo removed.",th:"ลบรูปภาพแล้ว"},
   photoRemoveFailed:{en:"Could not remove the photo.",th:"ไม่สามารถลบรูปภาพได้"},
   uploadingPhoto:{en:"Uploading photo…",th:"กำลังอัปโหลดรูปภาพ…"},
@@ -202,6 +210,8 @@ export const STRINGS = {
   histActionEtaChanged:{en:"Time changed",th:"แก้ไขเวลานัด"},
   histActionRemarkUpdated:{en:"Remark updated",th:"แก้ไขหมายเหตุ"},
   histActionDeleted:{en:"Deleted",th:"ลบ"},
+  // Round 27
+  histActionSignatureSaved:{en:"Signature saved",th:"บันทึกลายเซ็นแล้ว"},
   reportRatedNote:{en:"On-time rate is based on {n} truck(s) with a logged arrival and a scheduled time.",th:"อัตราตรงเวลาคำนวณจากรถบรรทุก {n} คันที่มีบันทึกเวลาเข้าและเวลานัดหมาย"},
   reportKpiTotal:{en:"Trucks",th:"รถบรรทุก"},
   reportKpiCompleted:{en:"Completed",th:"เสร็จสิ้น"},
@@ -209,6 +219,15 @@ export const STRINGS = {
   reportKpiAvgTime:{en:"Avg. unload",th:"เวลาเฉลี่ย"},
   reportKpiDamage:{en:"Damage remarks",th:"หมายเหตุความเสียหาย"},
   reportKpiNoLog:{en:"No arrival logged",th:"ไม่มีบันทึกเวลาเข้า"},
+  // Round 27: carrier on-time ranking, shown under the KPI tiles above.
+  reportCarrierTitle:{en:"On-time ranking by carrier",th:"อันดับความตรงเวลาตามผู้ขนส่ง"},
+  reportCarrierHint:{en:"Same date range as above. Sorted worst on-time % first.",th:"ช่วงวันที่เดียวกับด้านบน เรียงจาก % ตรงเวลาต่ำสุดก่อน"},
+  reportCarrierMeta:{en:"{total} truck(s) · {damage} damage remark(s)",th:"{total} คัน · หมายเหตุความเสียหาย {damage} รายการ"},
+  // Round 27: Admin "Archive" screen (read-only browse of past trucks).
+  archiveListTitle:{en:"Archive",th:"คลังข้อมูลย้อนหลัง"},
+  archiveListIntro:{en:"Browse actual trucks over a date range, further back than the day-by-day view. Read-only — tap a truck's own list day to edit it.",th:"ดูรายการรถบรรทุกจริงในช่วงวันที่ที่เลือก ย้อนหลังได้ไกลกว่าหน้าหลักรายวัน — ดูอย่างเดียว หากต้องการแก้ไขให้ไปที่วันนั้นในหน้าหลัก"},
+  archiveListNoRows:{en:"No trucks in this date range.",th:"ไม่มีรถบรรทุกในช่วงวันที่นี้"},
+  archiveListTooMany:{en:"Showing the first 1000 trucks — narrow the date range to see fewer.",th:"แสดงเฉพาะ 1000 คันแรก — ลดช่วงวันที่เพื่อดูรายการที่น้อยลง"},
   importPickSheets:{en:"Sheets to read",th:"ชีตที่จะอ่าน"},
   importPreviewBtn:{en:"Preview",th:"ดูตัวอย่าง"},
   importParsing:{en:"Reading…",th:"กำลังอ่าน…"},
@@ -237,6 +256,9 @@ export const STRINGS = {
   // cue, undo-able delete, and CSV export from the reporting screen.
   searchPlaceholder:{en:"Search PO, carrier, plant…",th:"ค้นหา PO, ผู้ขนส่ง, โรงงาน…"},
   filterLateOnly:{en:"⏰ Late only",th:"⏰ เฉพาะที่ล่าช้า"},
+  // Round 27: carrier/plant dropdown filters, alongside the free-text search.
+  filterAllCarriers:{en:"All carriers",th:"ผู้ขนส่งทั้งหมด"},
+  filterAllPlants:{en:"All plants",th:"โรงงานทั้งหมด"},
   noSearchResults:{en:"No trucks match your search.",th:"ไม่พบรถบรรทุกที่ตรงกับการค้นหา"},
   truckDeletedUndo:{en:"{label} deleted — tap Undo to restore.",th:"ลบ {label} แล้ว — แตะ \"ยกเลิก\" เพื่อกู้คืน"},
   undo:{en:"Undo",th:"ยกเลิก"},
