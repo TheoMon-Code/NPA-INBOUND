@@ -93,6 +93,15 @@ export const ui = {
   // by default so they never change what's shown until someone uses them.
   searchQuery: "",
   filterLateOnly: false,
+  // Round 27: two structured dropdown filters alongside the free-text search
+  // above -- picking an exact carrier/plant from what's actually on the
+  // current day (see filterOptionsHtml() in render.js) rather than typing a
+  // substring, useful once several carriers have similar-looking names.
+  // Empty string (the "All"/default option) matches everything, same as
+  // searchQuery being empty -- no behavior change for anyone who never
+  // touches these two selects.
+  filterCarrier: "",
+  filterPlant: "",
   // Set for the few seconds between tapping "Delete" (after the existing
   // confirm step) and the deletion actually being sent -- see deleteTruck()
   // in actions.js. The truck is hidden from the list/KPIs immediately but
@@ -159,7 +168,26 @@ export const ui = {
   historyTo: todayKey(),
   historyBusy: false,
   historyError: null,
-  historyRows: null
+  historyRows: null,
+  // Round 27: Admin-only "Archive" screen (js/archiveList.js) -- browses the
+  // actual trucks (not just aggregated KPIs, see reportFrom/reportTo above)
+  // over a manager-picked date range, for a day further back than the live
+  // +/-MAX_DAY_OFFSET window the day-by-day view is scoped to. Deliberately
+  // read-only (see archiveListSheetHtml() in render.js for why) -- distinct
+  // "List" naming throughout (archiveListBusy, not archiveBusy) so it's never
+  // confused with the unrelated Round 25 bulk PHOTO-zip download, which
+  // already owns ui.archiveBusy on the Reporting screen above.
+  archiveListOpen: false,
+  archiveListFrom: addDays(todayKey(), -13),
+  archiveListTo: todayKey(),
+  archiveListBusy: false,
+  archiveListError: null,
+  archiveListRows: null,
+  // Round 27: transient "am I currently drawing a new signature, or showing
+  // the one already saved" flag for a truck's detail sheet -- never
+  // persisted, always reset when a sheet opens/closes (see openSheet()/
+  // closeSheet() in actions.js), same lifecycle as ui.confirmDelete above.
+  signatureEditing: false
 };
 ui.roleGateOpen = !ui.role;
 
