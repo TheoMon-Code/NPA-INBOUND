@@ -56,6 +56,8 @@ export function mapRowToTruck(row){
     id: row.id,
     ref: row.reference_id || "",
     carrier: row.carrier || "",
+    carrierTh: row.carrier_th || null,
+    matType: row.mat_type || null,
     plant: row.plant || "",
     imExTr: row.im_ex_tr || "",
     poNo: row.po_no || "",
@@ -68,6 +70,7 @@ export function mapRowToTruck(row){
     closingDate: row.closing_date || "",
     remark: row.remark || "",
     damageRemark: row.damage_remark || "",
+    signature: row.signature || null,
     details: row.details || "",
     date: row.order_date || todayKey(),
     eta: row.eta ? row.eta.slice(11,16) : null,
@@ -240,6 +243,42 @@ export function sbFetchTruckEvents(fromDate, toDate){
         truckLabel: row.truck_label || "",
         actor: row.actor || "",
         detail: row.detail || ""
+      };
+    });
+  });
+}
+
+/* Round 27: backs the Admin-only "Archive" screen (js/archiveList.js) -- an
+   explicit, manager-picked date range, same reasoning as
+   sbFetchTrucksInRange/sbFetchTrucksForReport above (a manager might want to
+   look back well outside the +/-MAX_DAY_OFFSET live window). Unlike
+   sbFetchTrucksForReport (aggregated KPIs only), this selects the fields
+   needed to show one line per truck -- carrier/plant/product/qty/state/
+   damage -- but still deliberately NOT the id-heavy full row (raw/lots/
+   photos), since this screen never opens a truck's own detail sheet (see the
+   comment on archiveListSheetHtml() in render.js for why: a truck this far
+   back may not even be loaded into state.trucks, which stays scoped to the
+   live window). Capped at 1000 rows -- a look-back tool, not an unbounded
+   export (see reportRows/exportReportCsv for that instead). */
+export function sbFetchArchiveListRows(fromDate, toDate){
+  var q = "trucks?select=order_date,eta,carrier,plant,po_no,truck_label,details,qtt,truck_state,act_arrival,act_dept,damage_remark"+
+    "&order_date=gte."+fromDate+"&order_date=lte."+toDate+
+    "&order=order_date.desc,eta.desc.nullslast&limit=1000";
+  return sbRest(q).then(function(rows){
+    return (rows || []).map(function(row){
+      return {
+        date: row.order_date || "",
+        eta: row.eta ? row.eta.slice(11,16) : null,
+        carrier: row.carrier || "",
+        plant: row.plant || "",
+        poNo: row.po_no || "",
+        truckLabel: row.truck_label || "",
+        details: row.details || "",
+        qtt: row.qtt || "",
+        truckState: row.truck_state || "pending",
+        actArrival: row.act_arrival || null,
+        actDept: row.act_dept || null,
+        damageRemark: row.damage_remark || ""
       };
     });
   });
