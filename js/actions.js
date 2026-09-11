@@ -11,7 +11,7 @@ import { state, ui } from "./state.js";
 import {
   supabaseEnabled, sbRest, sbPatchTruckConditional, sbCreateTruck,
   sbDeleteTruck, sbUploadPhoto, sbDeletePhoto, loadFromSupabase,
-  sbSaveAppSettings
+  sbSaveAppSettings, sbLogTruckEvent
 } from "./api.js";
 import { loadSavedName, saveNameLocal, saveLocalData, saveRoleLocal, clearRoleLocal } from "./storage.js";
 import { render } from "./render.js";
@@ -89,13 +89,44 @@ export function truckStateOf(t){
   return t.status === "done" ? "completed" : t.status === "unloading" ? "arrived" : "pending";
 }
 
+/* ---------- truck history / audit log (Round 26) ---------- */
+// Same 4 labels roleLabel() in render.js shows on the role badge -- kept as
+// its own tiny copy here rather than importing from render.js, since
+// render.js doesn't export that helper and this is the only other place
+// that needs it.
+function roleActorLabel(role){
+  if(role === "admin") return tr("roleAdmin");
+  if(role === "admin_it") return tr("roleAdminIt");
+  if(role === "nestle") return tr("roleNestle");
+  return tr("roleDriver");
+}
+function truckLabelFor(id){
+  var t = findTruck(id);
+  return t ? (t.truckLabel || t.poNo || t.ref || id) : id;
+}
+/* Appends one line to the audit trail the Admin-only History screen reads
+   (js/history.js) -- best-effort only (see sbLogTruckEvent() in api.js,
+   which swallows its own errors), never awaited, and never allowed to
+   affect the action it's describing. No-ops outright in local-only mode
+   (nothing shared to log to). `actor` is whichever device name is saved
+   (js/storage.js's loadSavedName(), the same "who did this" used for
+   started_by/finished_by) or, if none was ever set, the current role. */
+function logTruckEvent(truckId, label, action, detail){
+  if(!supabaseEnabled()) return;
+  var actor = loadSavedName() || roleActorLabel(ui.role);
+  sbLogTruckEvent({
+    truck_id: truckId || null, truck_label: label || null,
+    action: action, actor: actor || null, detail: detail || null
+  });
+}
+
 /* ---------- sheet / navigation ---------- */
 export function findTruck(id){ return state.trucks.find(function(t){ return t.id === id; }); }
 export function openSheet(id){ ui.openId = id; ui.addOpen = false; ui.confirmDelete = null; render(); }
 export function closeSheet(){
   ui.openId = null; ui.addOpen = false; ui.pinSettingsOpen = false;
   ui.nameSettingsOpen = false; ui.importOpen = false; ui.reportOpen = false;
-  ui.settingsOpen = false; ui.settingsError = null;
+  ui.settingsOpen = false; ui.settingsError = null; ui.historyOpen = false;
   ui.confirmDelete = null; ui.photoViewer = null;
   render();
 }
@@ -138,7 +169,7 @@ export function logout(){
   ui.roleGateError = null;
   ui.openId = null; ui.addOpen = false; ui.pinSettingsOpen = false;
   ui.nameSettingsOpen = false; ui.importOpen = false; ui.reportOpen = false;
-  ui.settingsOpen = false; ui.settingsError = null;
+  ui.settingsOpen = false; ui.settingsError = null; ui.historyOpen = false;
   ui.confirmDelete = null; ui.photoViewer = null;
   render();
 }
@@ -193,12 +224,14 @@ export function saveEta(id){
   var t = findTruck(id);
   if(!t) return;
   var etaValue = t.date+"T"+v+":00";
+  var label = truckLabelFor(id);
   ui.openId = null;
   if(supabaseEnabled()){
     runBackendCall(sbRest("trucks?id=eq."+encodeURIComponent(id), { method:"PATCH", headers:{"Prefer":"return=representation"}, body:{eta:etaValue} }), {
       successMsg: tr("timeSaved"),
       errorMsg: "couldNotSaveSheet",
-      retry: function(){ saveEta_retry(id, etaValue); },
+      onSuccess: function(){ logTruckEvent(id, label, "eta_changed", v); },
+      retry: function(){ saveEta_retry(id, etaValue, label); },
       queueDescriptor: { kind:"patchPlain", id: id, patch: { eta: etaValue } }
     });
     return;
@@ -206,10 +239,11 @@ export function saveEta(id){
   persist(function(){ t.eta = v; t.status = "scheduled"; });
   showToast(tr("timeSaved"));
 }
-function saveEta_retry(id, etaValue){
+function saveEta_retry(id, etaValue, label){
   runBackendCall(sbRest("trucks?id=eq."+encodeURIComponent(id), { method:"PATCH", headers:{"Prefer":"return=representation"}, body:{eta:etaValue} }), {
     successMsg: tr("timeSaved"), errorMsg: "couldNotSaveSheet",
-    retry: function(){ saveEta_retry(id, etaValue); },
+    onSuccess: function(){ logTruckEvent(id, label, "eta_changed", etaValue.slice(11,16)); },
+    retry: function(){ saveEta_retry(id, etaValue, label); },
     queueDescriptor: { kind:"patchPlain", id: id, patch: { eta: etaValue } }
   });
 }
@@ -238,8 +272,10 @@ function isMissingColumnError(err, col){
   return new RegExp("\\b"+col+"\\b","i").test(msg) && /(column|schema cache|does not exist)/i.test(msg);
 }
 function saveDamageRemark_send(id, v){
+  var label = truckLabelFor(id);
   sbRest("trucks?id=eq."+encodeURIComponent(id), { method:"PATCH", headers:{"Prefer":"return=representation"}, body:{damage_remark:v} })
     .then(function(){
+      logTruckEvent(id, label, "remark_updated", v || null);
       return loadFromSupabase().then(function(){ showToast(tr("remarkSaved")); });
     })
     .catch(function(err){
@@ -265,6 +301,7 @@ function saveDamageRemark_send(id, v){
 }
 export function startUnload(id){
   var by = loadSavedName();
+  var label = truckLabelFor(id);
   buzz();
   if(supabaseEnabled()){
     var patch = { truck_state:"arrived", act_arrival: localNaiveTs(new Date()), started_by: by || null };
@@ -272,6 +309,7 @@ export function startUnload(id){
       runBackendCall(sbPatchTruckConditional(id, "pending", patch), {
         conflictKeyFor: function(){ return "conflict_already_started"; },
         errorMsg: "couldNotSaveSheet",
+        onSuccess: function(){ logTruckEvent(id, label, "arrived", null); },
         retry: go,
         queueDescriptor: { kind:"patchConditional", id: id, fromState:"pending", patch: patch }
       });
@@ -288,6 +326,7 @@ export function startUnload(id){
 }
 export function finishUnload(id){
   var by = loadSavedName();
+  var label = truckLabelFor(id);
   buzz();
   if(supabaseEnabled()){
     var patch = { truck_state:"completed", act_dept: localNaiveTs(new Date()), finished_by: by || null };
@@ -298,6 +337,7 @@ export function finishUnload(id){
           return (t && t.status === "done") ? "conflict_already_finished" : "conflict_not_started_yet";
         },
         errorMsg: "couldNotSaveSheet",
+        onSuccess: function(){ logTruckEvent(id, label, "completed", null); },
         retry: go,
         queueDescriptor: { kind:"patchConditional", id: id, fromState:"arrived", patch: patch }
       });
@@ -313,12 +353,14 @@ export function finishUnload(id){
   });
 }
 export function cancelUnload(id){
+  var label = truckLabelFor(id);
   if(supabaseEnabled()){
     var patch = { truck_state:"pending", act_arrival:null, started_by:null };
     var go = function(){
       runBackendCall(sbPatchTruckConditional(id, "arrived", patch), {
         conflictKeyFor: function(){ return "conflict_not_in_started_state"; },
         errorMsg: "couldNotSaveSheet",
+        onSuccess: function(){ logTruckEvent(id, label, "cancelled", null); },
         retry: go,
         queueDescriptor: { kind:"patchConditional", id: id, fromState:"arrived", patch: patch }
       });
@@ -333,12 +375,14 @@ export function cancelUnload(id){
   });
 }
 export function reopenUnload(id){
+  var label = truckLabelFor(id);
   if(supabaseEnabled()){
     var patch = { truck_state:"arrived", act_dept:null, finished_by:null };
     var go = function(){
       runBackendCall(sbPatchTruckConditional(id, "completed", patch), {
         conflictKeyFor: function(){ return "conflict_not_in_completed_state"; },
         errorMsg: "couldNotSaveSheet",
+        onSuccess: function(){ logTruckEvent(id, label, "reopened", null); },
         retry: go,
         queueDescriptor: { kind:"patchConditional", id: id, fromState:"completed", patch: patch }
       });
@@ -372,18 +416,20 @@ export function deleteTruck(id){
   ui.openId = null; ui.confirmDelete = null;
   var t = findTruck(id);
   ui.pendingDeleteId = id;
-  ui.pendingDeleteLabel = t ? (t.poNo || t.ref || id) : id;
+  ui.pendingDeleteLabel = t ? (t.truckLabel || t.poNo || t.ref || id) : id;
   render();
   clearTimeout(pendingDeleteTimer);
-  pendingDeleteTimer = setTimeout(function(){ commitDelete(id); }, getUndoDeleteMs());
+  var label = ui.pendingDeleteLabel;
+  pendingDeleteTimer = setTimeout(function(){ commitDelete(id, label); }, getUndoDeleteMs());
 }
-function commitDelete(id){
+function commitDelete(id, label){
   ui.pendingDeleteId = null; ui.pendingDeleteLabel = null;
   if(supabaseEnabled()){
     runBackendCall(sbDeleteTruck(id), {
       successMsg: tr("truckDeleted"),
       errorMsg: "couldNotDeleteTruck",
-      retry: function(){ commitDelete(id); },
+      onSuccess: function(){ logTruckEvent(id, label, "deleted", null); },
+      retry: function(){ commitDelete(id, label); },
       queueDescriptor: { kind:"deleteTruck", id: id }
     });
     return;
@@ -419,6 +465,7 @@ export function createTruck(){
     runBackendCall(sbCreateTruck(fields), {
       successMsg: tr("truckAdded"),
       errorMsg: "couldNotCreateTruck",
+      onSuccess: function(row){ logTruckEvent(row && row.id, (row && row.truck_label) || ref || carrier, "created", carrier || null); },
       retry: function(){ /* re-open the add form instead of blindly resubmitting stale field values */ ui.addOpen = true; render(); },
       queueDescriptor: { kind:"createTruck", fields: fields }
     });
