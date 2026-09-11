@@ -137,10 +137,16 @@ export function exportReportCsv(){
     // po_no/carrier added right after eta (Round 24, Theo asked for both so
     // the export identifies which truck each row is without cross-referencing
     // the app) -- sbFetchTrucksForReport() (js/api.js) already returns them.
-    var header = ["date","eta","po_no","carrier","truck_state","act_arrival","act_dept","damage_remark"];
+    // truck_label appended at the very end (Round 26) -- several trucks can
+    // now share one po_no ("<PO> - Truck 1/2/..."), so an export covering
+    // one of those POs would otherwise show duplicate-looking po_no values
+    // with nothing to tell the rows apart. started_by/finished_by appended
+    // last (Round 26 follow-up, Theo asked for it alongside truck_label) --
+    // sbFetchTrucksForReport() (js/api.js) already returns them.
+    var header = ["date","eta","po_no","carrier","truck_state","act_arrival","act_dept","damage_remark","truck_label","started_by","finished_by"];
     var lines = [header.join(",")];
     rows.forEach(function(r){
-      lines.push([r.date, r.eta, r.poNo, r.carrier, r.truckState, r.actArrival, r.actDept, r.damageRemark].map(csvField).join(","));
+      lines.push([r.date, r.eta, r.poNo, r.carrier, r.truckState, r.actArrival, r.actDept, r.damageRemark, r.truckLabel, r.startedBy, r.finishedBy].map(csvField).join(","));
     });
     // Leading BOM so Excel (still the default on a manager's laptop) opens the
     // file as UTF-8 rather than guessing a local codepage -- harmless for the
