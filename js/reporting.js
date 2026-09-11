@@ -32,7 +32,11 @@ export function openReport(){
    (or the arrival was never logged, which is a data-entry gap, not the same
    thing as running late -- kept as its own separate count rather than
    folded into "late" so the two aren't confused). */
-function computeReportStats(rows){
+/* Round 27: pulled out of computeReportStats() unchanged (same formulas,
+   same shape) so the exact same math can be reused per-carrier below
+   (computeCarrierStats()) instead of copy-pasting it -- computeReportStats()
+   itself is now just this applied to every row in the picked range. */
+function statsForRows(rows){
   var total = rows.length;
   var completed = rows.filter(function(r){ return r.truckState === "completed"; });
   var arrived = rows.filter(function(r){ return !!r.actArrival; });
@@ -58,6 +62,36 @@ function computeReportStats(rows){
     noArrivalLogged: noArrivalLogged,
     damageCount: damageCount
   };
+}
+function computeReportStats(rows){ return statsForRows(rows); }
+
+/* Round 27: same rows as the report above (ui.reportRows), grouped by
+   carrier instead of aggregated as one total -- a manager can already see
+   "X% on time overall" from the tiles above; this answers "which carrier is
+   actually behind that number". Sorted worst-on-time-first (nulls -- a
+   carrier with volume but no rated arrival yet -- sorted last by volume) so
+   the carriers most worth a conversation surface at the top rather than
+   needing to be hunted for. Rendered by carrierRankingHtml() in render.js. */
+export function computeCarrierStats(rows){
+  var groups = {};
+  var order = [];
+  rows.forEach(function(r){
+    var c = (r.carrier || "").trim() || "—";
+    if(!groups[c]){ groups[c] = []; order.push(c); }
+    groups[c].push(r);
+  });
+  return order.map(function(c){
+    var s = statsForRows(groups[c]);
+    return {
+      carrier: c, total: s.total, onTime: s.onTime, late: s.late,
+      onTimeRated: s.onTimeRated, onTimePct: s.onTimePct, damageCount: s.damageCount
+    };
+  }).sort(function(a, b){
+    if(a.onTimePct == null && b.onTimePct == null) return b.total - a.total;
+    if(a.onTimePct == null) return 1;
+    if(b.onTimePct == null) return -1;
+    return a.onTimePct - b.onTimePct;
+  });
 }
 
 export function runReport(){
