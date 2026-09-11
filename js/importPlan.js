@@ -144,7 +144,20 @@ export function openImportPlan(){
 
 var IMPORT_FIELD_MATCHERS = [
   { field:"po", any:["po"], exact:true },
-  { field:"carrier", any:["supplier name","บริษัทขนส่ง","ชื่อภาษาไทย"] },
+  { field:"carrier", any:["supplier name","บริษัทขนส่ง"] },
+  // Round 28: "RM PM incoming" carries a second column, "ชื่อภาษาไทย"
+  // ("Thai name") -- confirmed with Theo (real file inspected) that this is
+  // NOT reliably a translation of the carrier/supplier name: sometimes it
+  // is (e.g. "S&D Industries Co Ltd" -> "เอส แอน ดี"), but sometimes it names
+  // the actual physical trucking company instead ("Sarval Limited",
+  // "Novosana", "Pesquera Fiordo Austral" all show "รถบริษัทมนต์" = "MON's
+  // own truck" here). Folding it into `carrier` would have silently
+  // collapsed distinct suppliers onto the same displayed name. Kept as its
+  // own field (carrierTh) instead, shown as a second line under the
+  // carrier's own name (see render.js) -- never part of the identity/dedupe
+  // key (importCoreKey/importRowKey below, unchanged). "Indirect incoming"
+  // has no such column, so trucks from that sheet just have carrierTh=null.
+  { field:"carrierTh", any:["ชื่อภาษาไทย"] },
   { field:"desc", any:["ประเภทสินค้าหรืองานที่ขนส่ง"] },
   { field:"qty", any:["จำนวนที่ขนส่ง"] },
   { field:"unit", any:["หน่วย"], exact:true },
@@ -311,10 +324,14 @@ function importExtractRows(dataRows, colMap, sheetLabel, headerRow){
     var unit = colMap.unit!=null && row[colMap.unit]!=null ? String(row[colMap.unit]).trim() : "";
     var code = colMap.code!=null && row[colMap.code]!=null ? String(row[colMap.code]).trim() : "";
     var remark = colMap.remark!=null ? importCleanText(row[colMap.remark]) : "";
-    var matType = String(row[0]==null?"":row[0]).trim().toUpperCase();
+    var carrierTh = colMap.carrierTh!=null ? importCleanText(row[colMap.carrierTh]) : "";
+    var matTypeRaw = String(row[0]==null?"":row[0]).trim().toUpperCase();
+    var matType = /^(RM|PM)$/.test(matTypeRaw) ? matTypeRaw : null;
     out.push({
       carrier: carrier || null,
-      details: (/^(RM|PM)$/.test(matType) ? "["+matType+"] " : "") + desc,
+      carrierTh: carrierTh || null,
+      matType: matType,
+      details: (matType ? "["+matType+"] " : "") + desc,
       po_no: po || null,
       qtt: (qtyRaw!=null && qtyRaw!=="") ? (importFormatQty(qtyRaw)+(unit?(" "+unit):"")) : "",
       sku_no: code || null,
@@ -384,7 +401,8 @@ function importGroupRows(rows){
     return {
       key: importRowKey(r.po_no, r.order_date, r.eta, r.carrier, r.sku_no, r.details, r.qtt),
       truckLabel: truckLabel,
-      carrier: r.carrier, po_no: r.po_no, order_date: r.order_date, eta: r.eta,
+      carrier: r.carrier, carrierTh: r.carrierTh, matType: r.matType,
+      po_no: r.po_no, order_date: r.order_date, eta: r.eta,
       details: r.details, qtt: r.qtt, sku_no: r.sku_no, remark: r.remark, raw: r.raw
     };
   });
@@ -506,7 +524,8 @@ export function runImportConfirm(){
   var rows = r.toImport.map(function(g, idx){
     return {
       reference_id: "T-"+Date.now().toString(36).toUpperCase()+idx.toString(36).toUpperCase(),
-      carrier: g.carrier, plant: (ui.importPlant || DEFAULT_PLANT), im_ex_tr: "IM",
+      carrier: g.carrier, carrier_th: g.carrierTh || null, mat_type: g.matType || null,
+      plant: (ui.importPlant || DEFAULT_PLANT), im_ex_tr: "IM",
       po_no: g.po_no, sku_no: g.sku_no, qtt: g.qtt,
       remark: g.remark, details: g.details,
       order_date: g.order_date,
@@ -519,6 +538,7 @@ export function runImportConfirm(){
   var labeledCount = rows.filter(function(rw){ return !!rw.truck_label; }).length;
   var CHUNK = 40, i = 0;
   var rawColumnMissing = false, truckLabelColumnMissing = false;
+  var carrierThColumnMissing = false, matTypeColumnMissing = false;
   function stripKeys(chunk, keys){
     return chunk.map(function(r2){
       var c = {};
@@ -540,6 +560,14 @@ export function runImportConfirm(){
         truckLabelColumnMissing = true;
         return attemptInsert(stripKeys(chunk, ["truck_label"]));
       }
+      if(!carrierThColumnMissing && isMissingColumnError(err, "carrier_th")){
+        carrierThColumnMissing = true;
+        return attemptInsert(stripKeys(chunk, ["carrier_th"]));
+      }
+      if(!matTypeColumnMissing && isMissingColumnError(err, "mat_type")){
+        matTypeColumnMissing = true;
+        return attemptInsert(stripKeys(chunk, ["mat_type"]));
+      }
       throw err;
     });
   }
@@ -552,12 +580,18 @@ export function runImportConfirm(){
         var msg = tr("importDoneToast").replace("{n}", rows.length);
         if(rawColumnMissing) msg += " " + tr("importRawColumnMissing");
         if(truckLabelColumnMissing && labeledCount > 0) msg += " " + tr("importTruckLabelColumnMissing");
+        // Round 28: cosmetic-only columns (Thai carrier name, RM/PM type) --
+        // never worth their own toast on top of the two above; a silent
+        // fallback (raw still captures them under their original Thai
+        // header text either way) is enough until ISD migrates the schema.
         showToast(msg);
       });
     }
     var already = [];
     if(rawColumnMissing) already.push("raw");
     if(truckLabelColumnMissing) already.push("truck_label");
+    if(carrierThColumnMissing) already.push("carrier_th");
+    if(matTypeColumnMissing) already.push("mat_type");
     var chunk = stripKeys(rows.slice(i, i+CHUNK), already);
     i += CHUNK;
     return attemptInsert(chunk).then(next);
