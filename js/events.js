@@ -17,6 +17,7 @@ import {
 } from "./actions.js";
 import { openImportPlan, runImportPreview, runImportConfirm, handleImportFile } from "./importPlan.js";
 import { openReport, runReport, exportReportCsv, runPhotoArchive } from "./reporting.js";
+import { openHistory, runHistory } from "./history.js";
 import { downloadTruckPhotos } from "./photoDownload.js";
 
 export function initEvents(){
@@ -71,6 +72,8 @@ export function initEvents(){
     // in render.js -- the button itself only ever renders for that role, so
     // no extra role check is needed here).
     if(el.closest("[data-download-archive]")){ runPhotoArchive(); return; }
+    if(el.closest("[data-open-history]")){ openHistory(); return; }
+    if(el.closest("[data-run-history]")){ runHistory(); return; }
     var importSheetToggleEl = el.closest("[data-import-sheet-toggle]");
     if(importSheetToggleEl){
       var importSheetName = importSheetToggleEl.getAttribute("data-import-sheet-toggle");
