@@ -60,7 +60,16 @@ html,body{margin:0;padding:0}
 body{
   background:var(--paper);
   color:var(--ink);
-  font-family:"IBM Plex Sans","IBM Plex Sans Thai",system-ui,-apple-system,sans-serif;
+  /* Round 26: switched from IBM Plex Sans/Archivo/IBM Plex Mono (Round 5/13)
+     to Arial everywhere -- Theo's MON corporate identity requires it (the
+     colour palette and logo were already the real corporate ones since
+     Round 13; the font was the one piece still outstanding). Arial is a
+     system font on every platform this app runs on (or a metric-compatible
+     substitute, e.g. Liberation Sans on Linux/Android), so no @font-face/
+     Google Fonts loading is needed for it -- see index.html, which now only
+     still loads IBM Plex Sans Thai (kept everywhere as the Thai-script
+     fallback, since Arial's own Thai glyph coverage is unreliable). */
+  font-family:Arial,"IBM Plex Sans Thai",system-ui,-apple-system,sans-serif;
   -webkit-font-smoothing:antialiased;
   min-height:100dvh;
 }
@@ -77,9 +86,9 @@ textarea{font:inherit;color:inherit}
    brand blue reads clearly here without needing a light/dark split. */
 input, textarea{caret-color:var(--brand)}
 ::selection{background:var(--brand-soft)}
-.mono{font-family:"IBM Plex Mono","IBM Plex Sans Thai",ui-monospace,monospace;font-variant-numeric:tabular-nums}
-.display{font-family:"Archivo","IBM Plex Sans Thai",system-ui,sans-serif}
-.title-lg{font-family:"Archivo","IBM Plex Sans Thai",sans-serif;font-weight:800;font-size:17px}
+.mono{font-family:Arial,"IBM Plex Sans Thai",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+.display{font-family:Arial,"IBM Plex Sans Thai",system-ui,sans-serif}
+.title-lg{font-family:Arial,"IBM Plex Sans Thai",sans-serif;font-weight:800;font-size:17px}
 
 .shell{
   max-width:480px;
@@ -142,7 +151,7 @@ input, textarea{caret-color:var(--brand)}
 }
 .mark{height:100%;width:auto;max-width:120px;object-fit:contain;display:block}
 .brand-word{line-height:1.05}
-.brand-word .tagline{display:block;font-family:"Archivo";font-weight:700;font-size:11px;letter-spacing:2.4px;color:#BFD0FF;margin-top:1px}
+.brand-word .tagline{display:block;font-family:Arial;font-weight:700;font-size:11px;letter-spacing:2.4px;color:#BFD0FF;margin-top:1px}
 /* Round 24: no longer nested under the tagline (see render.js) -- it's now a
    direct child of .topbar-row2, laid out side by side with .syncrow rather
    than stacked under .brand-word, so the top margin that used to space it
@@ -154,10 +163,10 @@ input, textarea{caret-color:var(--brand)}
   border-radius:999px; display:inline-block;
 }
 .rolebadge:active{background:rgba(255,255,255,.28)}
-.rolebadge.langtoggle{background:rgba(255,255,255,.28);font-family:"IBM Plex Mono",monospace;letter-spacing:.5px}
+.rolebadge.langtoggle{background:rgba(255,255,255,.28);font-family:Arial,monospace;letter-spacing:.5px}
 .rolebadge.langtoggle:active{background:rgba(255,255,255,.42)}
 .clockbox{text-align:right}
-.clock{font-family:"IBM Plex Mono";font-weight:600;font-size:16px;letter-spacing:.5px}
+.clock{font-family:Arial;font-weight:600;font-size:16px;letter-spacing:.5px}
 .clockdate{font-size:10.5px;color:#BFD0FF;margin-top:2px}
 /* Round 24: no longer nested under .clockdate (see render.js) -- it's now a
    direct child of .topbar-row2 next to .rolebadgerow, so the top margin that
@@ -197,19 +206,19 @@ input, textarea{caret-color:var(--brand)}
   font-size:13px; font-weight:600; color:var(--ink-dim);
   display:flex; flex-direction:column; align-items:center; gap:2px;
 }
-.tab .n{font-family:"IBM Plex Mono";font-size:15px;font-weight:600;color:var(--ink)}
+.tab .n{font-family:Arial;font-size:15px;font-weight:600;color:var(--ink)}
 .tab.active{background:var(--brand);border-color:var(--brand);color:#fff}
 .tab.active .n{color:#fff}
 .tab-nav{
   flex:none; width:44px; justify-content:center;
-  font-family:"IBM Plex Mono"; font-size:12px; font-weight:700;
+  font-family:Arial; font-size:12px; font-weight:700;
 }
 .tab-nav[disabled]{opacity:.35}
 .tab-dateinfo{
   margin:6px 16px 0; padding:6px 10px; border-radius:8px;
   background:var(--brand-soft); color:var(--brand-ink);
   font-size:12px; font-weight:700; text-align:center;
-  font-family:"IBM Plex Mono";
+  font-family:Arial;
 }
 .dayheading{
   padding:14px 16px 0; font-size:11px; font-weight:700; letter-spacing:1.6px;
@@ -238,7 +247,7 @@ input, textarea{caret-color:var(--brand)}
   border-radius:12px; padding:9px 12px; box-shadow:0 1px 2px var(--shadow);
   transition:background .2s,border-color .2s;
 }
-.kpi .v{font-family:"IBM Plex Mono";font-weight:600;font-size:19px;line-height:1.1}
+.kpi .v{font-family:Arial;font-weight:600;font-size:19px;line-height:1.1}
 .kpi .l{font-size:10.5px;color:var(--ink-dim);margin-top:2px;white-space:nowrap}
 .kpi.bad{background:var(--bad-soft);border-color:transparent}
 .kpi.bad .v{color:var(--bad)}
@@ -282,7 +291,7 @@ input, textarea{caret-color:var(--brand)}
 .stripe.duesoon{background:var(--warn)}
 .card-body{padding:11px 13px;flex:1;min-width:0}
 .card-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
-.card-id{font-family:"IBM Plex Mono";font-weight:600;font-size:14.5px}
+.card-id{font-family:Arial;font-weight:600;font-size:14.5px}
 .pill{
   font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;flex:none;
   white-space:nowrap;
@@ -504,7 +513,7 @@ input, textarea{caret-color:var(--brand)}
    rather than removed from every sheet's markup individually. */
 .sheet-handle{width:36px;height:4px;background:var(--line-strong);border-radius:2px;margin:8px auto 10px;display:none}
 .sheet-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
-.sheet-id{font-family:"IBM Plex Mono";font-weight:600;font-size:16px}
+.sheet-id{font-family:Arial;font-weight:600;font-size:16px}
 .sheet-carrier{font-size:14px;color:var(--ink-dim);margin-top:2px;font-weight:500}
 .sheet-close{
   border:none;background:var(--surface-2);width:30px;height:30px;border-radius:9px;
@@ -523,14 +532,14 @@ input, textarea{caret-color:var(--brand)}
 }
 .field:focus{outline:2px solid var(--brand);outline-offset:1px}
 .timer{
-  font-family:"IBM Plex Mono";font-weight:600;font-size:38px;text-align:center;
+  font-family:Arial;font-weight:600;font-size:38px;text-align:center;
   margin:14px 0 4px;letter-spacing:1px;
 }
 .timer.big-late{color:var(--bad)}
 .timer.big-work{color:var(--warn)}
 .timer-sub{text-align:center;font-size:12.5px;color:var(--ink-dim)}
 .done-summary{display:flex;justify-content:space-around;text-align:center;margin:16px 0 6px}
-.done-summary div b{display:block;font-family:"IBM Plex Mono";font-size:17px;font-weight:600}
+.done-summary div b{display:block;font-family:Arial;font-size:17px;font-weight:600}
 .done-summary div span{font-size:10.5px;color:var(--ink-dim)}
 .btn{
   width:100%;border:none;border-radius:13px;padding:15px 16px;font-weight:700;font-size:15.5px;
@@ -566,7 +575,7 @@ input, textarea{caret-color:var(--brand)}
   padding:26px 20px 20px; max-width:340px; width:100%;
   box-shadow:0 20px 50px var(--shadow);
 }
-.rolecard-title{font-family:"Archivo";font-weight:800;font-size:19px;text-wrap:balance}
+.rolecard-title{font-family:Arial;font-weight:800;font-size:19px;text-wrap:balance}
 .rolecard-sub{font-size:13px;color:var(--ink-dim);margin-top:6px;line-height:1.4}
 .roleopt{
   width:100%; text-align:left; border:1px solid var(--line-strong); background:var(--surface);
@@ -580,7 +589,7 @@ input, textarea{caret-color:var(--brand)}
   position:absolute; top:14px; left:14px;
   font-size:10.5px; font-weight:700; letter-spacing:.3px;
   background:var(--surface-2); color:var(--ink-dim); border:none;
-  padding:5px 10px; border-radius:999px; font-family:"IBM Plex Mono",monospace;
+  padding:5px 10px; border-radius:999px; font-family:Arial,monospace;
 }
 .langtoggle-card:active{background:var(--surface-3)}
 
