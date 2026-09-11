@@ -13,11 +13,12 @@ import {
   cancelUnload, reopenUnload, deleteTruck, undoDeleteTruck, createTruck,
   addPhotos, removePhoto, saveDamageRemark, findTruck,
   openPhotoViewer, closePhotoViewer, photoViewerStep, togglePhotoZoom,
-  saveAppSettings, logout
+  saveAppSettings, logout, saveSignature
 } from "./actions.js";
 import { openImportPlan, runImportPreview, runImportConfirm, handleImportFile } from "./importPlan.js";
 import { openReport, runReport, exportReportCsv, runPhotoArchive } from "./reporting.js";
 import { openHistory, runHistory } from "./history.js";
+import { openArchiveList, runArchiveList } from "./archiveList.js";
 import { downloadTruckPhotos } from "./photoDownload.js";
 
 export function initEvents(){
@@ -74,6 +75,8 @@ export function initEvents(){
     if(el.closest("[data-download-archive]")){ runPhotoArchive(); return; }
     if(el.closest("[data-open-history]")){ openHistory(); return; }
     if(el.closest("[data-run-history]")){ runHistory(); return; }
+    if(el.closest("[data-open-archive-list]")){ openArchiveList(); return; }
+    if(el.closest("[data-run-archive-list]")){ runArchiveList(); return; }
     var importSheetToggleEl = el.closest("[data-import-sheet-toggle]");
     if(importSheetToggleEl){
       var importSheetName = importSheetToggleEl.getAttribute("data-import-sheet-toggle");
@@ -99,6 +102,14 @@ export function initEvents(){
     if(saveEl){ saveEta(saveEl.getAttribute("data-save-eta")); return; }
     var saveRemarkEl = el.closest("[data-save-remark]");
     if(saveRemarkEl){ saveDamageRemark(saveRemarkEl.getAttribute("data-save-remark")); return; }
+    // Round 27: signature pad -- "Redo" switches the sheet from showing the
+    // already-saved image to a blank canvas; "Clear" wipes the canvas
+    // in-place (no render() -- see the long comment above clearSignatureCanvas
+    // below for why); "Save" reads the canvas pixels back out as a PNG.
+    if(el.closest("[data-edit-signature]")){ ui.signatureEditing = true; render(); return; }
+    if(el.closest("[data-clear-signature]")){ clearSignatureCanvas(); return; }
+    var saveSigEl = el.closest("[data-save-signature]");
+    if(saveSigEl){ saveSignature(saveSigEl.getAttribute("data-save-signature")); return; }
     var startEl = el.closest("[data-start]");
     if(startEl){ startUnload(startEl.getAttribute("data-start")); return; }
     var finishEl = el.closest("[data-finish]");
@@ -234,5 +245,83 @@ export function initEvents(){
     if(e.target && e.target.id === "import-from-date"){
       ui.importFromDate = e.target.value || ui.importFromDate;
     }
+    // Round 27: carrier/plant filter dropdowns (see filterOptionsHtml() in
+    // render.js) -- plain client-side re-filtering, same shape as the
+    // existing "late only" toggle chip just above.
+    if(e.target && e.target.id === "filterCarrierSelect"){
+      ui.filterCarrier = e.target.value; render();
+    }
+    if(e.target && e.target.id === "filterPlantSelect"){
+      ui.filterPlant = e.target.value; render();
+    }
   });
+
+  /* ---------- signature pad (Round 27) ---------- */
+  // Deliberately three RAW pointer listeners on #app, not routed through the
+  // click delegation above: drawing a signature is a continuous drag
+  // (pointerdown -> many pointermove -> pointerup), and every stroke must
+  // paint straight onto the canvas's own 2D context WITHOUT ever calling
+  // render() -- render() rebuilds the entire #app subtree from a fresh HTML
+  // string (see render.js), which would both wipe out whatever was drawn so
+  // far and destroy/recreate the very <canvas> element mid-stroke. This is
+  // safe from the periodic background refresh for the same reason the photo
+  // viewer's keyboard shortcuts are: isInputSheetOpen() (js/ticking.js)
+  // pauses ALL background rendering for as long as any truck sheet is open,
+  // so nothing outside a deliberate user action (Clear/Save/Redo, all of
+  // which the click handler above already guards) can call render() while
+  // someone is mid-signature. Pointer Events (not separate mouse/touch
+  // listeners) work uniformly across mouse, touch and pen with one code
+  // path -- see css/app.css's `touch-action:none` on .signature-canvas,
+  // which is what stops a finger-drag from also scrolling the sheet behind
+  // it on a phone.
+  var signatureDrawing = false;
+  var signatureLastX = 0, signatureLastY = 0;
+  function signaturePoint(e, canvas){
+    var rect = canvas.getBoundingClientRect();
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  }
+  app.addEventListener("pointerdown", function(e){
+    if(!e.target || e.target.id !== "signatureCanvas") return;
+    touchActivity();
+    var canvas = e.target;
+    try{ canvas.setPointerCapture(e.pointerId); }catch(err){}
+    var p = signaturePoint(e, canvas);
+    signatureDrawing = true;
+    signatureLastX = p.x; signatureLastY = p.y;
+    var ctx = canvas.getContext("2d");
+    // A dot for a single tap (no drag at all) -- otherwise a tap-only
+    // signature would save a blank image.
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 1.2, 0, Math.PI*2);
+    ctx.fillStyle = "#0E1826";
+    ctx.fill();
+  });
+  app.addEventListener("pointermove", function(e){
+    if(!signatureDrawing || !e.target || e.target.id !== "signatureCanvas") return;
+    var canvas = e.target;
+    var p = signaturePoint(e, canvas);
+    var ctx = canvas.getContext("2d");
+    ctx.strokeStyle = "#0E1826";
+    ctx.lineWidth = 2.4;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.beginPath();
+    ctx.moveTo(signatureLastX, signatureLastY);
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+    signatureLastX = p.x; signatureLastY = p.y;
+  });
+  function stopSignatureDrawing(){ signatureDrawing = false; }
+  app.addEventListener("pointerup", stopSignatureDrawing);
+  app.addEventListener("pointercancel", stopSignatureDrawing);
+  app.addEventListener("pointerleave", stopSignatureDrawing);
+}
+/* "Clear" button -- wipes the canvas pixels directly (never through
+   render(), same reasoning as the drawing itself above) so the drawing
+   surface empties out without disturbing anything else on screen. */
+function clearSignatureCanvas(){
+  var canvas = document.getElementById("signatureCanvas");
+  if(!canvas) return;
+  var ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
 }
