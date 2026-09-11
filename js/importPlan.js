@@ -155,7 +155,7 @@ var IMPORT_FIELD_MATCHERS = [
   // collapsed distinct suppliers onto the same displayed name. Kept as its
   // own field (carrierTh) instead, shown as a second line under the
   // carrier's own name (see render.js) -- never part of the identity/dedupe
-  // key (importCoreKey/importRowKey below, unchanged). "Indirect incoming"
+  // key (importCoreKey below, unchanged). "Indirect incoming"
   // has no such column, so trucks from that sheet just have carrierTh=null.
   { field:"carrierTh", any:["ชื่อภาษาไทย"] },
   { field:"desc", any:["ประเภทสินค้าหรืองานที่ขนส่ง"] },
@@ -352,58 +352,51 @@ function importParseSheet(sheetsData, sheetName){
   var colMap = importDetectColumnMap(aoa[headerIdx]);
   return { rows: importExtractRows(aoa.slice(headerIdx+1), colMap, sheetName, aoa[headerIdx]), error:null };
 }
-/* Core identity of a delivery *slot* — PO + date + time + carrier — with NO
-   product/qty in it. Used only to spot when several source rows share the
-   same slot, so they can be numbered "Truck 1", "Truck 2", ... (see
-   importGroupRows below). Deliberately NOT used anymore to decide "is this
-   row already imported" — see importRowKey(). */
+/* Core identity of a delivery *slot* — PO + date + time + carrier. Two
+   source rows sharing this key are the SAME physical truck (see
+   importGroupRows below): reconfirmed directly by MON's on-site manager
+   (chat screenshot relayed by Theo, Round 28) on this exact PO
+   (4563895042, ~10 rows, same carrier/date/07:00 slot, different
+   products/line numbers) — "if same PO same slot time is same truck".
+   This reverses the Round 26 reading of that same PO (back then thought to
+   be genuinely separate trucks) back to the original Round 10 model. Used
+   both to fold several source rows into one truck's `lots` array, and as
+   the dedupe key against what's already in Supabase (importGroupRows'
+   comment below). */
 function importCoreKey(poNo, date, eta, carrier){
   return (poNo||"")+"|"+(date||"")+"|"+(eta||"")+"|"+String(carrier||"").trim().toLowerCase();
 }
-/* Full dedupe key for one row: core slot key + product/qty, so two distinct
-   trucks that happen to share a PO+date+time+carrier (see importGroupRows'
-   comment below) are never mistaken for the same already-imported row just
-   because they share that slot. Used both for rows freshly read from the
-   source file and for rows already sitting in Supabase (sbFetchTrucksInRange
-   now returns sku_no/details/qtt too, purely so this function can be applied
-   the same way on both sides). */
-function importRowKey(poNo, date, eta, carrier, skuNo, details, qtt){
-  return importCoreKey(poNo, date, eta, carrier)+"|"+
-    String(skuNo||"").trim().toLowerCase()+"|"+
-    String(details||"").replace(/\s+/g," ").trim().toLowerCase()+"|"+
-    String(qtt||"").trim().toLowerCase();
-}
-/* Round 26: MON confirmed (real "Incoming plan" rows for PO 4563895042, four
-   rows, four different products/quantities/line numbers, identical date+
-   time+carrier) that several rows sharing a PO+date+time+carrier are
-   genuinely SEPARATE trucks, not several lots on one truck — reversing the
-   Round 10 decision to merge them into a single truck with a `lots` array.
-   Every row is now its own truck. The only thing importCoreKey() is still
-   used for is counting: when more than one row in this file shares the same
-   slot, each gets a `truckLabel` ("<PO> - Truck 1", "- Truck 2", ...) in
-   file order, so they still read as related in the dashboard; a row that
-   doesn't share its slot with anything else gets no label at all, same as
-   before this change. */
+/* Round 28 (reverts Round 26's per-row split): every source row sharing a
+   PO+date+time+carrier slot is folded into ONE truck, with the extra rows
+   captured as that truck's `lots` (jsonb array of {details,qtt,sku_no,
+   remark,raw} — see supabase-schema.sql). The first row's own
+   details/qtt/sku_no/remark/raw/carrier/carrierTh/matType become the
+   truck's own top-level fields, exactly mirroring lots[0], so a truck with
+   only one lot (the common case) looks identical to before this round.
+   Dedupe also reverts to this same slot key (see runImportPreview) rather
+   than Round 26's per-product key: a slot already present in Supabase is
+   treated as already imported wholesale, not lot-by-lot — the pre-Round-26
+   behavior, including its known limitation (a lot added to the source file
+   after the slot was first imported won't be picked up retroactively). */
 function importGroupRows(rows){
-  var coreCounts = {};
+  var order = [], groups = {};
   rows.forEach(function(r){
     var ck = importCoreKey(r.po_no, r.order_date, r.eta, r.carrier);
-    coreCounts[ck] = (coreCounts[ck]||0) + 1;
+    if(!groups[ck]){ groups[ck] = []; order.push(ck); }
+    groups[ck].push(r);
   });
-  var seen = {};
-  return rows.map(function(r){
-    var ck = importCoreKey(r.po_no, r.order_date, r.eta, r.carrier);
-    var truckLabel = null;
-    if(coreCounts[ck] > 1){
-      seen[ck] = (seen[ck]||0) + 1;
-      truckLabel = (r.po_no || "PO") + " - Truck " + seen[ck];
-    }
+  return order.map(function(ck){
+    var list = groups[ck];
+    var first = list[0];
+    var lots = list.length > 1 ? list.map(function(r){
+      return { details:r.details, qtt:r.qtt, sku_no:r.sku_no, remark:r.remark, raw:r.raw };
+    }) : null;
     return {
-      key: importRowKey(r.po_no, r.order_date, r.eta, r.carrier, r.sku_no, r.details, r.qtt),
-      truckLabel: truckLabel,
-      carrier: r.carrier, carrierTh: r.carrierTh, matType: r.matType,
-      po_no: r.po_no, order_date: r.order_date, eta: r.eta,
-      details: r.details, qtt: r.qtt, sku_no: r.sku_no, remark: r.remark, raw: r.raw
+      key: ck,
+      carrier: first.carrier, carrierTh: first.carrierTh, matType: first.matType,
+      po_no: first.po_no, order_date: first.order_date, eta: first.eta,
+      details: first.details, qtt: first.qtt, sku_no: first.sku_no, remark: first.remark, raw: first.raw,
+      lots: lots
     };
   });
 }
@@ -480,13 +473,11 @@ export function runImportPreview(){
   return existingLookup.then(function(existingTrucks){
     var existingKeys = {};
     existingTrucks.forEach(function(t){
-      existingKeys[importRowKey(t.poNo, t.date, t.eta, t.carrier, t.skuNo, t.details, t.qtt)] = true;
+      existingKeys[importCoreKey(t.poNo, t.date, t.eta, t.carrier)] = true;
     });
-    // Round 26: each source row is now its own truck (see importGroupRows) —
-    // one skip decision per row, keyed on the full product-aware
-    // importRowKey(), not just the PO+date+time+carrier slot (several rows
-    // can legitimately share that slot — see the comment above
-    // importGroupRows).
+    // Round 28 (reverts Round 26): one skip decision per SLOT again (see
+    // importGroupRows/importCoreKey above), not per product row — a slot
+    // already present in Supabase is skipped wholesale.
     var groups = importGroupRows(kept);
     var dupeCount = 0, toImport = [];
     groups.forEach(function(g){
@@ -517,10 +508,10 @@ export function runImportConfirm(){
   var r = ui.importResult;
   if(!r || !r.toImport.length) return;
   ui.importBusy = true; ui.syncStatus = "saving"; render();
-  // Round 26: each entry in r.toImport is now its own truck (one source row
-  // = one truck — see importGroupRows), carrying its own details/qtt/sku_no/
-  // remark/raw directly, plus truck_label when it shares its PO+date+time+
-  // carrier slot with other rows in this file ("<PO> - Truck 2", ...).
+  // Round 28 (reverts Round 26): one entry in r.toImport is now one truck
+  // again (several source rows sharing a slot already folded into it as
+  // `lots` by importGroupRows), carrying its own details/qtt/sku_no/remark/
+  // raw directly (mirroring lots[0]).
   var rows = r.toImport.map(function(g, idx){
     return {
       reference_id: "T-"+Date.now().toString(36).toUpperCase()+idx.toString(36).toUpperCase(),
@@ -532,12 +523,11 @@ export function runImportConfirm(){
       eta: g.eta ? (g.order_date+"T"+g.eta+":00") : null,
       truck_state: "pending",
       raw: g.raw || null, /* every source column, verbatim — see supabase-schema.sql */
-      truck_label: g.truckLabel || null
+      lots: g.lots || null
     };
   });
-  var labeledCount = rows.filter(function(rw){ return !!rw.truck_label; }).length;
   var CHUNK = 40, i = 0;
-  var rawColumnMissing = false, truckLabelColumnMissing = false;
+  var rawColumnMissing = false, lotsColumnMissing = false;
   var carrierThColumnMissing = false, matTypeColumnMissing = false;
   function stripKeys(chunk, keys){
     return chunk.map(function(r2){
@@ -556,9 +546,9 @@ export function runImportConfirm(){
         rawColumnMissing = true;
         return attemptInsert(stripKeys(chunk, ["raw"]));
       }
-      if(!truckLabelColumnMissing && isMissingColumnError(err, "truck_label")){
-        truckLabelColumnMissing = true;
-        return attemptInsert(stripKeys(chunk, ["truck_label"]));
+      if(!lotsColumnMissing && isMissingColumnError(err, "lots")){
+        lotsColumnMissing = true;
+        return attemptInsert(stripKeys(chunk, ["lots"]));
       }
       if(!carrierThColumnMissing && isMissingColumnError(err, "carrier_th")){
         carrierThColumnMissing = true;
@@ -579,7 +569,7 @@ export function runImportConfirm(){
         importCtx = null;
         var msg = tr("importDoneToast").replace("{n}", rows.length);
         if(rawColumnMissing) msg += " " + tr("importRawColumnMissing");
-        if(truckLabelColumnMissing && labeledCount > 0) msg += " " + tr("importTruckLabelColumnMissing");
+        if(lotsColumnMissing) msg += " " + tr("importLotsColumnMissing");
         // Round 28: cosmetic-only columns (Thai carrier name, RM/PM type) --
         // never worth their own toast on top of the two above; a silent
         // fallback (raw still captures them under their original Thai
@@ -589,7 +579,7 @@ export function runImportConfirm(){
     }
     var already = [];
     if(rawColumnMissing) already.push("raw");
-    if(truckLabelColumnMissing) already.push("truck_label");
+    if(lotsColumnMissing) already.push("lots");
     if(carrierThColumnMissing) already.push("carrier_th");
     if(matTypeColumnMissing) already.push("mat_type");
     var chunk = stripKeys(rows.slice(i, i+CHUNK), already);
