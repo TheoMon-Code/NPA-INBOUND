@@ -823,12 +823,13 @@ function importSheetHtml(){
       '</div>'+errHtml;
   } else if(ui.importStep === "preview"){
     var r = ui.importResult || { toImport:[], dupeCount:0, pastCount:0 };
-    // Round 26: each entry is now its own truck (see importGroupRows in
-    // importPlan.js) — shown with its own product + quantity, plus a
-    // "<PO> - Truck N" chip when it shares its PO+date+time+carrier slot
-    // with other rows in this file, so those still read as related here.
+    // Round 28 (reverts Round 26): several source rows sharing a PO+date+
+    // time+carrier slot are folded into one truck again (importGroupRows in
+    // importPlan.js) — shown here with its first lot's product + quantity,
+    // plus the same "N lots" badge used elsewhere (cardHtml/lotsSectionHtml
+    // in this file) when it has more than one.
     var rows = r.toImport.slice(0,12).map(function(g){
-      var label = g.truckLabel ? (' <span class="chip">'+esc(g.truckLabel)+'</span>') : "";
+      var label = (g.lots && g.lots.length > 1) ? (' <span class="chip">'+esc(tr("multiLotBadge").replace("{n}", g.lots.length))+'</span>') : "";
       return '<div class="importrow"><b>'+esc(g.order_date)+(g.eta?(" "+esc(g.eta)):"")+'</b> · '+esc(g.carrier||"—")+
         (g.details?(' · '+esc(g.details)):"")+(g.qtt?(' ('+esc(g.qtt)+')'):"")+label+'</div>';
     }).join("");
