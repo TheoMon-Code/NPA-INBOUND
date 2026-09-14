@@ -43,6 +43,18 @@ export function lateMinutes(t, now){
   return Math.floor((now.getTime()-eta.getTime())/60000);
 }
 
+/* Round 29: "late" alone doesn't distinguish a truck that just tipped past
+   its grace period a minute ago from one that's been sitting late for an
+   hour with nobody acting on it -- on a busy screen the second case is the
+   one worth a second look. Scales with the admin-configurable grace period
+   itself (getGraceMin()) rather than a separate hard-coded setting, so it
+   stays sensible if that's ever tuned, without adding a new knob to
+   js/settings.js. Purely additive: read alongside derive()==="late" (see
+   pill()/cardHtml() in render.js), never instead of it. */
+export function isCriticallyLate(t, now){
+  return derive(t, now) === "late" && lateMinutes(t, now) >= getGraceMin()*2;
+}
+
 export var STATUS_KEYS = {
   pending:"status_pending", urgent:"status_urgent", scheduled:"status_scheduled",
   late:"status_late", unloading:"status_unloading", done:"status_done"
