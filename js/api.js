@@ -261,12 +261,17 @@ export function sbFetchTruckEvents(fromDate, toDate){
    live window). Capped at 1000 rows -- a look-back tool, not an unbounded
    export (see reportRows/exportReportCsv for that instead). */
 export function sbFetchArchiveListRows(fromDate, toDate){
-  var q = "trucks?select=order_date,eta,carrier,plant,po_no,truck_label,details,qtt,truck_state,act_arrival,act_dept,damage_remark"+
+  // Round 29: `id` added to the select list -- previously left out on
+  // purpose (this screen was read-only, see js/archiveList.js's top
+  // comment), but the new bulk plant/carrier reassignment needs something
+  // to PATCH by. Every other column/mapping below is unchanged.
+  var q = "trucks?select=id,order_date,eta,carrier,plant,po_no,truck_label,details,qtt,truck_state,act_arrival,act_dept,damage_remark"+
     "&order_date=gte."+fromDate+"&order_date=lte."+toDate+
     "&order=order_date.desc,eta.desc.nullslast&limit=1000";
   return sbRest(q).then(function(rows){
     return (rows || []).map(function(row){
       return {
+        id: row.id,
         date: row.order_date || "",
         eta: row.eta ? row.eta.slice(11,16) : null,
         carrier: row.carrier || "",
@@ -282,6 +287,18 @@ export function sbFetchArchiveListRows(fromDate, toDate){
       };
     });
   });
+}
+
+/* Round 29: bulk plant/carrier reassignment from the Archive screen -- one
+   PATCH covering every selected id at once (PostgREST's `in.(...)` filter)
+   rather than one request per truck, so selecting a hundred rows still
+   costs a single round trip. Unconditional (no fromState check, unlike
+   sbPatchTruckConditional above) -- this only ever touches plant/carrier
+   metadata, never truck_state/act_arrival/etc., so there's nothing here two
+   phones could race over the way start/finish-unloading can. */
+export function sbBulkUpdateTrucks(ids, patch){
+  var filter = ids.map(function(id){ return encodeURIComponent(id); }).join(",");
+  return sbRest("trucks?id=in.("+filter+")", { method:"PATCH", body: patch });
 }
 
 /* Conditional update: only applies if the truck is still in fromState — this
