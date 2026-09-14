@@ -18,7 +18,7 @@ import {
 import { openImportPlan, runImportPreview, runImportConfirm, handleImportFile } from "./importPlan.js";
 import { openReport, runReport, exportReportCsv, runPhotoArchive } from "./reporting.js";
 import { openHistory, runHistory } from "./history.js";
-import { openArchiveList, runArchiveList } from "./archiveList.js";
+import { openArchiveList, runArchiveList, toggleArchiveListRow, toggleArchiveListSelectAll, runArchiveBulkUpdate } from "./archiveList.js";
 import { downloadTruckPhotos } from "./photoDownload.js";
 
 export function initEvents(){
@@ -77,6 +77,13 @@ export function initEvents(){
     if(el.closest("[data-run-history]")){ runHistory(); return; }
     if(el.closest("[data-open-archive-list]")){ openArchiveList(); return; }
     if(el.closest("[data-run-archive-list]")){ runArchiveList(); return; }
+    // Round 29: bulk plant/carrier reassignment on the Archive screen (see
+    // archiveBulkToolbarHtml() in render.js) -- same "data attribute directly
+    // on the <input>" shape as the import-sheet checkboxes just below.
+    var archiveRowSelectEl = el.closest("[data-archive-row-select]");
+    if(archiveRowSelectEl){ toggleArchiveListRow(archiveRowSelectEl.getAttribute("data-archive-row-select")); return; }
+    if(el.closest("[data-archive-select-all]")){ toggleArchiveListSelectAll(); return; }
+    if(el.closest("[data-archive-bulk-apply]")){ runArchiveBulkUpdate(); return; }
     var importSheetToggleEl = el.closest("[data-import-sheet-toggle]");
     if(importSheetToggleEl){
       var importSheetName = importSheetToggleEl.getAttribute("data-import-sheet-toggle");
