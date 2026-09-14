@@ -18,12 +18,15 @@
 import { ui } from "./state.js";
 import { tr } from "./i18n.js";
 import { render } from "./render.js";
-import { sbFetchArchiveListRows } from "./api.js";
+import { sbFetchArchiveListRows, sbBulkUpdateTrucks } from "./api.js";
+import { showToast } from "./actions.js";
 
 export function openArchiveList(){
   ui.archiveListOpen = true;
   ui.openId = null; ui.addOpen = false;
   ui.archiveListError = null; ui.archiveListRows = null;
+  ui.archiveListSelected = {};
+  ui.archiveBulkPlant = ""; ui.archiveBulkCarrier = ""; ui.archiveBulkError = null;
   render();
 }
 
@@ -37,11 +40,58 @@ export function runArchiveList(){
   ui.archiveListBusy = true; ui.archiveListError = null; render();
   sbFetchArchiveListRows(from, to).then(function(rows){
     ui.archiveListRows = rows;
+    // Fresh rows -- any previous selection could reference ids no longer
+    // shown (or, worse, look like it's still selecting something from a
+    // different date range), so it's cleared every time Generate runs,
+    // same as ui.archiveListRows itself.
+    ui.archiveListSelected = {};
     ui.archiveListBusy = false;
     render();
   }).catch(function(err){
     ui.archiveListBusy = false;
     ui.archiveListError = (err && err.message) || tr("reportLoadFailed");
+    render();
+  });
+}
+
+/* Round 29: bulk plant/carrier reassignment, see archiveBulkToolbarHtml() in
+   render.js for the UI this drives. */
+export function toggleArchiveListRow(id){
+  ui.archiveListSelected[id] = !ui.archiveListSelected[id];
+  render();
+}
+export function toggleArchiveListSelectAll(){
+  var rows = ui.archiveListRows || [];
+  var allSelected = rows.length > 0 && rows.every(function(r){ return ui.archiveListSelected[r.id]; });
+  rows.forEach(function(r){ ui.archiveListSelected[r.id] = !allSelected; });
+  render();
+}
+export function runArchiveBulkUpdate(){
+  var rows = ui.archiveListRows || [];
+  var ids = rows.filter(function(r){ return ui.archiveListSelected[r.id]; }).map(function(r){ return r.id; });
+  if(!ids.length) return;
+  var plantEl = document.getElementById("archive-bulk-plant");
+  var carrierEl = document.getElementById("archive-bulk-carrier");
+  var plant = ((plantEl && plantEl.value) || "").trim();
+  var carrier = ((carrierEl && carrierEl.value) || "").trim();
+  ui.archiveBulkPlant = plant; ui.archiveBulkCarrier = carrier;
+  if(!plant && !carrier){
+    ui.archiveBulkError = tr("archiveBulkNothingToApply"); render(); return;
+  }
+  var patch = {};
+  if(plant) patch.plant = plant;
+  if(carrier) patch.carrier = carrier;
+  ui.archiveBulkBusy = true; ui.archiveBulkError = null; render();
+  sbBulkUpdateTrucks(ids, patch).then(function(){
+    showToast(tr("archiveBulkDone").replace("{n}", ids.length));
+    ui.archiveBulkBusy = false;
+    ui.archiveBulkPlant = ""; ui.archiveBulkCarrier = "";
+    // Re-run the same date range so the list reflects the update right away
+    // instead of showing the old plant/carrier until the next manual Generate.
+    runArchiveList();
+  }).catch(function(err){
+    ui.archiveBulkBusy = false;
+    ui.archiveBulkError = (err && err.message) || tr("archiveBulkFailed");
     render();
   });
 }
