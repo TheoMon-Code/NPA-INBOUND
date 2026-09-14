@@ -173,6 +173,11 @@ export const STRINGS = {
   signatureRedoBtn:{en:"Sign again",th:"เซ็นใหม่"},
   signatureSaved:{en:"Signature saved.",th:"บันทึกลายเซ็นแล้ว"},
   signatureColumnMissing:{en:"Could not save the signature yet — ask ISD to run the \"signature\" column update in supabase-schema.sql.",th:"ยังบันทึกลายเซ็นไม่ได้ — แจ้งทีม ISD ให้รันคำสั่งเพิ่มคอลัมน์ \"signature\" ใน supabase-schema.sql"},
+  // Round 29: signature now uploads to Supabase Storage (like a photo)
+  // instead of PATCHing base64 text straight into the trucks row -- this
+  // covers that upload step failing (network, Storage rejecting it, etc.),
+  // separate from signatureColumnMissing above (the later PATCH step).
+  signatureUploadFailed:{en:"Could not upload the signature — check your connection and try again.",th:"ไม่สามารถอัปโหลดลายเซ็นได้ — ตรวจสอบการเชื่อมต่อแล้วลองใหม่"},
   photoDeleted:{en:"Photo removed.",th:"ลบรูปภาพแล้ว"},
   photoRemoveFailed:{en:"Could not remove the photo.",th:"ไม่สามารถลบรูปภาพได้"},
   uploadingPhoto:{en:"Uploading photo…",th:"กำลังอัปโหลดรูปภาพ…"},
