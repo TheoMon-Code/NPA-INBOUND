@@ -127,16 +127,27 @@ export function downloadTruckPhotos(truckId, photos, truckLabel, truckDate, truc
    No delete call is made anywhere in this function or anything it calls --
    cleanup of old Supabase Storage is entirely MON IT's own manual process,
    outside this app. `trucks` is the shape sbFetchTrucksForArchive() (api.js)
-   returns: {id, label, date, eta, photos:[{id,url,storagePath}]}. Each
-   truck's photos land in their own subfolder inside the zip so a manager
-   opening it later can still tell which truck each photo came from,
-   reusing the same dateTimePrefix()/zipEntryName() naming as the
-   single-truck download above. */
+   returns: {id, label, date, eta, signature, photos:[{id,url,storagePath}]}.
+   Each truck's photos land in their own subfolder inside the zip so a
+   manager opening it later can still tell which truck each photo came
+   from, reusing the same dateTimePrefix()/zipEntryName() naming as the
+   single-truck download above.
+   Round 29: a truck's signature (t.signature -- a base64 PNG data URL, see
+   saveSignature() in js/actions.js) rides along in the same per-truck
+   folder as its photos, same "it's evidence for this truck, download it
+   together" reasoning. fetch() happily reads a data: URL locally (no
+   network involved), so this reuses the exact same
+   fetch(...).then(blob) shape as every photo fetch just below rather than
+   needing its own base64-decoding code path. A truck with a signature but
+   no photos still gets its own folder, just for the one file. */
 export function downloadPhotosArchive(trucks, fromDate, toDate){
   var list = trucks || [];
-  var totalPhotos = 0;
-  list.forEach(function(t){ totalPhotos += (t.photos || []).length; });
-  if(!totalPhotos){
+  var totalPhotos = 0, totalSignatures = 0;
+  list.forEach(function(t){
+    totalPhotos += (t.photos || []).length;
+    if(t.signature) totalSignatures++;
+  });
+  if(!totalPhotos && !totalSignatures){
     showToast(tr("archiveNoPhotos"), true);
     return Promise.resolve();
   }
@@ -144,9 +155,10 @@ export function downloadPhotosArchive(trucks, fromDate, toDate){
   return loadJSZip().then(function(){
     var zip = new window.JSZip();
     var failedCount = 0;
+    var totalItems = totalPhotos + totalSignatures;
     var truckPromises = list.map(function(t){
       var photos = t.photos || [];
-      if(!photos.length) return Promise.resolve();
+      if(!photos.length && !t.signature) return Promise.resolve();
       var safeLabel = String(t.label || t.id || "truck").replace(/[^A-Za-z0-9_-]+/g, "-");
       var folder = dateTimePrefix(t.date, t.eta) + "_" + safeLabel;
       var fetches = photos.map(function(p, i){
@@ -158,10 +170,17 @@ export function downloadPhotosArchive(trucks, fromDate, toDate){
           zip.file(folder + "/" + name, blob);
         }).catch(function(){ failedCount++; });
       });
+      if(t.signature){
+        fetches.push(fetch(t.signature).then(function(res){
+          return res.blob();
+        }).then(function(blob){
+          zip.file(folder + "/" + dateTimePrefix(t.date, t.eta) + "_" + safeLabel + "-signature.png", blob);
+        }).catch(function(){ failedCount++; }));
+      }
       return Promise.all(fetches);
     });
     return Promise.all(truckPromises).then(function(){
-      var succeeded = totalPhotos - failedCount;
+      var succeeded = totalItems - failedCount;
       if(!succeeded) throw new Error("all photos failed to download");
       return zip.generateAsync({ type: "blob" }).then(function(blob){
         var url = URL.createObjectURL(blob);
