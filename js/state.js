@@ -183,6 +183,16 @@ export const ui = {
   archiveListBusy: false,
   archiveListError: null,
   archiveListRows: null,
+  // Round 29: bulk plant/carrier reassignment on the Archive screen -- an
+  // object keyed by truck id (same shape as ui.importSelected above), plus
+  // the two free-text fields and their own busy/error pair, one level below
+  // archiveListBusy/archiveListError (the Generate search itself). Reset
+  // whenever the screen opens or a fresh search runs (see js/archiveList.js).
+  archiveListSelected: {},
+  archiveBulkPlant: "",
+  archiveBulkCarrier: "",
+  archiveBulkBusy: false,
+  archiveBulkError: null,
   // Round 27: transient "am I currently drawing a new signature, or showing
   // the one already saved" flag for a truck's detail sheet -- never
   // persisted, always reset when a sheet opens/closes (see openSheet()/
