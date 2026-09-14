@@ -6,7 +6,7 @@
    they're done. */
 import { state, ui } from "./state.js";
 import { tr } from "./i18n.js";
-import { derive, lateMinutes, isDueSoon, STATUS_KEYS } from "./status.js";
+import { derive, lateMinutes, isDueSoon, isCriticallyLate, STATUS_KEYS } from "./status.js";
 import { esc, shortDate, fmtElapsed, dateTimeOf, clockStr, addDays, todayKey } from "./dateUtils.js";
 import { DAY_LABELS, MONTH_LABELS, DAY_LABELS_TH, MONTH_LABELS_TH, TV_ROWS_PER_PAGE, TV_ROTATE_MS } from "./config.js";
 import { loadSavedName } from "./storage.js";
@@ -80,13 +80,18 @@ function effectiveDayOffset(){ return ui.role === "driver" ? 0 : ui.dayOffset; }
 function pill(derived, t, now){
   var txt = tr(STATUS_KEYS[derived]);
   var soon = derived === "scheduled" && isDueSoon(t, now);
+  // Round 29: a "late" pill that's been late a good while longer gets a
+  // subtle pulsing ring (css/app.css's .pill.late.critical) instead of
+  // sitting visually identical to one that just tipped over a moment ago —
+  // see isCriticallyLate() in js/status.js.
+  var critical = derived === "late" && isCriticallyLate(t, now);
   if(derived === "scheduled") txt = (soon ? "⏰ " : "") + tr("pill_eta") + " " + t.eta;
   if(derived === "late") txt = tr("status_late") + " · " + lateMinutes(t, now) + " " + tr("unit_min");
   if(derived === "unloading") txt = tr("status_unloading") + " · " + fmtElapsed(now - new Date(t.startedAt));
   if(derived === "done" && t.startedAt && t.finishedAt){
     txt = tr("status_done") + " · " + fmtHM((new Date(t.finishedAt)-new Date(t.startedAt))/60000);
   }
-  return '<span class="pill '+derived+(soon?" duesoon":"")+'">'+esc(txt)+"</span>";
+  return '<span class="pill '+derived+(soon?" duesoon":"")+(critical?" critical":"")+'">'+esc(txt)+"</span>";
 }
 /* Round 26: a truck with a damage/claim remark (t.damageRemark, entered via
    damageRemarkHtml()'s textarea below) used to be visible only by opening
@@ -98,6 +103,18 @@ function pill(derived, t, now){
 function damageBadge(t){
   if(!t.damageRemark || !t.damageRemark.trim()) return "";
   return '<span class="chip" style="background:var(--bad-soft);color:var(--bad)" title="'+esc(t.damageRemark)+'">'+esc(tr("damageBadge"))+'</span>';
+}
+/* Round 29: a truck that's already unloading or finished but has zero
+   photos attached -- easy to miss since photos only show once the truck's
+   own detail sheet is opened. Deliberately says nothing for a truck that
+   simply hasn't arrived yet (pending/scheduled/urgent) -- no photo is
+   expected at that point, so flagging it there would just be noise on
+   every single row. Same additive "read the existing field, no new status
+   enum" pattern as damageBadge() above. */
+function photoMissingBadge(t){
+  if(t.status !== "unloading" && t.status !== "done") return "";
+  if(t.photos && t.photos.length) return "";
+  return '<span class="chip" style="background:var(--warn-soft);color:var(--warn)" title="'+esc(tr("photoMissingHint"))+'">'+esc(tr("photoMissingBadge"))+'</span>';
 }
 /* Round 28: small colored chip for a truck's material type (RM = raw
    material, PM = packaging material) -- read straight from trucks.mat_type
@@ -134,7 +151,7 @@ function tableRowHtml(t, now){
     '<div class="hint" style="font-weight:400">'+esc(t.details||"")+(t.qtt?(" ("+esc(t.qtt)+")"):"")+'</div>' : "";
   var matCls = t.matType === "RM" ? " matrm" : (t.matType === "PM" ? " matpm" : "");
   return '<tr class="truckrow'+matCls+'" data-open="'+esc(t.id)+'">'+
-    '<td>'+pill(d,t,now)+damageBadge(t)+'</td>'+
+    '<td>'+pill(d,t,now)+damageBadge(t)+photoMissingBadge(t)+'</td>'+
     '<td class="mono">'+esc(t.truckLabel || t.poNo || t.ref || t.id)+detailsLine+'</td>'+
     '<td>'+esc(t.carrier||"—")+'</td>'+
     // Round 28 (follow-up): the Thai name/note captured alongside the
@@ -186,8 +203,9 @@ function sortWeight(t, now){
 function cardHtml(t, now){
   var d = derive(t, now);
   var soon = d === "scheduled" && isDueSoon(t, now);
+  var critical = d === "late" && isCriticallyLate(t, now);
   return '<button class="card" data-open="'+esc(t.id)+'">'+
-    '<span class="stripe '+d+(soon?" duesoon":"")+'"></span>'+
+    '<span class="stripe '+d+(soon?" duesoon":"")+(critical?" critical":"")+'"></span>'+
     '<span class="card-body">'+
       '<span class="card-top"><span class="card-id mono">'+esc(t.truckLabel || t.poNo || t.ref || t.id)+"</span>"+matTypeBadge(t)+pill(d,t,now)+"</span>"+
       '<span class="card-carrier">'+esc(t.carrier)+(t.carrierTh?(' · '+esc(t.carrierTh)):"")+"</span>"+
@@ -206,7 +224,7 @@ function cardHtml(t, now){
       // each one.
       (t.truckLabel && (t.details || t.qtt) ? "<span>"+esc(t.details||"")+(t.qtt?(" ("+esc(t.qtt)+")"):"")+"</span>" : "")+
       "</span>"+
-      damageBadge(t)+
+      damageBadge(t)+photoMissingBadge(t)+
     "</span>"+
   "</button>";
 }
@@ -722,13 +740,49 @@ function archiveListRowHtml(r){
   var productLine = r.details ? (' · '+esc(r.details)+(r.qtt?(' ('+esc(r.qtt)+')'):'')) : "";
   var damage = (r.damageRemark && r.damageRemark.trim())
     ? ' · <span style="color:var(--bad)">⚠ '+esc(tr("damageBadge"))+'</span>' : "";
-  return '<div class="importrow">'+
+  // Round 29: a checkbox per row for the bulk plant/carrier reassignment
+  // toolbar below (archiveBulkToolbarHtml()) -- wrapped in a <label> so
+  // tapping the row text also toggles it, same as importsheetrow's own
+  // checkbox rows on the import screen. Purely additive to the existing
+  // read-only line: nothing here opens the normal truck sheet (see
+  // js/archiveList.js's top comment for why that stays out of scope).
+  var checked = ui.archiveListSelected[r.id] ? " checked" : "";
+  return '<label class="importrow" style="display:flex;align-items:flex-start;gap:8px;cursor:pointer">'+
+    '<input type="checkbox" data-archive-row-select="'+esc(r.id)+'"'+checked+' style="margin-top:2px;flex:none">'+
+    '<span>'+
     '<b>'+shortDate(r.date)+(r.eta?(' '+esc(r.eta)):'')+'</b> · '+esc(r.truckLabel||r.poNo||"—")+
     (r.carrier?(' · '+esc(r.carrier)):'')+
     (r.plant?(' · '+esc(r.plant)):'')+
     productLine+
     ' · '+esc(archiveListStateLabel(r.truckState))+
     damage+
+    '</span>'+
+  '</label>';
+}
+/* Round 29: bulk-reassign plant/carrier across every selected row -- the one
+   deliberate exception to this screen's "look, don't touch" design (see
+   js/archiveList.js's top comment): editing a truck's plant/carrier metadata
+   doesn't need it loaded into state.trucks the way opening its detail sheet
+   would, so it stays safe to do straight from this list. Only rendered once
+   a search has actually returned rows; hidden entirely otherwise so the
+   screen looks exactly as before until Generate is run. */
+function archiveBulkToolbarHtml(rows){
+  var selectedCount = rows.filter(function(r){ return ui.archiveListSelected[r.id]; }).length;
+  var allChecked = selectedCount > 0 && selectedCount === rows.length;
+  var busy = !!ui.archiveBulkBusy;
+  var errHtml = ui.archiveBulkError ? '<div class="hint" style="color:var(--bad);margin-top:6px">'+esc(ui.archiveBulkError)+'</div>' : "";
+  return '<div style="margin-top:12px;padding:11px 12px;background:var(--surface-2);border-radius:10px">'+
+    '<label style="display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600;cursor:pointer">'+
+      '<input type="checkbox" data-archive-select-all="1"'+(allChecked?" checked":"")+'>'+
+      (selectedCount ? esc(tr("archiveBulkSelectedCount").replace("{n}", selectedCount)) : esc(tr("archiveSelectAll")))+
+    '</label>'+
+    '<div class="formgrid" style="margin-top:8px">'+
+      '<div><div class="label">'+tr("fieldPlant")+'</div><input class="field" type="text" id="archive-bulk-plant" placeholder="'+esc(tr("phPlant"))+'" value="'+esc(ui.archiveBulkPlant)+'"></div>'+
+      '<div><div class="label">'+tr("fieldCarrier")+'</div><input class="field" type="text" id="archive-bulk-carrier" placeholder="'+esc(tr("phCarrier"))+'" value="'+esc(ui.archiveBulkCarrier)+'"></div>'+
+    '</div>'+
+    '<button class="btn primary" data-archive-bulk-apply="1" style="margin-top:8px;width:100%" '+((selectedCount && !busy) ? "" : "disabled")+'>'+(busy?tr("reportLoading"):tr("archiveBulkApplyBtn"))+'</button>'+
+    '<div class="hint" style="margin-top:6px">'+tr("archiveBulkHint")+'</div>'+
+    errHtml+
   '</div>';
 }
 function archiveListSheetHtml(){
@@ -738,7 +792,8 @@ function archiveListSheetHtml(){
   var resultsHtml = "";
   if(rows){
     if(rows.length){
-      resultsHtml = '<div class="importpreview" style="margin-top:12px">'+rows.map(archiveListRowHtml).join("")+'</div>';
+      resultsHtml = archiveBulkToolbarHtml(rows)+
+        '<div class="importpreview" style="margin-top:12px">'+rows.map(archiveListRowHtml).join("")+'</div>';
       if(rows.length >= 1000){
         resultsHtml += '<div class="hint" style="margin-top:6px">'+tr("archiveListTooMany")+'</div>';
       }
