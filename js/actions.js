@@ -10,7 +10,7 @@ import { tr } from "./i18n.js";
 import { state, ui } from "./state.js";
 import {
   supabaseEnabled, sbRest, sbPatchTruckConditional, sbCreateTruck,
-  sbDeleteTruck, sbUploadPhoto, sbDeletePhoto, loadFromSupabase,
+  sbDeleteTruck, sbUploadPhoto, sbDeletePhoto, sbUploadSignature, loadFromSupabase,
   sbSaveAppSettings, sbLogTruckEvent
 } from "./api.js";
 import { loadSavedName, saveNameLocal, saveLocalData, saveRoleLocal, clearRoleLocal } from "./storage.js";
@@ -313,51 +313,65 @@ function saveDamageRemark_send(id, v){
    the <canvas> in signatureHtml() (js/render.js) -- the drawing itself is
    handled directly by events.js's pointer listeners (never through render(),
    see that file's comment), this is only the "turn the finished drawing into
-   a PNG and save it" step, called once someone taps "Save signature". Same
-   plain-unconditional-PATCH shape as saveDamageRemark above (not tied to the
-   truck's start/finish lifecycle, editable/re-signable any time). */
+   a PNG and save it" step, called once someone taps "Save signature".
+   Round 29: the signature pad only ever renders when Supabase is connected
+   (signatureHtml() returns "" otherwise, same gate photosHtml() already
+   uses for photos) -- now that saving uploads a real file to Storage
+   (sbUploadSignature, see api.js) instead of PATCHing base64 text straight
+   into the trucks row, there's no local-only fallback left to keep, unlike
+   before this round: there'd be nowhere to upload the file to. */
 export function saveSignature(id){
   var canvas = document.getElementById("signatureCanvas");
   if(!canvas) return;
   var dataUrl = canvas.toDataURL("image/png");
   var t = findTruck(id);
   if(!t) return;
-  if(supabaseEnabled()){
-    saveSignature_send(id, dataUrl);
-    return;
-  }
-  persist(function(){ t.signature = dataUrl; });
-  ui.signatureEditing = false;
-  showToast(tr("signatureSaved"));
+  saveSignature_send(id, dataUrl);
 }
 function saveSignature_send(id, dataUrl){
   var label = truckLabelFor(id);
-  sbRest("trucks?id=eq."+encodeURIComponent(id), { method:"PATCH", headers:{"Prefer":"return=representation"}, body:{signature:dataUrl} })
-    .then(function(){
-      // Kept short on purpose -- the audit trail logs THAT a signature was
-      // saved, never the image data itself (truck_events.detail is a plain
-      // text column, not meant to carry a data URL's worth of base64).
-      logTruckEvent(id, label, "signature_saved", null);
-      ui.signatureEditing = false;
-      return loadFromSupabase().then(function(){ showToast(tr("signatureSaved")); });
-    })
-    .catch(function(err){
-      if(err && err.networkFailure){
-        enqueueOfflineAction({ kind:"patchPlain", id: id, patch: { signature: dataUrl } });
+  fetch(dataUrl).then(function(res){ return res.blob(); }).then(function(blob){
+    return sbUploadSignature(id, blob);
+  }).then(function(url){
+    return sbRest("trucks?id=eq."+encodeURIComponent(id), { method:"PATCH", headers:{"Prefer":"return=representation"}, body:{signature:url} })
+      .then(function(){
+        // Kept short on purpose -- the audit trail logs THAT a signature was
+        // saved, never the image data itself.
+        logTruckEvent(id, label, "signature_saved", null);
         ui.signatureEditing = false;
-        showToast(tr("queuedOffline"));
-        return;
-      }
-      // The "signature" column update (supabase-schema.sql) hasn't been run
-      // on this Supabase project yet -- same graceful-degradation pattern as
-      // "damage_remark" above: tell the user plainly, leave the drawing on
-      // screen (don't flip back to view mode) so nothing is silently lost.
-      if(isMissingColumnError(err, "signature")){
-        showToast(tr("signatureColumnMissing"), true);
-        return;
-      }
-      showToast((err && err.message) || tr("couldNotSaveSheet"), true);
-    });
+        return loadFromSupabase().then(function(){ showToast(tr("signatureSaved")); });
+      })
+      .catch(function(err){
+        if(err && err.networkFailure){
+          // The upload itself already succeeded by this point (the file is
+          // in Storage) -- only attaching its URL to the truck remains, a
+          // plain JSON PATCH exactly like any other queueable action.
+          enqueueOfflineAction({ kind:"patchPlain", id: id, patch: { signature: url } });
+          ui.signatureEditing = false;
+          showToast(tr("queuedOffline"));
+          return;
+        }
+        // The "signature" column update (supabase-schema.sql) hasn't been run
+        // on this Supabase project yet -- same graceful-degradation pattern as
+        // "damage_remark" above: tell the user plainly, leave the drawing on
+        // screen (don't flip back to view mode) so nothing is silently lost.
+        if(isMissingColumnError(err, "signature")){
+          showToast(tr("signatureColumnMissing"), true);
+          return;
+        }
+        showToast((err && err.message) || tr("couldNotSaveSheet"), true);
+      });
+  }).catch(function(){
+    // Reached only if fetch(dataUrl)/sbUploadSignature itself rejected --
+    // the inner .then/.catch pair above always resolves on its own, so a
+    // PATCH-side error (network/missing-column/other) never falls through
+    // to here. Uploading the signature image failed (bad connection,
+    // Storage rejected it, etc.) -- same "can't queue a binary upload for
+    // later" limitation photo uploads already have (see offlineQueue.js's
+    // own top comment): always a flat "try again", never queued for
+    // reconnect.
+    showToast(tr("signatureUploadFailed"), true);
+  });
 }
 export function startUnload(id){
   var by = loadSavedName();
