@@ -308,6 +308,27 @@ input, textarea{caret-color:var(--brand)}
 .pill.unloading{background:var(--warn);color:#fff}
 .pill.done{background:var(--good);color:#fff}
 .pill.duesoon{background:var(--accent);color:#fff}
+/* Round 29: once a truck has been late for a good while longer (not just
+   tipped over the grace period a moment ago -- see isCriticallyLate() in
+   js/status.js), its pill/stripe gets a subtle pulse so it doesn't just
+   blend into every other late-red badge on a busy screen. Additive class
+   alongside .late, never a replacement for it -- same "on top of the
+   existing color, never a new one" approach as .duesoon just above.
+   Two separate animations on purpose: .stripe lives inside .card, which
+   has overflow:hidden (see .card above) -- a box-shadow ring there would
+   get silently clipped at the card's edge, so it gets the same plain
+   opacity pulse as .syncdot.saving further up this file instead; .pill
+   sits inside the card's own padding, with room for the ring to show. */
+@keyframes criticallatepulse{
+  0%,100%{box-shadow:0 0 0 0 rgba(211,26,43,.5)}
+  50%{box-shadow:0 0 0 5px rgba(211,26,43,0)}
+}
+@keyframes criticalstripepulse{0%,100%{opacity:1}50%{opacity:.45}}
+.pill.late.critical{animation:criticallatepulse 1.6s ease-in-out infinite}
+.stripe.late.critical{animation:criticalstripepulse 1.2s ease-in-out infinite}
+@media (prefers-reduced-motion:reduce){
+  .pill.late.critical,.stripe.late.critical{animation:none}
+}
 .card-carrier{font-size:13.5px;font-weight:600;margin-top:4px;color:var(--ink)}
 .card-meta{font-size:11.5px;color:var(--ink-dim);margin-top:3px;display:flex;gap:6px;flex-wrap:wrap}
 .card-meta span:not(:last-child)::after{content:"·";margin-left:6px;color:var(--line-strong)}
