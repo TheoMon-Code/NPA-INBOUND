@@ -194,7 +194,11 @@ export function sbFetchTrucksInRange(fromDate, toDate){
    entry -- nothing here writes anything, and nothing downstream of it
    deletes anything either, per Theo's explicit "ca supprimes rien". */
 export function sbFetchTrucksForArchive(fromDate, toDate){
-  var q = "trucks?select=id,po_no,truck_label,reference_id,order_date,eta,photos(id,url,storage_path)"+
+  // Round 29: "signature" added to the select list -- Theo asked that the
+  // bulk photo-archive zip (downloadPhotosArchive(), js/photoDownload.js)
+  // also carry each truck's signature, the same evidence-download reasoning
+  // as the photos themselves. Everything else here is unchanged.
+  var q = "trucks?select=id,po_no,truck_label,reference_id,order_date,eta,signature,photos(id,url,storage_path)"+
     "&order_date=gte."+fromDate+"&order_date=lte."+toDate+
     "&order=order_date.asc,eta.asc.nullslast";
   return sbRest(q).then(function(rows){
@@ -204,6 +208,7 @@ export function sbFetchTrucksForArchive(fromDate, toDate){
         label: row.truck_label || row.po_no || row.reference_id || row.id,
         date: row.order_date || "",
         eta: row.eta ? row.eta.slice(11,16) : null,
+        signature: row.signature || null,
         photos: (row.photos || []).map(function(p){ return { id:p.id, url:p.url, storagePath:p.storage_path }; })
       };
     });
@@ -361,6 +366,31 @@ export function sbUploadPhoto(truckId, blob, uploadedBy, truckLabel){
       body: { truck_id: truckId, url: publicUrl, storage_path: path, uploaded_by: uploadedBy || null }
     });
   }).then(function(rows){ return rows && rows[0]; });
+}
+
+/* Round 29: the signature (Round 27) used to be saved as a base64 PNG data
+   URL straight into trucks.signature -- simple, but it meant the signature
+   was invisible in Supabase's own Storage browser and bulk-downloaded it
+   from a text column rather than a real file, unlike a photo. Theo asked
+   for it to work "comme les photos" instead: uploaded to the same Storage
+   bucket, with trucks.signature now holding that file's public URL (still
+   a plain text column, no schema change needed -- only what's inside it
+   changes). Fixed path (no timestamp/random suffix, unlike sbUploadPhoto)
+   since a truck has at most one signature -- re-signing overwrites it
+   rather than piling up old versions; "x-upsert" is what allows that
+   overwrite (Supabase Storage otherwise 409s on an existing path). The
+   returned URL carries a cache-busting "?v=" so a re-signed truck's <img>
+   doesn't keep showing a browser-cached copy of the previous signature. */
+export function sbUploadSignature(truckId, blob){
+  var path = truckId+"/signature.png";
+  return fetch(SUPABASE_URL+"/storage/v1/object/"+SUPABASE_BUCKET+"/"+path, {
+    method: "POST",
+    headers: sbHeaders({ "Content-Type":"image/png", "x-upsert":"true" }),
+    body: blob
+  }).then(function(res){
+    if(!res.ok) throw new Error("Upload failed ("+res.status+")");
+    return SUPABASE_URL+"/storage/v1/object/public/"+SUPABASE_BUCKET+"/"+path+"?v="+Date.now();
+  });
 }
 
 export function sbDeletePhoto(photoId, storagePath){
