@@ -7,11 +7,16 @@ TODAY = date.today().isoformat()
 
 # Round 27: an optional signature captured on a <canvas> (see
 # signatureHtml() in render.js and the pointer-event delegation in
-# events.js) -- covers: drawing + saving reaches Supabase with a PNG data
-# URL, the sheet switches to showing the saved image afterward, "Sign
-# again" goes back to a blank canvas, and the same graceful-degradation
-# message as damage_remark (test_v2_damage_remark_missing_column.py) when
-# the "signature" column hasn't been migrated in yet.
+# events.js) -- covers: drawing + saving reaches Supabase, the sheet
+# switches to showing the saved image afterward, "Sign again" goes back to
+# a blank canvas, and the same graceful-degradation message as damage_remark
+# (test_v2_damage_remark_missing_column.py) when the "signature" column
+# hasn't been migrated in yet.
+# Round 29: saving now uploads the PNG to Supabase Storage first (like a
+# photo, see sbUploadSignature() in js/api.js) and PATCHes trucks.signature
+# with that file's public URL -- no longer a base64 data URL PATCHed
+# straight in. The missing-column case still only ever fails at the PATCH
+# step; the Storage upload itself succeeds either way.
 
 TRUCK_ID = "55555555-5555-5555-5555-555555555555"
 TRUCK = {
@@ -32,6 +37,14 @@ async def make_handler(missing_column):
     async def handle(route, request):
         url = request.url
         method = request.method
+        # Round 29: the signature PNG upload to Storage (sbUploadSignature)
+        # -- distinct from a photo's GET-from-Storage URL (which contains
+        # "/object/public/"), this is the POST that writes the file.
+        # Always succeeds regardless of `missing_column`, since that flag
+        # only ever simulates the later trucks.signature PATCH failing.
+        if "/storage/v1/object/" in url and "/object/public/" not in url and method == "POST":
+            await route.fulfill(status=200, content_type="application/json", body=json.dumps({"Key": "signature.png"}))
+            return
         if "/rest/v1/trucks" in url and method == "GET":
             await route.fulfill(status=200, content_type="application/json", body=json.dumps([current]))
             return
@@ -94,8 +107,8 @@ async def main():
 
         assert captured["patch_body"] is not None
         sig = captured["patch_body"]["signature"]
-        print("saved signature data URL prefix:", sig[:30])
-        assert sig.startswith("data:image/png;base64,")
+        print("saved signature URL:", sig)
+        assert sig.startswith("https://wezkonqnlkmkthbfimai.supabase.co/storage/v1/object/public/inbound-photos/"+TRUCK_ID+"/signature.png")
 
         # after saving, the sheet shows the saved image, not the blank canvas
         assert await page.locator(".signature-preview").count() == 1
