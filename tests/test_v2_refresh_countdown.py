@@ -7,8 +7,10 @@ TODAY = date.today().isoformat()
 
 # Round 21: a manager compared this app to MON's Outbound admin tool, which
 # shows a visible "next refresh in mm:ss" countdown -- Inbound's own poll
-# (SUPABASE_POLL_MS, 15s) already ran silently in the background since Round
-# 16, this just makes it visible. The countdown text is updated directly by
+# (SUPABASE_POLL_MS) already ran silently in the background since Round 16,
+# this just makes it visible. Round 33: SUPABASE_POLL_MS went from 15s to
+# 120s (2 minutes, Theo's request -- 15s made a card/row shift under your
+# thumb mid-tap too often). The countdown text is updated directly by
 # tick() every second (js/ticking.js), deliberately NOT through the periodic
 # full render() (which only runs every ~15 ticks, see Round 11) -- routing a
 # once-a-second DOM write through a full #app rebuild would be wasteful and,
@@ -61,9 +63,10 @@ async def main():
         print("initial countdown text:", initial_txt)
         assert re.match(r"^\d{2}:\d{2}$", initial_txt or ""), "expected mm:ss format"
         initial_sec = parse_mmss(initial_txt)
-        # SUPABASE_POLL_MS is 15000 -- the very first value should be at or
-        # just under 15s, never above it and never wildly under.
-        assert 10 <= initial_sec <= 15, "expected the initial countdown to start near the 15s poll interval"
+        # SUPABASE_POLL_MS is 120000 (2 minutes) -- the very first value
+        # should be at or just under 120s, never above it and never wildly
+        # under.
+        assert 110 <= initial_sec <= 120, "expected the initial countdown to start near the 120s poll interval"
 
         # Open the status legend -- something a full render() would NOT know
         # how to keep open (unlike scroll/focus, see Round 11/17).
