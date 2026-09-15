@@ -167,15 +167,39 @@ var IMPORT_FIELD_MATCHERS = [
   { field:"remark", any:["remark","หมายเหตุ"] }
 ];
 
+/* Round 31: MON's separate weekly "Call off" sheet for frozen goods (Khun
+   Badeeson, forwarded a new "2.CALL OFF FREOZEN 2026.xlsx" template) has
+   nothing in common with the RM/PM headers above -- English column names,
+   no PO, no carrier/supplier name at all. Its own matcher list, scored and
+   detected the same way (importFindHeaderRow/importDetectColumnMap now take
+   the matcher list as a parameter so both sheet shapes share that logic).
+   Real header row inspected directly (openpyxl): "Week","Version","Route",
+   "Trip","Day","Delivery date","Time arrive @ Nestle","Mat Code ",
+   "Describtion " (sic -- the file really does misspell it, matched either
+   way), "Pallet size","Call off Q'TY ","Q'TY (Pllt)","Batch number ",
+   "Remark","Data Log","Complete","ใบเคลื่อนย้าย". */
+var CALLOFF_FIELD_MATCHERS = [
+  { field:"route", any:["route"], exact:true },
+  { field:"trip", any:["trip"], exact:true },
+  { field:"date", any:["delivery date"] },
+  { field:"eta", any:["time arrive"] },
+  { field:"matCode", any:["mat code"] },
+  { field:"desc", any:["describtion","description"] },
+  { field:"qty", any:["call off q"] }, /* "Call off Q'TY " -- apostrophe left out of the match pattern on purpose */
+  { field:"qtyPllt", any:["pllt"] }, /* "Q'TY (Pllt)" -- distinct from the plain qty column above by this alone */
+  { field:"batchNo", any:["batch number"] },
+  { field:"remark", any:["remark"] }
+];
+
 function importNormHeader(v){
   return String(v==null?"":v).replace(/\s+/g," ").trim().toLowerCase();
 }
-function importDetectColumnMap(headerRow){
+function importDetectColumnMap(headerRow, matchers){
   var map = {};
   (headerRow||[]).forEach(function(cell, idx){
     var norm = importNormHeader(cell);
     if(!norm) return;
-    IMPORT_FIELD_MATCHERS.forEach(function(m){
+    (matchers || IMPORT_FIELD_MATCHERS).forEach(function(m){
       if(map[m.field] != null) return; /* first (leftmost) matching column wins */
       var hit = m.any.some(function(pat){
         pat = pat.toLowerCase();
@@ -186,13 +210,22 @@ function importDetectColumnMap(headerRow){
   });
   return map;
 }
-function importFindHeaderRow(aoa){
+function importFindHeaderRow(aoa, matchers){
   var bestIdx = -1, bestScore = 0;
   for(var i=0; i<Math.min(20, aoa.length); i++){
-    var score = Object.keys(importDetectColumnMap(aoa[i])).length;
+    var score = Object.keys(importDetectColumnMap(aoa[i], matchers)).length;
     if(score > bestScore){ bestScore = score; bestIdx = i; }
   }
   return bestScore >= 3 ? bestIdx : -1;
+}
+/* "Call off" is a dedicated tab in Badeeson's workbook, always under this
+   exact name (confirmed against the real file) -- detected by sheet name
+   rather than by header content, since its headers are English/generic
+   enough ("Route", "Trip", "Remark"...) that scoring them against every
+   sheet risked a false match on an unrelated tab somewhere in a 60-sheet
+   workbook. A stray space or dash ("Call-off", "Call  off") still matches. */
+function isCallOffSheetName(name){
+  return /call\s*-?\s*off/i.test(String(name||"").trim());
 }
 /* Cells are read with cellDates:false (see parseWorkbookMainThread()/
    importWorker.js) — the raw Excel numeric serial, never a JS Date object —
@@ -339,7 +372,66 @@ function importExtractRows(dataRows, colMap, sheetLabel, headerRow){
       order_date: orderDate,
       eta: colMap.eta!=null ? importTimeFromCell(row[colMap.eta]) : null,
       raw: importBuildRaw(row, headerRow),
-      _source: sheetLabel
+      _source: sheetLabel,
+      _kind: "generic"
+    });
+  });
+  return out;
+}
+/* Round 31: "Call off" rows for the *return* leg ("AM > Mon" -- MON's own
+   truck heading back from the plant) aren't a delivery to track/unload here
+   -- only "Mon > AM" (arriving at the plant) becomes a truck. Compared
+   case-insensitively after trimming since the real file has no consistent
+   spacing around "&gt;". Recommended to Theo (no existing carrier/PO to
+   anchor a decision on either way) rather than confirmed against a real
+   on-site process -- flag to Khun Badeeson if "AM > Mon" turns out to need
+   tracking too. */
+function isCallOffArrivalRoute(route){
+  return String(route||"").trim().toLowerCase() === "mon > am";
+}
+/* One row here is one BATCH (a pallet group with its own batch/traceability
+   number), never a truck on its own -- importGroupCallOffRows() below folds
+   every batch sharing a Route+Trip+Delivery date+Time-arrive into one truck.
+   Unlike the RM/PM sheet (Round 30: confirmed distinct PO rows can be
+   genuinely separate trucks), the real file shows several batch numbers,
+   and often several different Mat Codes/products, under the exact same
+   trip -- e.g. WK02 Mon>AM Trip 1, Wed 07/01 11:00 carries Tuna, Salmon AND
+   Chicken batches together, unmistakably one physical truck's mixed load,
+   not several trucks that happen to share a timestamp. */
+function importExtractCallOffRows(dataRows, colMap, sheetLabel, headerRow){
+  var out = [];
+  (dataRows||[]).forEach(function(row){
+    if(!row) return;
+    var orderDate = colMap.date!=null ? importDateFromCell(row[colMap.date]) : null;
+    if(!orderDate) return; /* no usable date = a blank/spacer row below the real data */
+    var route = colMap.route!=null ? importCleanText(row[colMap.route]) : "";
+    if(!isCallOffArrivalRoute(route)) return;
+    var trip = colMap.trip!=null && row[colMap.trip]!=null ? String(row[colMap.trip]).trim() : "";
+    var matCode = colMap.matCode!=null && row[colMap.matCode]!=null ? String(row[colMap.matCode]).trim() : "";
+    var desc = colMap.desc!=null ? importCleanText(row[colMap.desc]) : "";
+    if(!matCode && !desc) return; /* nothing usable on this row either */
+    var qtyRaw = colMap.qty!=null ? row[colMap.qty] : null;
+    var qtyPllt = colMap.qtyPllt!=null && row[colMap.qtyPllt]!=null ? String(row[colMap.qtyPllt]).trim() : "";
+    var batchNo = colMap.batchNo!=null && row[colMap.batchNo]!=null ? String(row[colMap.batchNo]).trim() : "";
+    var remarkTxt = colMap.remark!=null ? importCleanText(row[colMap.remark]) : "";
+    // Batch number folded into the remark text (there's no dedicated
+    // trucks.* column for it) -- same reasoning as carrierTh not existing
+    // for "Indirect incoming": rather than add a schema column for a field
+    // only this one sheet type has, it rides along with whatever free-text
+    // remark the file already carries, and the batch number is separately
+    // still there verbatim in `raw` either way.
+    var remark = (batchNo ? "Batch "+batchNo : "") + (remarkTxt ? ((batchNo?" — ":"")+remarkTxt) : "");
+    out.push({
+      route: route, trip: trip || "1",
+      details: "[FZ] " + desc,
+      qtt: (qtyRaw!=null && qtyRaw!=="") ? (importFormatQty(qtyRaw)+" KG"+(qtyPllt?(" ("+qtyPllt+" plt)"):"")) : "",
+      sku_no: matCode || null,
+      remark: remark,
+      order_date: orderDate,
+      eta: colMap.eta!=null ? importTimeFromCell(row[colMap.eta]) : null,
+      raw: importBuildRaw(row, headerRow),
+      _source: sheetLabel,
+      _kind: "calloff"
     });
   });
   return out;
@@ -347,56 +439,101 @@ function importExtractRows(dataRows, colMap, sheetLabel, headerRow){
 function importParseSheet(sheetsData, sheetName){
   var aoa = (sheetsData && sheetsData[sheetName]) || [];
   if(!aoa.length) return { rows:[], error:null };
-  var headerIdx = importFindHeaderRow(aoa);
+  var matchers = isCallOffSheetName(sheetName) ? CALLOFF_FIELD_MATCHERS : IMPORT_FIELD_MATCHERS;
+  var headerIdx = importFindHeaderRow(aoa, matchers);
   if(headerIdx === -1) return { rows:[], error:"noHeader" };
-  var colMap = importDetectColumnMap(aoa[headerIdx]);
-  return { rows: importExtractRows(aoa.slice(headerIdx+1), colMap, sheetName, aoa[headerIdx]), error:null };
+  var colMap = importDetectColumnMap(aoa[headerIdx], matchers);
+  var rows = isCallOffSheetName(sheetName)
+    ? importExtractCallOffRows(aoa.slice(headerIdx+1), colMap, sheetName, aoa[headerIdx])
+    : importExtractRows(aoa.slice(headerIdx+1), colMap, sheetName, aoa[headerIdx]);
+  return { rows: rows, error:null };
 }
-/* Core identity of a delivery *slot* — PO + date + time + carrier. Two
-   source rows sharing this key are the SAME physical truck (see
-   importGroupRows below): reconfirmed directly by MON's on-site manager
-   (chat screenshot relayed by Theo, Round 28) on this exact PO
-   (4563895042, ~10 rows, same carrier/date/07:00 slot, different
-   products/line numbers) — "if same PO same slot time is same truck".
-   This reverses the Round 26 reading of that same PO (back then thought to
-   be genuinely separate trucks) back to the original Round 10 model. Used
-   both to fold several source rows into one truck's `lots` array, and as
-   the dedupe key against what's already in Supabase (importGroupRows'
-   comment below). */
+/* Core identity of a delivery *slot* — PO + date + time + carrier. Used
+   only to decide which rows share a slot for display purposes (the
+   "<PO> - Truck N" label below) — no longer the dedupe/merge key on its
+   own, see importRowKey(). */
 function importCoreKey(poNo, date, eta, carrier){
   return (poNo||"")+"|"+(date||"")+"|"+(eta||"")+"|"+String(carrier||"").trim().toLowerCase();
 }
-/* Round 28 (reverts Round 26's per-row split): every source row sharing a
-   PO+date+time+carrier slot is folded into ONE truck, with the extra rows
-   captured as that truck's `lots` (jsonb array of {details,qtt,sku_no,
-   remark,raw} — see supabase-schema.sql). The first row's own
-   details/qtt/sku_no/remark/raw/carrier/carrierTh/matType become the
-   truck's own top-level fields, exactly mirroring lots[0], so a truck with
-   only one lot (the common case) looks identical to before this round.
-   Dedupe also reverts to this same slot key (see runImportPreview) rather
-   than Round 26's per-product key: a slot already present in Supabase is
-   treated as already imported wholesale, not lot-by-lot — the pre-Round-26
-   behavior, including its known limitation (a lot added to the source file
-   after the slot was first imported won't be picked up retroactively). */
-function importGroupRows(rows){
+/* Round 30 (reverts Round 28, restores the Round 26 model): Round 28's
+   "same PO + same slot = same truck" rule, confirmed on PO 4563895042, does
+   NOT generalize — Theo flagged a later PO (4563428496, M C Croker) with two
+   source rows that are genuinely separate trucks/containers (the remark
+   column even carries distinct container numbers per row, e.g. CSGU2538526
+   vs CSGU2235812), and folding them into one truck's `lots` array was
+   hiding real, separately-arriving trucks again. Back to one truck per
+   source row. Rows that DO share a PO+date+time+carrier slot still get a
+   "<PO> - Truck N" label for display (truckLabel), exactly the Round 26
+   behavior — but they are separate trucks/separate DB rows, not lots on one
+   truck. */
+function importRowKey(poNo, date, eta, carrier, skuNo, details, qtt){
+  return "row:"+importCoreKey(poNo, date, eta, carrier)+"|"+(skuNo||"")+"|"+(details||"")+"|"+(qtt||"");
+}
+/* Round 31: identity of a "Call off" TRIP (one physical truck, see
+   importGroupCallOffRows below) -- carrier+date+eta+truckLabel rather than
+   importRowKey's po/sku/details/qtt, because a trip's product mix (which
+   Mat Codes/quantities are on it) can legitimately change between re-imports
+   of an updated plan while it's still the same truck run; keying on those
+   would dedupe unreliably. truckLabel ("<Route> - Trip N") already encodes
+   route+trip uniquely for a given date+eta, so nothing else is needed. A
+   distinct "trip:" prefix keeps this key space from ever colliding with
+   importRowKey's "row:" one even if the underlying text happened to match. */
+function importTripKey(carrier, date, eta, truckLabel){
+  return "trip:"+String(carrier||"").trim().toLowerCase()+"|"+(date||"")+"|"+(eta||"")+"|"+(truckLabel||"");
+}
+function importAssignLabels(rows){
   var order = [], groups = {};
   rows.forEach(function(r){
     var ck = importCoreKey(r.po_no, r.order_date, r.eta, r.carrier);
     if(!groups[ck]){ groups[ck] = []; order.push(ck); }
     groups[ck].push(r);
   });
-  return order.map(function(ck){
+  var out = [];
+  order.forEach(function(ck){
     var list = groups[ck];
+    list.forEach(function(r, idx){
+      out.push({
+        key: importRowKey(r.po_no, r.order_date, r.eta, r.carrier, r.sku_no, r.details, r.qtt),
+        carrier: r.carrier, carrierTh: r.carrierTh, matType: r.matType,
+        po_no: r.po_no, order_date: r.order_date, eta: r.eta,
+        details: r.details, qtt: r.qtt, sku_no: r.sku_no, remark: r.remark, raw: r.raw,
+        truckLabel: list.length > 1 ? ((r.po_no||"")+" - Truck "+(idx+1)) : null
+      });
+    });
+  });
+  return out;
+}
+/* Round 31: one "Call off" TRUCK per Route+Trip+Delivery date+Time-arrive
+   (a trip), folding every batch row that shares it into the truck's `lots`
+   array -- the merge behavior Round 30 removed for RM/PM, reinstated here
+   because the underlying data genuinely supports it (see
+   importExtractCallOffRows' comment above: several batches, sometimes
+   several different products, is the normal shape of ONE trip, not a sign
+   of several trucks). carrier is always "MON" (an internal shuttle, no
+   external transporter named in the file) and truckLabel ("<Route> - Trip
+   N") stands in for the missing PO as this truck's own identity, always
+   set (not only when it collides with another truck, unlike importAssignLabels
+   above) since there's nothing else to label it with. */
+function importGroupCallOffRows(rows){
+  var order = [], groups = {};
+  rows.forEach(function(r){
+    var gk = r.route+"|"+r.trip+"|"+r.order_date+"|"+r.eta;
+    if(!groups[gk]){ groups[gk] = []; order.push(gk); }
+    groups[gk].push(r);
+  });
+  return order.map(function(gk){
+    var list = groups[gk];
     var first = list[0];
+    var truckLabel = first.route+" - Trip "+first.trip;
     var lots = list.length > 1 ? list.map(function(r){
       return { details:r.details, qtt:r.qtt, sku_no:r.sku_no, remark:r.remark, raw:r.raw };
     }) : null;
     return {
-      key: ck,
-      carrier: first.carrier, carrierTh: first.carrierTh, matType: first.matType,
-      po_no: first.po_no, order_date: first.order_date, eta: first.eta,
+      key: importTripKey("MON", first.order_date, first.eta, truckLabel),
+      carrier: "MON", carrierTh: null, matType: "FZ",
+      po_no: null, order_date: first.order_date, eta: first.eta,
       details: first.details, qtt: first.qtt, sku_no: first.sku_no, remark: first.remark, raw: first.raw,
-      lots: lots
+      truckLabel: truckLabel, lots: lots
     };
   });
 }
@@ -412,7 +549,9 @@ export function handleImportFile(file){
       importCtx = { sheetNames: result.sheetNames, sheetsData: result.sheets, fileName: file.name };
       ui.importSelected = {};
       result.sheetNames.forEach(function(n){
-        ui.importSelected[n] = /incoming/i.test(n) && !/รปภ/.test(n);
+        // Round 31: "Call off" (frozen goods) pre-checked the same way as
+        // any "incoming" sheet -- see isCallOffSheetName().
+        ui.importSelected[n] = (/incoming/i.test(n) && !/รปภ/.test(n)) || isCallOffSheetName(n);
       });
       ui.importBusy = false;
       ui.importStep = "pick";
@@ -473,12 +612,25 @@ export function runImportPreview(){
   return existingLookup.then(function(existingTrucks){
     var existingKeys = {};
     existingTrucks.forEach(function(t){
-      existingKeys[importCoreKey(t.poNo, t.date, t.eta, t.carrier)] = true;
+      // Both key shapes computed for every existing truck, regardless of
+      // which importer originally created it — cheap, and each shape only
+      // ever matches a freshly-parsed group built the same way (Round 31:
+      // importTripKey needs t.truckLabel, so sbFetchTrucksInRange now
+      // selects truck_label too — see api.js).
+      existingKeys[importRowKey(t.poNo, t.date, t.eta, t.carrier, t.skuNo, t.details, t.qtt)] = true;
+      existingKeys[importTripKey(t.carrier, t.date, t.eta, t.truckLabel)] = true;
     });
-    // Round 28 (reverts Round 26): one skip decision per SLOT again (see
-    // importGroupRows/importCoreKey above), not per product row — a slot
-    // already present in Supabase is skipped wholesale.
-    var groups = importGroupRows(kept);
+    // Round 30 (reverts Round 28, restores Round 26): one skip decision per
+    // source ROW again for the generic RM/PM importer (see
+    // importRowKey/importAssignLabels above) — a lot added to the source
+    // file after its slot was first imported is picked up as its own new
+    // truck, rather than being silently missed the way a whole-slot dedupe
+    // key would miss it. Round 31: "Call off" rows are grouped by TRIP
+    // instead (importGroupCallOffRows) — see importTripKey's own comment for
+    // why that one still dedupes per-trip rather than per-row.
+    var genericRows = kept.filter(function(r){ return r._kind !== "calloff"; });
+    var calloffRows = kept.filter(function(r){ return r._kind === "calloff"; });
+    var groups = importAssignLabels(genericRows).concat(importGroupCallOffRows(calloffRows));
     var dupeCount = 0, toImport = [];
     groups.forEach(function(g){
       if(existingKeys[g.key]){ dupeCount++; return; }
@@ -508,10 +660,12 @@ export function runImportConfirm(){
   var r = ui.importResult;
   if(!r || !r.toImport.length) return;
   ui.importBusy = true; ui.syncStatus = "saving"; render();
-  // Round 28 (reverts Round 26): one entry in r.toImport is now one truck
-  // again (several source rows sharing a slot already folded into it as
-  // `lots` by importGroupRows), carrying its own details/qtt/sku_no/remark/
-  // raw directly (mirroring lots[0]).
+  // Round 30 (reverts Round 28, restores Round 26): one entry in r.toImport
+  // is one truck again for the generic RM/PM importer, no `lots` merging —
+  // truck_label carries the "<PO> - Truck N" display suffix for rows that
+  // share a slot. Round 31: a "Call off" entry DOES carry `lots` again
+  // (importGroupCallOffRows) -- g.lots is simply undefined/null for every
+  // other importer, so this stays a no-op for them.
   var rows = r.toImport.map(function(g, idx){
     return {
       reference_id: "T-"+Date.now().toString(36).toUpperCase()+idx.toString(36).toUpperCase(),
@@ -523,11 +677,12 @@ export function runImportConfirm(){
       eta: g.eta ? (g.order_date+"T"+g.eta+":00") : null,
       truck_state: "pending",
       raw: g.raw || null, /* every source column, verbatim — see supabase-schema.sql */
+      truck_label: g.truckLabel || null,
       lots: g.lots || null
     };
   });
   var CHUNK = 40, i = 0;
-  var rawColumnMissing = false, lotsColumnMissing = false;
+  var rawColumnMissing = false, truckLabelColumnMissing = false, lotsColumnMissing = false;
   var carrierThColumnMissing = false, matTypeColumnMissing = false;
   function stripKeys(chunk, keys){
     return chunk.map(function(r2){
@@ -545,6 +700,10 @@ export function runImportConfirm(){
       if(!rawColumnMissing && isMissingColumnError(err, "raw")){
         rawColumnMissing = true;
         return attemptInsert(stripKeys(chunk, ["raw"]));
+      }
+      if(!truckLabelColumnMissing && isMissingColumnError(err, "truck_label")){
+        truckLabelColumnMissing = true;
+        return attemptInsert(stripKeys(chunk, ["truck_label"]));
       }
       if(!lotsColumnMissing && isMissingColumnError(err, "lots")){
         lotsColumnMissing = true;
@@ -569,6 +728,7 @@ export function runImportConfirm(){
         importCtx = null;
         var msg = tr("importDoneToast").replace("{n}", rows.length);
         if(rawColumnMissing) msg += " " + tr("importRawColumnMissing");
+        if(truckLabelColumnMissing) msg += " " + tr("importTruckLabelColumnMissing");
         if(lotsColumnMissing) msg += " " + tr("importLotsColumnMissing");
         // Round 28: cosmetic-only columns (Thai carrier name, RM/PM type) --
         // never worth their own toast on top of the two above; a silent
@@ -579,6 +739,7 @@ export function runImportConfirm(){
     }
     var already = [];
     if(rawColumnMissing) already.push("raw");
+    if(truckLabelColumnMissing) already.push("truck_label");
     if(lotsColumnMissing) already.push("lots");
     if(carrierThColumnMissing) already.push("carrier_th");
     if(matTypeColumnMissing) already.push("mat_type");
