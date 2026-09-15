@@ -2,13 +2,18 @@ import asyncio, json, os, re
 from datetime import date
 from playwright.async_api import async_playwright
 
-BASE = "http://127.0.0.1:8934/index.html"
+# Round 33: production SUPABASE_POLL_MS is now 120s (was 15s) -- this test
+# specifically waits out a real re-render cycle, so `?pollMs=15000`
+# (js/main.js) asks the app for the old 15s cadence for this page load only,
+# keeping this test fast; production behavior is unaffected.
+BASE = "http://127.0.0.1:8934/index.html?pollMs=15000"
 TODAY = date.today().isoformat()
 
 # Enough trucks that the list is actually taller than the viewport and worth
-# scrolling -- the periodic background re-render (every ~15s) used to reset
-# window scroll to the top every time it fired, which is the "violent"
-# jump reported while just browsing the list (no sheet open at all).
+# scrolling -- the periodic background re-render (every ~15s, forced via
+# ?pollMs= above) used to reset window scroll to the top every time it
+# fired, which is the "violent" jump reported while just browsing the list
+# (no sheet open at all).
 TRUCKS = [
     {
         "id": "id-%d" % i, "reference_id": "T-%d" % i, "carrier": "Carrier %d" % i,
