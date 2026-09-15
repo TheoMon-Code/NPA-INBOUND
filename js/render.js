@@ -161,7 +161,15 @@ function tableRowHtml(t, now){
   var detailsLine = (t.truckLabel && (t.details || t.qtt)) ?
     '<div class="hint" style="font-weight:400">'+esc(t.details||"")+(t.qtt?(" ("+esc(t.qtt)+")"):"")+'</div>' : "";
   var matCls = t.matType === "RM" ? " matrm" : (t.matType === "PM" ? " matpm" : (t.matType === "FZ" ? " matfz" : ""));
+  // Round 33: the RM/PM/FZ badge (matTypeBadge(), already shown on the
+  // mobile cards) gets its own leftmost column here too -- Theo pointed out
+  // that on the wide table it was only ever hinted at by the faint row tint
+  // (matCls above), which wasn't distinct enough to read at a glance,
+  // especially between .matrm and the old .matfz teal. "—" for a manually
+  // added truck or a sheet with no material type, same fallback style as
+  // the carrier-Thai-name/plant columns below.
   return '<tr class="truckrow'+matCls+'" data-open="'+esc(t.id)+'">'+
+    '<td>'+(matTypeBadge(t) || "—")+'</td>'+
     '<td>'+pill(d,t,now)+damageBadge(t)+photoMissingBadge(t)+'</td>'+
     '<td class="mono">'+esc(t.truckLabel || t.poNo || t.ref || t.id)+detailsLine+'</td>'+
     '<td>'+esc(t.carrier||"—")+'</td>'+
@@ -194,6 +202,7 @@ function tableRowHtml(t, now){
 function listTableHtml(filtered, now){
   var rows = filtered.map(function(t){ return tableRowHtml(t, now); }).join("");
   return '<table class="trucktable"><thead><tr>'+
+    '<th>'+tr("tableColType")+'</th>'+
     '<th>'+tr("tableColStatus")+'</th>'+
     '<th>'+tr("tableColPo")+'</th>'+
     '<th>'+tr("tableColCarrier")+'</th>'+
