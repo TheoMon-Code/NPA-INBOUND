@@ -37,14 +37,14 @@ async def handle_supabase(route, request):
         body = json.loads(request.post_data or "[]")
         rows = body if isinstance(body, list) else [body]
         POST_ATTEMPTS.append(rows)
-        # Old project: neither "raw" nor "lots" columns exist yet.
+        # Old project: neither "raw" nor "truck_label" columns exist yet.
         if any("raw" in r for r in rows):
             await route.fulfill(status=400, content_type="application/json",
                 body=json.dumps({"message": "Could not find the 'raw' column of 'trucks' in the schema cache"}))
             return
-        if any("lots" in r for r in rows):
+        if any("truck_label" in r for r in rows):
             await route.fulfill(status=400, content_type="application/json",
-                body=json.dumps({"message": "Could not find the 'lots' column of 'trucks' in the schema cache"}))
+                body=json.dumps({"message": "Could not find the 'truck_label' column of 'trucks' in the schema cache"}))
             return
         created = []
         for r in rows:
@@ -93,14 +93,14 @@ async def main():
         toast = await page.text_content(".toast")
         print("Toast:", toast)
         print("POST attempts:", len(POST_ATTEMPTS))
-        assert len(POST_ATTEMPTS) == 3, "expected full attempt, then -raw, then -raw-lots (cascading in one chunk)"
-        assert "raw" in POST_ATTEMPTS[0][0] and POST_ATTEMPTS[0][0].get("lots") is not None
-        assert "raw" not in POST_ATTEMPTS[1][0] and POST_ATTEMPTS[1][0].get("lots") is not None
-        assert "raw" not in POST_ATTEMPTS[2][0] and "lots" not in POST_ATTEMPTS[2][0]
-        assert len(TRUCKS) == 1, "both lots must still merge into ONE truck even on this fallback path"
-        assert TRUCKS[0]["po_no"] == "PO-99009"
-        assert "lots" not in TRUCKS[0]
-        assert "แจ้งทีม ISD" in (toast or "") and "raw" in (toast or "") and "lots" in (toast or "")
+        assert len(POST_ATTEMPTS) == 3, "expected full attempt, then -raw, then -raw-truck_label (cascading in one chunk)"
+        assert "raw" in POST_ATTEMPTS[0][0] and POST_ATTEMPTS[0][0].get("truck_label") is not None
+        assert "raw" not in POST_ATTEMPTS[1][0] and POST_ATTEMPTS[1][0].get("truck_label") is not None
+        assert "raw" not in POST_ATTEMPTS[2][0] and "truck_label" not in POST_ATTEMPTS[2][0]
+        assert len(TRUCKS) == 2, "both rows must still import as two separate trucks even on this fallback path"
+        assert TRUCKS[0]["po_no"] == "PO-99009" and TRUCKS[1]["po_no"] == "PO-99009"
+        assert "truck_label" not in TRUCKS[0] and "truck_label" not in TRUCKS[1]
+        assert "แจ้งทีม ISD" in (toast or "") and "raw" in (toast or "") and "truck_label" in (toast or "")
         await browser.close()
         print("BOTH-MISSING CASCADE TEST PASSED")
 
