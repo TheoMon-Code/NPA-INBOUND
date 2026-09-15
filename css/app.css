@@ -30,8 +30,18 @@
      of --brand: --brand is already RM's own color (the desktop table row
      tint too, .matrm), so anything in the same blue family risked FZ and RM
      reading as the same category at a glance. Teal isn't used anywhere else
-     in the app (no status meaning to clash with, unlike good/warn/bad). */
-  --frozen:#0E8FA6; --frozen-ink:#063F4A; --frozen-soft:#DCF1F4;
+     in the app (no status meaning to clash with, unlike good/warn/bad).
+     Round 33: the first pass (#0E8FA6/#DCF1F4) still read as "just another
+     shade of blue" once desaturated down to a soft row-tint -- measured
+     (CIE Lab ΔE) at only ~4 against --brand-soft, versus ~15-20 being where
+     two pale washes actually read as different colors rather than the same
+     one under different lighting. Pushed further from blue toward teal/
+     turquoise (hue ~174° vs --brand's ~202°) and given more chroma than a
+     "soft" tint normally gets, specifically so .matfz stops being mistaken
+     for .matrm at a glance in the desktop table -- see the Round 33 table
+     "Type" column (matTypeBadge in tableRowHtml) added for the same reason,
+     so the type no longer depends on the row tint alone. */
+  --frozen:#0891A8; --frozen-ink:#053B44; --frozen-soft:#B3ECE6;
   --shadow:rgba(10,26,46,.14);
   --radius:16px;
   color-scheme:light;
@@ -46,7 +56,7 @@
     --good:#59B57C; --good-soft:#122429;
     --warn:#C09759; --warn-soft:#1C2126;
     --bad:#DE5360; --bad-soft:#1A1925;
-    --frozen:#5FD0E3; --frozen-ink:#B7ECF4; --frozen-soft:#132A2E;
+    --frozen:#2DD4BF; --frozen-ink:#99F6E4; --frozen-soft:#123832;
     --shadow:rgba(0,0,0,.45);
     color-scheme:dark;
   }
@@ -60,7 +70,7 @@
   --good:#59B57C; --good-soft:#122429;
   --warn:#C09759; --warn-soft:#1C2126;
   --bad:#DE5360; --bad-soft:#1A1925;
-  --frozen:#5FD0E3; --frozen-ink:#B7ECF4; --frozen-soft:#132A2E;
+  --frozen:#2DD4BF; --frozen-ink:#99F6E4; --frozen-soft:#123832;
   --shadow:rgba(0,0,0,.45);
   color-scheme:dark;
 }
