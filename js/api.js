@@ -172,13 +172,18 @@ export function sbFetchTrucksInRange(fromDate, toDate){
   // importPlan.js's dedupe check can tell apart several genuinely separate
   // trucks that happen to share a PO+date+time+carrier slot, instead of
   // matching on that slot alone -- see importRowKey() in importPlan.js.
-  var q = "trucks?select=po_no,order_date,eta,carrier,sku_no,details,qtt"+
+  // Round 31: truck_label added too -- the "Call off" frozen-goods importer
+  // dedupes per TRIP (importTripKey()), which needs each existing truck's
+  // truck_label ("<Route> - Trip N") since that's the only stable identity a
+  // trip has (no PO, and its product mix can change between re-imports).
+  var q = "trucks?select=po_no,order_date,eta,carrier,sku_no,details,qtt,truck_label"+
     "&order_date=gte."+fromDate+"&order_date=lte."+toDate;
   return sbRest(q).then(function(rows){
     return (rows || []).map(function(row){
       return {
         poNo: row.po_no || "", date: row.order_date || "", eta: row.eta ? row.eta.slice(11,16) : null,
-        carrier: row.carrier || "", skuNo: row.sku_no || "", details: row.details || "", qtt: row.qtt || ""
+        carrier: row.carrier || "", skuNo: row.sku_no || "", details: row.details || "", qtt: row.qtt || "",
+        truckLabel: row.truck_label || ""
       };
     });
   });
