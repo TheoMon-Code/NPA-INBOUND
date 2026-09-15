@@ -142,6 +142,22 @@ function matTypeBadge(t){
   var fg = t.matType === "RM" ? "var(--brand-ink)" : "var(--accent-ink)";
   return '<span class="chip" style="background:'+bg+';color:'+fg+'">'+esc(t.matType)+'</span>';
 }
+/* Round 33: Theo noticed that two trucks sharing a carrier+date+time slot
+   but imported with DIFFERENT po_no values -- e.g. "4563428496#1"/"#2", a
+   container-numbering convention some suppliers already write into their
+   own PO reference in the source file -- never showed their product/qty,
+   because the details line below only ever checked for an app-assigned
+   truckLabel (which importAssignLabels() in importPlan.js only sets when
+   the po_no is IDENTICAL across the shared slot, see its Round 26/30
+   comments). Two "#1"/"#2" rows can easily carry different products or
+   quantities per container, and looked identical at a glance without it.
+   This treats a po_no ending in "#<n>" the same as an app-assigned
+   truckLabel for that one purpose -- it does NOT touch importAssignLabels()
+   itself, so truckLabel/dedupe/grouping for these rows is unchanged; only
+   whether the details line renders. */
+function looksLikeSiblingRef(t){
+  return !!(t.truckLabel || /#\d+$/.test(t.poNo||""));
+}
 /* One row of the wide-screen table view (see listTableHtml() below) --
    reuses pill() as-is for the status cell so the exact same live text
    (ETA/late-minutes/elapsed/duration) shows in both views without
@@ -158,7 +174,7 @@ function tableRowHtml(t, now){
   // confirmed choice. Left off entirely for the common single-truck case so
   // this table doesn't grow a column that's "—" almost every row (the same
   // reasoning Round 24 removed the old lots column for).
-  var detailsLine = (t.truckLabel && (t.details || t.qtt)) ?
+  var detailsLine = (looksLikeSiblingRef(t) && (t.details || t.qtt)) ?
     '<div class="hint" style="font-weight:400">'+esc(t.details||"")+(t.qtt?(" ("+esc(t.qtt)+")"):"")+'</div>' : "";
   var matCls = t.matType === "RM" ? " matrm" : (t.matType === "PM" ? " matpm" : (t.matType === "FZ" ? " matfz" : ""));
   // Round 33: the RM/PM/FZ badge (matTypeBadge(), already shown on the
@@ -238,11 +254,11 @@ function cardHtml(t, now){
       // ETA here means it's never hidden, however late the truck gets.
       (t.eta ? "<span>"+tr("pill_eta")+" "+esc(t.eta)+"</span>" : "")+
       (t.lots && t.lots.length > 1 ? "<span>"+esc(tr("multiLotBadge").replace("{n}", t.lots.length))+"</span>" : "")+
-      // Round 26: same reasoning as tableRowHtml() above — product + qty
-      // shown only for a truck that shares its slot with others, so the
-      // "Truck 1/2/3" cards for one PO are distinguishable without opening
-      // each one.
-      (t.truckLabel && (t.details || t.qtt) ? "<span>"+esc(t.details||"")+(t.qtt?(" ("+esc(t.qtt)+")"):"")+"</span>" : "")+
+      // Round 26 (Round 33: also a "#N"-suffixed po_no, see
+      // looksLikeSiblingRef() above) -- product + qty shown only for a
+      // truck that shares its slot with others, so the "Truck 1/2/3" cards
+      // for one PO are distinguishable without opening each one.
+      (looksLikeSiblingRef(t) && (t.details || t.qtt) ? "<span>"+esc(t.details||"")+(t.qtt?(" ("+esc(t.qtt)+")"):"")+"</span>" : "")+
       "</span>"+
       damageBadge(t)+photoMissingBadge(t)+
     "</span>"+
@@ -1186,13 +1202,14 @@ function tvRowHtml(t, now){
     '<td>'+esc(t.carrier||"—")+'</td>'+
     '<td>'+(t.plant ? esc(t.plant) : "—")+'</td>'+
     '<td>'+(t.eta || "—")+'</td>'+
-    // Round 26: this column used to show a "N lots" badge (only ever
-    // populated for the old merged-lots trucks); now shows product + qty
-    // whenever the truck shares its PO+date+time+carrier slot with others
-    // (t.truckLabel set) so the "Truck 1/2/3" rows for one PO stay
-    // distinguishable on the TV board too. Old data that still has an
-    // un-migrated `lots` array falls back to the old badge.
-    '<td>'+(t.truckLabel && (t.details || t.qtt) ? esc(t.details||"")+(t.qtt?(" ("+esc(t.qtt)+")"):"") :
+    // Round 26 (Round 33: also a "#N"-suffixed po_no, see
+    // looksLikeSiblingRef() above): this column used to show a "N lots"
+    // badge (only ever populated for the old merged-lots trucks); now shows
+    // product + qty whenever the truck shares its slot with others so the
+    // "Truck 1/2/3" rows for one PO stay distinguishable on the TV board
+    // too. Old data that still has an un-migrated `lots` array falls back
+    // to the old badge.
+    '<td>'+(looksLikeSiblingRef(t) && (t.details || t.qtt) ? esc(t.details||"")+(t.qtt?(" ("+esc(t.qtt)+")"):"") :
       (t.lots && t.lots.length > 1 ? esc(tr("multiLotBadge").replace("{n}", t.lots.length)) : "—"))+'</td>'+
   '</tr>';
 }
