@@ -125,8 +125,18 @@ function photoMissingBadge(t){
    pattern as damageBadge() above). Reuses the app's own brand/accent
    palette (Theo's confirmed choice) rather than introducing new hues; see
    the matching row tint on the desktop table (css/app.css, .matrm/.matpm)
-   for the same two colors applied to a whole row instead of a chip. */
+   for the same two colors applied to a whole row instead of a chip.
+   Round 31/32: "FZ" (Frozen -- Call off import, importGroupCallOffRows() in
+   importPlan.js) is a third material type, two letters like RM/PM on Theo's
+   request. First shipped (Round 31) as a plain neutral chip since MON's
+   corporate palette (Round 13) only defines blue/orange/green/red, all
+   already carrying a status meaning elsewhere (late/done/grace-period) --
+   Round 32: Theo asked for it to actually look "icy blue" instead, so a new
+   teal/cyan pair (--frozen/--frozen-soft, css/app.css) was added rather than
+   reusing a shade of --brand (already RM's own color) or of a status color.
+   See .matfz below for the matching desktop-table row tint. */
 function matTypeBadge(t){
+  if(t.matType === "FZ") return '<span class="chip" style="background:var(--frozen-soft);color:var(--frozen-ink)">FZ</span>';
   if(t.matType !== "RM" && t.matType !== "PM") return "";
   var bg = t.matType === "RM" ? "var(--brand-soft)" : "var(--accent-soft)";
   var fg = t.matType === "RM" ? "var(--brand-ink)" : "var(--accent-ink)";
@@ -140,8 +150,9 @@ function matTypeBadge(t){
    so putting data-open directly on the <tr> works with zero JS changes. */
 function tableRowHtml(t, now){
   var d = derive(t, now);
-  // Round 26: when this truck shares its PO+date+time+carrier slot with
-  // others (t.truckLabel set — see importGroupRows() in importPlan.js), show
+  // Round 26 (restored Round 30): when this truck shares its PO+date+time+
+  // carrier slot with others (t.truckLabel set — see importAssignLabels()
+  // in importPlan.js), show
   // its product + qty right under the label so the several "Truck 1/2/3"
   // rows for the same PO can still be told apart at a glance, per Theo's
   // confirmed choice. Left off entirely for the common single-truck case so
@@ -149,7 +160,7 @@ function tableRowHtml(t, now){
   // reasoning Round 24 removed the old lots column for).
   var detailsLine = (t.truckLabel && (t.details || t.qtt)) ?
     '<div class="hint" style="font-weight:400">'+esc(t.details||"")+(t.qtt?(" ("+esc(t.qtt)+")"):"")+'</div>' : "";
-  var matCls = t.matType === "RM" ? " matrm" : (t.matType === "PM" ? " matpm" : "");
+  var matCls = t.matType === "RM" ? " matrm" : (t.matType === "PM" ? " matpm" : (t.matType === "FZ" ? " matfz" : ""));
   return '<tr class="truckrow'+matCls+'" data-open="'+esc(t.id)+'">'+
     '<td>'+pill(d,t,now)+damageBadge(t)+photoMissingBadge(t)+'</td>'+
     '<td class="mono">'+esc(t.truckLabel || t.poNo || t.ref || t.id)+detailsLine+'</td>'+
@@ -291,10 +302,11 @@ function matchesListFilters(t, now){
   if(ui.filterPlant && (t.plant || "") !== ui.filterPlant) return false;
   var q = (ui.searchQuery || "").trim().toLowerCase();
   if(q){
-    // Round 26: product + qty (t.details/t.qtt) and the "<PO> - Truck N"
-    // label added to the match text -- now that several trucks can share a
-    // PO (see importGroupRows() in importPlan.js), typing the product name
-    // or "Truck 2" is often how someone finds the specific one they mean.
+    // Round 26 (restored Round 30): product + qty (t.details/t.qtt) and the
+    // "<PO> - Truck N" label added to the match text -- now that several
+    // trucks can share a PO (see importAssignLabels() in importPlan.js),
+    // typing the product name or "Truck 2" is often how someone finds the
+    // specific one they mean.
     var hay = ((t.poNo||"")+" "+(t.truckLabel||"")+" "+(t.ref||"")+" "+(t.carrier||"")+" "+(t.plant||"")+" "+(t.details||"")+" "+(t.qtt||"")).toLowerCase();
     if(hay.indexOf(q) === -1) return false;
   }
@@ -474,10 +486,10 @@ function shipmentDetailsHtml(t){
    supabase-schema.sql. Collapsed by default (native <details>, no JS) since
    it's a lot of text and most people only need it occasionally. Manually
    created trucks have no raw data, so this section simply doesn't appear. */
-/* When a truck was imported from a source row that had siblings sharing the
-   same PO+date+time+carrier (several lots on one physical truck — see
-   importGroupRows in importPlan.js), this lists every lot, not just the
-   first (which shipmentDetailsHtml above already shows on its own). A
+/* Round 30: importPlan.js no longer writes `lots` (each source row is its
+   own truck again, see importAssignLabels there) — this stays only so a
+   truck imported while Round 28's merge-into-lots behavior was live still
+   renders its saved lots correctly instead of silently dropping data. A
    single-lot truck has no `lots` array at all (or a one-item one), so this
    section simply doesn't appear for the common case. */
 function lotsHtml(t){
@@ -881,15 +893,20 @@ function importSheetHtml(){
       '</div>'+errHtml;
   } else if(ui.importStep === "preview"){
     var r = ui.importResult || { toImport:[], dupeCount:0, pastCount:0 };
-    // Round 28 (reverts Round 26): several source rows sharing a PO+date+
-    // time+carrier slot are folded into one truck again (importGroupRows in
-    // importPlan.js) — shown here with its first lot's product + quantity,
-    // plus the same "N lots" badge used elsewhere (cardHtml/lotsSectionHtml
-    // in this file) when it has more than one.
+    // Round 30 (reverts Round 28, restores Round 26): each entry is its own
+    // truck again (importAssignLabels in importPlan.js) — rows sharing a
+    // PO+date+time+carrier slot show their "<PO> - Truck N" label instead of
+    // a merged "N lots" badge, so it's clear at a glance they'll import as
+    // separate trucks.
     var rows = r.toImport.slice(0,12).map(function(g){
-      var label = (g.lots && g.lots.length > 1) ? (' <span class="chip">'+esc(tr("multiLotBadge").replace("{n}", g.lots.length))+'</span>') : "";
+      var label = g.truckLabel ? (' <span class="chip">'+esc(g.truckLabel)+'</span>') : "";
+      // Round 31: "Call off" entries carry `lots` again (importGroupCallOffRows)
+      // -- shown here the same way the old Round 28 preview badge did, since
+      // it's genuinely useful to see at a glance that a trip bundles several
+      // batches before confirming the import.
+      var lotsBadge = (g.lots && g.lots.length > 1) ? (' <span class="chip">'+esc(tr("multiLotBadge").replace("{n}", g.lots.length))+'</span>') : "";
       return '<div class="importrow"><b>'+esc(g.order_date)+(g.eta?(" "+esc(g.eta)):"")+'</b> · '+esc(g.carrier||"—")+
-        (g.details?(' · '+esc(g.details)):"")+(g.qtt?(' ('+esc(g.qtt)+')'):"")+label+'</div>';
+        (g.details?(' · '+esc(g.details)):"")+(g.qtt?(' ('+esc(g.qtt)+')'):"")+label+lotsBadge+'</div>';
     }).join("");
     var more = r.toImport.length > 12 ? '<div class="hint" style="margin-top:4px">'+tr("importMoreRows").replace("{n}", r.toImport.length-12)+'</div>' : "";
     body = '<div class="hint" style="margin-top:6px">'+
@@ -1018,11 +1035,13 @@ function damageRemarkHtml(t){
 }
 /* Round 27: an optional signature (driver or receiving-side confirmation),
    captured on whatever device is at hand (phone or the Windows PC some
-   managers use, see Round 17.1) -- stored as a small PNG data URL
-   (trucks.signature), same "plain field + button", edit-any-time shape as
-   the damage remark above rather than being tied to the truck's start/
-   finish lifecycle. Needs Supabase (nothing to sync locally) and stays out
-   of Nestlé's view, both for the same reasons damageRemarkHtml() above does.
+   managers use, see Round 17.1) -- same "plain field + button", edit-any-
+   time shape as the damage remark above rather than being tied to the
+   truck's start/finish lifecycle. Needs Supabase (nothing to sync locally,
+   and since Round 29 the drawing itself is uploaded to Supabase Storage --
+   see sbUploadSignature() in js/api.js -- with trucks.signature just
+   holding that file's URL) and stays out of Nestlé's view, both for the
+   same reasons damageRemarkHtml() above does.
    The actual drawing happens on a <canvas> via direct pointer-event
    delegation in events.js, deliberately bypassing render() for every single
    stroke (rebuilding #app mid-stroke would wipe the canvas clean) -- this
