@@ -2,14 +2,20 @@ import asyncio, json, os, re
 from datetime import date, timedelta
 from playwright.async_api import async_playwright
 
-BASE = "http://127.0.0.1:8934/index.html"
+# Round 33: production SUPABASE_POLL_MS is now 120s (was 15s) -- this test
+# specifically waits out real poll cycles, so at 120s/cycle it would take
+# several minutes just to run. `?pollMs=15000` (js/main.js) asks the app for
+# the old 15s cadence for this page load only; production behavior (nobody
+# adds this param) is unaffected.
+BASE = "http://127.0.0.1:8934/index.html?pollMs=15000"
 TODAY = date.today().isoformat()
 
 # A "done" truck viewed by a DRIVER used to be exempt from the "don't
 # refresh while a sheet is open" guard (isInputSheetOpen() used to only
 # protect admin + still-editable trucks) -- this reproduces exactly that
 # case: a driver looks at a completed truck's photos/lots/raw sections, and
-# the periodic Supabase poll (every 15s) must not disrupt that view.
+# the periodic Supabase poll (every 15s, forced via ?pollMs= above) must not
+# disrupt that view.
 BASE_TRUCK = {
     "id": "22222222-2222-2222-2222-222222222222",
     "reference_id": "T-DONE1",
