@@ -25,6 +25,13 @@
   --good:#008D36; --good-soft:#DFF1E6;
   --warn:#9E5F00; --warn-soft:#F4EEE3;
   --bad:#D31A2B; --bad-soft:#FAE4E6;
+  /* Round 32: Theo asked for an "icy blue" for the FZ (Frozen, "Call off"
+     import) material badge -- a teal/cyan on purpose, not a lighter shade
+     of --brand: --brand is already RM's own color (the desktop table row
+     tint too, .matrm), so anything in the same blue family risked FZ and RM
+     reading as the same category at a glance. Teal isn't used anywhere else
+     in the app (no status meaning to clash with, unlike good/warn/bad). */
+  --frozen:#0E8FA6; --frozen-ink:#063F4A; --frozen-soft:#DCF1F4;
   --shadow:rgba(10,26,46,.14);
   --radius:16px;
   color-scheme:light;
@@ -39,6 +46,7 @@
     --good:#59B57C; --good-soft:#122429;
     --warn:#C09759; --warn-soft:#1C2126;
     --bad:#DE5360; --bad-soft:#1A1925;
+    --frozen:#5FD0E3; --frozen-ink:#B7ECF4; --frozen-soft:#132A2E;
     --shadow:rgba(0,0,0,.45);
     color-scheme:dark;
   }
@@ -52,6 +60,7 @@
   --good:#59B57C; --good-soft:#122429;
   --warn:#C09759; --warn-soft:#1C2126;
   --bad:#DE5360; --bad-soft:#1A1925;
+  --frozen:#5FD0E3; --frozen-ink:#B7ECF4; --frozen-soft:#132A2E;
   --shadow:rgba(0,0,0,.45);
   color-scheme:dark;
 }
@@ -370,6 +379,7 @@ input, textarea{caret-color:var(--brand)}
    they still visibly darken a tinted row instead of being masked by it. */
 .trucktable tbody tr.truckrow.matrm{background:var(--brand-soft)}
 .trucktable tbody tr.truckrow.matpm{background:var(--accent-soft)}
+.trucktable tbody tr.truckrow.matfz{background:var(--frozen-soft)}
 .trucktable tbody tr.truckrow:hover{background:var(--surface-2)}
 .trucktable tbody tr.truckrow:active{background:var(--surface-3)}
 .trucktable tbody tr.truckrow:last-child td{border-bottom:none}
