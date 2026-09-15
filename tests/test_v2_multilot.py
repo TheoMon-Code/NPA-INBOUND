@@ -6,11 +6,17 @@ BASE = "http://127.0.0.1:8934/index.html"
 
 IMPORT_ROW_DATE = (date.today() + timedelta(days=1)).isoformat()
 
-# Two rows sharing the exact same PO + date + time + carrier -- exactly the
+# Two rows sharing the exact same PO + date + time + carrier -- the same
 # real-world pattern found in MON's own "Incoming plan AMATA" file (same PO,
-# same delivery slot, different line-item number / product / qty). Before
-# the lot-grouping fix, the second row here would have been silently
-# dropped as a "duplicate" at import time.
+# same delivery slot, different line-item number / product / qty).
+#
+# Round 28 merged rows like this into one truck's `lots` array, on the
+# strength of MON's on-site manager confirming that read for PO 4563895042.
+# Round 30 reverts that: a later PO (4563428496, M C Croker) turned out to
+# be two genuinely separate trucks/containers sharing a slot (remark carries
+# distinct container numbers per row) -- so rows sharing a slot must import
+# as separate trucks again, distinguished by a "<PO> - Truck N" label
+# (truck_label), the original Round 26 model.
 STUB_XLSX = """
 window.XLSX = {
   SSF: { parse_date_code: function(v){ return null; } },
@@ -94,35 +100,35 @@ async def main():
 
         preview_text = await page.text_content(".importpreview")
         print("preview text:", preview_text)
-        assert "2 ล็อต" in preview_text, "expected the +2 lots badge in the preview row"
+        assert "PO-77001 - Truck 1" in preview_text
+        assert "PO-77001 - Truck 2" in preview_text
 
         await page.click("[data-import-confirm]")
         await page.wait_for_timeout(600)
 
         print("TRUCKS after import:", json.dumps(TRUCKS, indent=2, default=str))
-        assert len(TRUCKS) == 1, "the two same-PO/date/time/carrier rows must merge into ONE truck, not two"
-        truck = TRUCKS[0]
-        assert truck.get("po_no") == "PO-77001"
-        lots = truck.get("lots")
-        assert lots and len(lots) == 2, "truck must carry both lots in its `lots` array"
-        assert lots[0]["details"] == "[RM] Bags"
-        assert lots[1]["details"] == "[RM] Boxes"
-        # top-level fields still mirror the first lot (backward compatible
-        # with a single-lot truck / any code that doesn't know about `lots`)
-        assert truck.get("details") == "[RM] Bags"
+        assert len(TRUCKS) == 2, "the two same-PO/date/time/carrier rows must import as TWO separate trucks, not merge"
+        truck1 = next(t for t in TRUCKS if t.get("truck_label") == "PO-77001 - Truck 1")
+        truck2 = next(t for t in TRUCKS if t.get("truck_label") == "PO-77001 - Truck 2")
+        assert truck1["po_no"] == "PO-77001" and truck2["po_no"] == "PO-77001"
+        assert truck1["details"] == "[RM] Bags" and truck1["qtt"] == "10 PLLT"
+        assert truck2["details"] == "[RM] Boxes" and truck2["qtt"] == "5 PLLT"
+        # `lots` rides along as an explicit null on every insert (same
+        # convention as carrier_th/mat_type elsewhere in this payload) --
+        # what actually matters is that it's never POPULATED for these two,
+        # since they're genuinely separate trucks, not one truck's lots.
+        assert not truck1.get("lots") and not truck2.get("lots")
 
-        # open the card and confirm the "Lots on this truck" section lists both
+        # open the truck list and confirm both "Truck 1"/"Truck 2" cards show
+        # up, each with its own product line under the label
         await page.click("[data-tab='1']")
         await page.wait_for_timeout(300)
-        card_text = await page.text_content(".card")
-        print("card text:", card_text)
-        assert "2 ล็อต" in card_text
-        await page.click(".card")
-        await page.wait_for_timeout(300)
-        sheet_text = await page.text_content(".sheet")
-        assert "Bags" in sheet_text and "Boxes" in sheet_text
+        list_text = await page.text_content(".list-cards")
+        print("truck list text:", list_text)
+        assert "PO-77001 - Truck 1" in list_text and "Bags" in list_text
+        assert "PO-77001 - Truck 2" in list_text and "Boxes" in list_text
 
         await browser.close()
-        print("MULTI-LOT IMPORT TEST PASSED")
+        print("SEPARATE-TRUCKS IMPORT TEST PASSED")
 
 asyncio.run(main())
