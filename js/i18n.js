@@ -294,6 +294,13 @@ export const STRINGS = {
   legendDesc_late:{en:"Past its scheduled arrival time.",th:"เลยเวลาที่กำหนดไว้แล้ว"},
   legendDesc_unloading:{en:"Currently being unloaded.",th:"กำลังขนถ่ายอยู่"},
   legendDesc_done:{en:"Unloading finished.",th:"ขนถ่ายเสร็จสิ้นแล้ว"},
+  // Round 33: Theo asked for the RM/PM/FZ material-type badge (already shown
+  // on the mobile cards via matTypeBadge()) to also get its own column on the
+  // wide-screen table (listTableHtml()/tableRowHtml() in render.js) -- it
+  // wasn't shown there at all before, only as a faint row-tint (.matrm/
+  // .matpm/.matfz in css/app.css), which he felt wasn't distinct enough to
+  // read at a glance. Placed first/leftmost, before Status, per his request.
+  tableColType:{en:"Type",th:"ประเภท"},
   tableColStatus:{en:"Status",th:"สถานะ"},
   tableColPo:{en:"PO / Ref",th:"PO / อ้างอิง"},
   tableColCarrier:{en:"Carrier",th:"บริษัทขนส่ง"},
