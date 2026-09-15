@@ -11,7 +11,11 @@
 export const SUPABASE_URL = "https://wezkonqnlkmkthbfimai.supabase.co";
 export const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndlemtvbnFubGtta3RoYmZpbWFpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwNjc2MjEsImV4cCI6MjA5ODY0MzYyMX0.BmijFqbAo8SICix5dTyYIQl9gSJplmEV4fMTNNABgYo";
 export const SUPABASE_BUCKET = "inbound-photos";
-export const SUPABASE_POLL_MS = 15000;
+// Round 33: was 15000 (15s) -- Theo found that too aggressive/"hard on the
+// eyes" (a card/row can re-render and shift under your thumb mid-tap) and
+// asked for roughly every 2 minutes instead, still frequent enough to catch
+// another admin's change or a new import within a couple of minutes.
+export const SUPABASE_POLL_MS = 120000;
 export const GRACE_MIN = 20;
 // A truck still "scheduled" (not late, not started) whose ETA falls within
 // this many minutes is flagged with a small "coming up soon" cue on its
