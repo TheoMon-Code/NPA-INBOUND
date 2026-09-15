@@ -27,6 +27,19 @@ import { flushOfflineQueue } from "./offlineQueue.js";
 ui.tvMode = new URLSearchParams(window.location.search).get("tv") === "1";
 if(ui.tvMode) ui.roleGateOpen = false;
 
+// Round 33: SUPABASE_POLL_MS went from 15s to 120s (Theo's request -- 15s
+// made the app re-render "under your thumb" too often). The automated test
+// suite has several tests that specifically wait out real poll cycles
+// (test_v2_refresh_guard.py, test_v2_scroll_preserve.py) -- at 120s each,
+// those waits would balloon from ~1 minute total to several minutes, which
+// is a real cost every time ISD or Theo runs the suite. Rather than slow
+// every test run down, a `?pollMs=<n>` URL override (same pattern as ?tv=1
+// above) lets those tests ask for a short interval explicitly; anyone just
+// opening the app normally never adds this param, so production behavior
+// (120s) is unaffected.
+var pollMsOverride = parseInt(new URLSearchParams(window.location.search).get("pollMs"), 10);
+var POLL_MS = (pollMsOverride > 0) ? pollMsOverride : SUPABASE_POLL_MS;
+
 initEvents();
 
 if(supabaseEnabled()){
@@ -45,11 +58,11 @@ if(supabaseEnabled()){
   flushOfflineQueue();
   // Seeds the visible refresh countdown (Round 21) so it shows a real value
   // from the very first render rather than a blank/placeholder for the
-  // first 15s -- reset again every time the interval below actually fires.
-  ui.nextPollAt = Date.now() + SUPABASE_POLL_MS;
+  // first cycle -- reset again every time the interval below actually fires.
+  ui.nextPollAt = Date.now() + POLL_MS;
   // The 'online' event is the fast path back from a real connectivity drop,
   // but it isn't reliable on every mobile browser -- the periodic poll below
-  // is the fallback net, checking again every SUPABASE_POLL_MS regardless.
+  // is the fallback net, checking again every POLL_MS regardless.
   window.addEventListener("online", flushOfflineQueue);
   setInterval(function(){
     // Reset unconditionally (even on a cycle skipped below because an input
@@ -57,9 +70,9 @@ if(supabaseEnabled()){
     // fires", not "when data was last actually refreshed", so it stays a
     // steady, predictable clock rather than pausing/jumping around whatever
     // else is open on screen.
-    ui.nextPollAt = Date.now() + SUPABASE_POLL_MS;
+    ui.nextPollAt = Date.now() + POLL_MS;
     if(!isInputSheetOpen()){ loadFromSupabase(); loadAppSettings(); flushOfflineQueue(); }
-  }, SUPABASE_POLL_MS);
+  }, POLL_MS);
   /* Also refresh right away when someone comes back to the app (phone woken
      up, tab switched back to) instead of waiting for the next poll tick —
      a driver reopening the app should see the latest state immediately. */
