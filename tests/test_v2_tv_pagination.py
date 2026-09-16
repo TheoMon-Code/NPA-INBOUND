@@ -12,8 +12,9 @@ TODAY = date.today().isoformat()
 # automatically and wrapping back to page 1.
 #
 # Round 34: the real rotation interval (TV_ROTATE_MS, js/config.js) went from
-# 8s to 20s (Theo: "ca change de tab trop vite"), which would triple this
-# test's real-time waits -- ?rotateMs=1500 (see ui.tvRotateMsOverride in
+# 8s to 20s, then to 30s once Theo had actually seen 20s in practice (initial
+# complaint: "ca change de tab trop vite"), which would make this test's
+# real-time waits balloon -- ?rotateMs=1500 (see ui.tvRotateMsOverride in
 # js/state.js / main.js) asks tvTick() to rotate on a short test-only
 # interval instead, the same pattern already used for ?pollMs= on the
 # Supabase poll interval. tvTick() itself only runs once a second (piggy-
