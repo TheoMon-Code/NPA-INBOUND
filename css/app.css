@@ -697,6 +697,37 @@ body.tvmode .legendtext span{font-size:13px}
    does glance at the board understands why the rows just changed. Absent
    entirely on a quiet day (one page), same as before this round. */
 body.tvmode .tvpageinfo{font-size:14px;font-weight:700;color:var(--ink-dim);margin-bottom:10px;text-align:right}
+/* Round 34: condensed legend moved into the top banner (tvBannerLegendHtml()
+   in js/render.js) -- a colored dot + short label per status, wrapped onto
+   its own row under the brand/clock row, with a faint divider so it doesn't
+   look glued to the sync line above it. Colors here are deliberately NOT the
+   same var(--brand)/var(--ink-dim) swatches the collapsible legend
+   (.legendswatch) uses elsewhere: those are tuned for a white/light card and
+   a couple of them (a plain blue "scheduled" dot especially) would nearly
+   vanish against this banner's own blue gradient. These instead reuse the
+   handful of colors already proven to read against this exact banner -- the
+   same set .syncdot already uses a few lines up. */
+body.tvmode .tvbannerlegend{
+  display:flex; flex-wrap:wrap; gap:6px 16px;
+  margin-top:10px; padding-top:10px; border-top:1px solid rgba(255,255,255,.22);
+  font-size:15px;
+}
+.tvbannerlegend-item{display:flex; align-items:center; gap:6px; color:#fff; white-space:nowrap}
+.tvbannerdot{width:13px; height:13px; border-radius:4px; flex:none; box-shadow:0 0 0 1px rgba(255,255,255,.4)}
+.tvbannerdot.pending{background:#C7D2EB}
+.tvbannerdot.urgent{background:#F17683}
+.tvbannerdot.scheduled{background:#BFD0FF}
+.tvbannerdot.duesoon{background:#F6AD40}
+.tvbannerdot.late{background:#F17683}
+.tvbannerdot.unloading{background:#F4C563}
+.tvbannerdot.done{background:#8FE3B8}
+/* Round 34: same Ongoing/Completed split as the admin table (see
+   .tablesectionrow above), scaled up to match this board's already-larger
+   text, plus the same opacity muting as .completed-row there -- TV rows
+   don't carry the "truckrow" class (see tvRowHtml()), so that selector
+   doesn't reach here and this needs its own. */
+body.tvmode .trucktable tbody tr.tablesectionrow td{font-size:14px; padding:14px 18px 6px}
+body.tvmode .trucktable tbody tr.tv-completed{opacity:.6}
 /* Persistent pulsing highlight on a late/urgent row (Round 23) -- continuous
    rather than a one-off flash on the moment a truck tips over into Late, so
    it's still noticeable to someone glancing at an unwatched board minutes
