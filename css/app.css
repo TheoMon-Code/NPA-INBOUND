@@ -670,12 +670,16 @@ input, textarea{caret-color:var(--brand)}
    card view at all in this mode (renderTv() always builds the table,
    regardless of window width) and no hover/active states, since nothing on
    this screen is ever clicked. */
-body.tvmode .tvtopbar{padding:22px 28px 18px}
-body.tvmode .mark-badge{height:52px}
-body.tvmode .clock{font-size:26px}
-body.tvmode .clockdate{font-size:14px}
-body.tvmode .syncrow{font-size:13px}
-body.tvmode .tvtable{padding:20px 28px 48px}
+/* Round 34 follow-up: Theo found the whole banner (logo/clock row + the
+   condensed legend row added this round) taking up too much of the screen
+   -- shrunk across the board so more of the screen goes to the actual
+   truck table, which is the point of the board. */
+body.tvmode .tvtopbar{padding:12px 24px 8px}
+body.tvmode .mark-badge{height:36px}
+body.tvmode .clock{font-size:19px}
+body.tvmode .clockdate{font-size:11px}
+body.tvmode .syncrow{font-size:11px}
+body.tvmode .tvtable{padding:10px 28px 40px}
 body.tvmode .trucktable{font-size:20px}
 body.tvmode .trucktable thead th{font-size:14px;padding:14px 18px}
 body.tvmode .trucktable tbody td{padding:16px 18px}
@@ -708,12 +712,12 @@ body.tvmode .tvpageinfo{font-size:14px;font-weight:700;color:var(--ink-dim);marg
    handful of colors already proven to read against this exact banner -- the
    same set .syncdot already uses a few lines up. */
 body.tvmode .tvbannerlegend{
-  display:flex; flex-wrap:wrap; gap:6px 16px;
-  margin-top:10px; padding-top:10px; border-top:1px solid rgba(255,255,255,.22);
-  font-size:15px;
+  display:flex; flex-wrap:wrap; gap:4px 12px;
+  margin-top:6px; padding-top:6px; border-top:1px solid rgba(255,255,255,.22);
+  font-size:11.5px;
 }
-.tvbannerlegend-item{display:flex; align-items:center; gap:6px; color:#fff; white-space:nowrap}
-.tvbannerdot{width:13px; height:13px; border-radius:4px; flex:none; box-shadow:0 0 0 1px rgba(255,255,255,.4)}
+.tvbannerlegend-item{display:flex; align-items:center; gap:5px; color:#fff; white-space:nowrap}
+.tvbannerdot{width:9px; height:9px; border-radius:3px; flex:none; box-shadow:0 0 0 1px rgba(255,255,255,.4)}
 .tvbannerdot.pending{background:#C7D2EB}
 .tvbannerdot.urgent{background:#F17683}
 .tvbannerdot.scheduled{background:#BFD0FF}
@@ -728,24 +732,6 @@ body.tvmode .tvbannerlegend{
    doesn't reach here and this needs its own. */
 body.tvmode .trucktable tbody tr.tablesectionrow td{font-size:14px; padding:14px 18px 6px}
 body.tvmode .trucktable tbody tr.tv-completed{opacity:.6}
-/* Round 34 follow-up: trucks carried forward from an earlier day (see
-   tvCarriedOverTrucks() in js/render.js) used to be mixed into the main
-   rotating table -- Theo found that made the board feel less "about today"
-   and confusing as it rotated. This is a small, always-visible strip
-   between the banner and today's own table instead: never paginated, never
-   part of the rotation, and visually set apart (amber accent border/tint,
-   like a warning) so it reads as "something left over", not as part of
-   today's schedule. Absent entirely when nothing is carried over (the
-   common day) -- see tvCarriedOverHtml(). */
-body.tvmode .tvcarriedover{
-  margin:18px 28px 0; padding:14px 18px;
-  background:var(--warn-soft); border-left:4px solid var(--warn);
-  border-radius:10px;
-}
-body.tvmode .tvcarriedover-title{font-size:15px; font-weight:700; color:var(--warn); margin-bottom:8px}
-body.tvmode .tvcarriedover .trucktable{font-size:17px}
-body.tvmode .tvcarriedover .trucktable thead th{font-size:12.5px; padding:10px 14px}
-body.tvmode .tvcarriedover .trucktable tbody td{padding:10px 14px}
 /* Persistent pulsing highlight on a late/urgent row (Round 23) -- continuous
    rather than a one-off flash on the moment a truck tips over into Late, so
    it's still noticeable to someone glancing at an unwatched board minutes
