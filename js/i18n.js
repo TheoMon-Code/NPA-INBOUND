@@ -333,14 +333,6 @@ export const STRINGS = {
   // pages instead of running off the bottom of the screen), photo viewer,
   // and the admin settings screen.
   tvPageIndicator:{en:"Page {cur} of {total}",th:"หน้า {cur} จาก {total}"},
-  // Round 34 follow-up: Theo found the carried-forward trucks (an earlier
-  // day's still-open truck, see tvCarriedOverTrucks() in render.js) mixed
-  // into the rotating pages made the board feel less "about today" and
-  // confusing as pages rotated ("la rotation doit etre plus focus sur la
-  // journee d aujourdhui... si ca rotate avec les trucks late ca peut etre
-  // confusing"). They're now shown in their own always-visible strip above
-  // the main (today-only) rotating table instead, under this heading.
-  tvCarriedOverTitle:{en:"Carried over from earlier days",th:"ยกยอดจากวันก่อนหน้า"},
   closeViewerAria:{en:"Close",th:"ปิด"},
   prevPhotoAria:{en:"Previous photo",th:"รูปก่อนหน้า"},
   nextPhotoAria:{en:"Next photo",th:"รูปถัดไป"},
