@@ -133,7 +133,7 @@ input, textarea{caret-color:var(--brand)}
      when the app is installed to the home screen (manifest "display":
      "standalone" takes over that area, unlike a normal browser tab) --
      without this, the status bar overlaps the first ~14px of the header,
-     which is exactly the "bandeau bleu coupé en haut" reported on a real
+     which is exactly the "blue banner cut off at the top" reported on a real
      phone. env() resolves to 0 on a device with no notch/status-bar overlay,
      so this is a no-op there. */
   padding:calc(14px + env(safe-area-inset-top)) 16px 12px;
@@ -211,8 +211,8 @@ input, textarea{caret-color:var(--brand)}
 /* tabs */
 /* Outer row (Round 13): the 3 quick tabs (yesterday/today/tomorrow) plus a
    "-5"/"+5" nav arrow on each side, so Admin can jump further than one day
-   without leaving this row -- Theo's request ("un bouton pour revenir 5
-   jours avant et 5 jours après"). */
+   without leaving this row -- Theo's request ("a button to go back 5
+   days before and 5 days after"). */
 .tabs-row{
   display:flex; align-items:stretch; gap:6px; padding:12px 16px 0; background:var(--paper);
 }
