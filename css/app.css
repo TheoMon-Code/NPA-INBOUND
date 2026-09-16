@@ -684,6 +684,13 @@ body.tvmode .trucktable{font-size:20px}
 body.tvmode .trucktable thead th{font-size:14px;padding:14px 18px}
 body.tvmode .trucktable tbody td{padding:16px 18px}
 body.tvmode .pill{font-size:15px;padding:6px 14px}
+/* Round 35: .hint's own font-size:11.5px (set for the admin/driver views,
+   where it's a secondary detail on a phone/desktop someone holds close)
+   would otherwise override the 20px this table sets for everything else --
+   the actual start/finish time it now carries here (actualTimeHtml() in
+   js/render.js) needs to stay legible from across the room like the rest
+   of this board. */
+body.tvmode .trucktable .hint{font-size:14px; margin-top:3px}
 body.tvmode .empty{margin-top:60px;font-size:18px}
 body.tvmode .empty-icon{font-size:52px}
 /* Status legend/description -- unlike the collapsible one in the normal
