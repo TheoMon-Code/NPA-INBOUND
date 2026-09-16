@@ -184,7 +184,9 @@ function tableRowHtml(t, now){
   // especially between .matrm and the old .matfz teal. "—" for a manually
   // added truck or a sheet with no material type, same fallback style as
   // the carrier-Thai-name/plant columns below.
-  return '<tr class="truckrow'+matCls+'" data-open="'+esc(t.id)+'">'+
+  // Round 34: same muting as .card.completed above, for the desktop table.
+  var completedCls = d === "done" ? " completed-row" : "";
+  return '<tr class="truckrow'+matCls+completedCls+'" data-open="'+esc(t.id)+'">'+
     '<td>'+(matTypeBadge(t) || "—")+'</td>'+
     '<td>'+pill(d,t,now)+damageBadge(t)+photoMissingBadge(t)+'</td>'+
     '<td class="mono">'+esc(t.truckLabel || t.poNo || t.ref || t.id)+detailsLine+'</td>'+
@@ -216,7 +218,20 @@ function tableRowHtml(t, now){
    simple to read on both phone and web, not just look more like Outbound
    on desktop at the cost of mobile. */
 function listTableHtml(filtered, now){
-  var rows = filtered.map(function(t){ return tableRowHtml(t, now); }).join("");
+  // Round 34: same ongoing/completed split as listHtml() below -- see its
+  // comment for why the header only appears when the day actually has both.
+  var ongoing = filtered.filter(function(t){ return t.status !== "done"; });
+  var completed = filtered.filter(function(t){ return t.status === "done"; });
+  var rows;
+  if(ongoing.length && completed.length){
+    // colspan must span every <th> below (8 at Round 33/34).
+    rows = '<tr class="tablesectionrow"><td colspan="8">'+tr("sectionOngoing")+'</td></tr>'+
+      ongoing.map(function(t){ return tableRowHtml(t, now); }).join("")+
+      '<tr class="tablesectionrow"><td colspan="8">'+tr("sectionCompleted")+'</td></tr>'+
+      completed.map(function(t){ return tableRowHtml(t, now); }).join("");
+  } else {
+    rows = filtered.map(function(t){ return tableRowHtml(t, now); }).join("");
+  }
   return '<table class="trucktable"><thead><tr>'+
     '<th>'+tr("tableColType")+'</th>'+
     '<th>'+tr("tableColStatus")+'</th>'+
@@ -240,7 +255,12 @@ function cardHtml(t, now){
   var d = derive(t, now);
   var soon = d === "scheduled" && isDueSoon(t, now);
   var critical = d === "late" && isCriticallyLate(t, now);
-  return '<button class="card" data-open="'+esc(t.id)+'">'+
+  // Round 34: a finished truck's card gets visually muted (see .card.completed
+  // in css/app.css) on top of the section split in listHtml() below -- Theo
+  // wanted a done truck to actually recede once it's no longer something
+  // anyone needs to act on, not keep the same visual weight (and a cheerful
+  // green stripe/pill) as a truck still being worked.
+  return '<button class="card'+(d==="done"?" completed":"")+'" data-open="'+esc(t.id)+'">'+
     '<span class="stripe '+d+(soon?" duesoon":"")+(critical?" critical":"")+'"></span>'+
     '<span class="card-body">'+
       '<span class="card-top"><span class="card-id mono">'+esc(t.truckLabel || t.poNo || t.ref || t.id)+"</span>"+matTypeBadge(t)+pill(d,t,now)+"</span>"+
@@ -379,13 +399,33 @@ function listHtml(trucks, now){
     }
     return '<div class="empty"><span class="empty-icon">🚚</span><div>'+tr("noTrucksToday")+'</div></div>';
   }
+  // Round 34: Theo wanted finished trucks visually set apart from the ones
+  // still needing attention, not just quietly sorted to the bottom
+  // (sortWeight() below already did that, but with nothing marking where
+  // "today's work" ends and "already handled" begins). Two real sections
+  // with their own header -- only when the day actually HAS both kinds;
+  // a day that's all-pending or all-done gets no header, since there's
+  // nothing to separate it from. Each completed card also gets muted on
+  // its own (.card.completed, css/app.css) regardless of whether the
+  // header shows, so a single finished truck on an otherwise-open day
+  // still reads as "done" at a glance.
+  var ongoing = filtered.filter(function(t){ return t.status !== "done"; });
+  var completed = filtered.filter(function(t){ return t.status === "done"; });
+  var cardsHtml;
+  if(ongoing.length && completed.length){
+    cardsHtml = '<div class="section-label">'+tr("sectionOngoing")+'</div>'+
+      ongoing.map(function(t){ return cardHtml(t, now); }).join("")+
+      '<div class="section-label">'+tr("sectionCompleted")+'</div>'+
+      completed.map(function(t){ return cardHtml(t, now); }).join("");
+  } else {
+    cardsHtml = filtered.map(function(t){ return cardHtml(t, now); }).join("");
+  }
   // A short list on a tall phone screen (especially standalone/home-screen
   // mode, which has no browser chrome eating into the viewport) can leave a
   // large blank area below the cards that reads as broken rather than
   // intentional. This closing line turns that empty space into a deliberate
   // "end of list" instead of an unexplained void.
-  var cards = filtered.map(function(t){ return cardHtml(t, now); }).join("")+
-    '<div class="list-end">'+tr("endOfList")+'</div>';
+  var cards = cardsHtml+'<div class="list-end">'+tr("endOfList")+'</div>';
   // Both views are built from the exact same `filtered`/sorted array and
   // both always end up in the DOM -- see listTableHtml() above for why only
   // one is ever visible at a time (a pure CSS media-query toggle, so this
