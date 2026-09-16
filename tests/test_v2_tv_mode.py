@@ -5,6 +5,7 @@ from playwright.async_api import async_playwright
 BASE = "http://127.0.0.1:8934/index.html"
 TODAY = date.today().isoformat()
 TOMORROW = (date.today() + timedelta(days=1)).isoformat()
+YESTERDAY = (date.today() - timedelta(days=1)).isoformat()
 
 # Round 22: Theo, right after seeing the Round 21 redesign deployed --
 # "Faudra que tu mettes in mode TV" -- a fixed, read-only board for a
@@ -28,6 +29,14 @@ TOMORROW = (date.today() + timedelta(days=1)).isoformat()
 # tvBannerLegendHtml() in js/render.js) rather than its own block below the
 # table. This test's legend checks were updated to match that new spot/shape;
 # everything else about the round-22/23 behaviour it checks is unchanged.
+#
+# Round 34 also briefly tried carrying an earlier day's still-open truck
+# forward onto the board (mixed into the table, then in its own separate
+# strip) -- Theo was clear both times he only ever wants today's trucks here
+# ("je veux voir que aujourdhui"), so both attempts were reverted. The
+# yesterday truck below (still "pending") locks that back in: it must not
+# appear anywhere on the board, exactly like the tomorrow truck already
+# checked here since Round 22.
 
 TRUCKS = [
     {"id":"1","reference_id":"T-1","carrier":"Aurora Freight","plant":"AMATA","po_no":"PO-9101",
@@ -37,6 +46,10 @@ TRUCKS = [
     # Tomorrow -- must NOT appear on a board that only ever shows today.
     {"id":"3","reference_id":"T-3","carrier":"Tomorrow Freight","plant":"AMATA","po_no":"PO-9103",
      "order_date":TOMORROW,"eta":TOMORROW+"T09:00:00","truck_state":"pending","photos":[]},
+    # Yesterday, still open -- must ALSO not appear: no carry-forward, today
+    # only, full stop.
+    {"id":"4","reference_id":"T-4","carrier":"Yesterday Freight","plant":"AMATA","po_no":"PO-9104",
+     "order_date":YESTERDAY,"eta":YESTERDAY+"T09:00:00","truck_state":"pending","photos":[]},
 ]
 
 async def handle(route, request):
@@ -99,6 +112,8 @@ async def main():
         table_text = await page.text_content(".trucktable")
         assert "PO-9101" in table_text and "PO-9102" in table_text
         assert "PO-9103" not in table_text, "tomorrow's truck must not appear on the board"
+        assert "PO-9104" not in table_text, "yesterday's still-open truck must not appear either -- today only, no carry-forward"
+        assert await page.locator(".tvcarriedover").count() == 0, "no carried-over strip should exist at all anymore"
 
         # ---- the refresh countdown still works here (same #id as elsewhere) ----
         assert await page.locator("#pollCountdownEl").count() == 1
