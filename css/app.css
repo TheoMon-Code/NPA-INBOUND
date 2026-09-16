@@ -728,6 +728,24 @@ body.tvmode .tvbannerlegend{
    doesn't reach here and this needs its own. */
 body.tvmode .trucktable tbody tr.tablesectionrow td{font-size:14px; padding:14px 18px 6px}
 body.tvmode .trucktable tbody tr.tv-completed{opacity:.6}
+/* Round 34 follow-up: trucks carried forward from an earlier day (see
+   tvCarriedOverTrucks() in js/render.js) used to be mixed into the main
+   rotating table -- Theo found that made the board feel less "about today"
+   and confusing as it rotated. This is a small, always-visible strip
+   between the banner and today's own table instead: never paginated, never
+   part of the rotation, and visually set apart (amber accent border/tint,
+   like a warning) so it reads as "something left over", not as part of
+   today's schedule. Absent entirely when nothing is carried over (the
+   common day) -- see tvCarriedOverHtml(). */
+body.tvmode .tvcarriedover{
+  margin:18px 28px 0; padding:14px 18px;
+  background:var(--warn-soft); border-left:4px solid var(--warn);
+  border-radius:10px;
+}
+body.tvmode .tvcarriedover-title{font-size:15px; font-weight:700; color:var(--warn); margin-bottom:8px}
+body.tvmode .tvcarriedover .trucktable{font-size:17px}
+body.tvmode .tvcarriedover .trucktable thead th{font-size:12.5px; padding:10px 14px}
+body.tvmode .tvcarriedover .trucktable tbody td{padding:10px 14px}
 /* Persistent pulsing highlight on a late/urgent row (Round 23) -- continuous
    rather than a one-off flash on the moment a truck tips over into Late, so
    it's still noticeable to someone glancing at an unwatched board minutes
