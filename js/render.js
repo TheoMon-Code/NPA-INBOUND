@@ -7,7 +7,7 @@
 import { state, ui } from "./state.js";
 import { tr } from "./i18n.js";
 import { derive, lateMinutes, isDueSoon, isCriticallyLate, STATUS_KEYS } from "./status.js";
-import { esc, shortDate, fmtElapsed, dateTimeOf, clockStr, addDays, todayKey } from "./dateUtils.js";
+import { esc, shortDate, fmtElapsed, dateTimeOf, clockStr, addDays, todayKey, hm } from "./dateUtils.js";
 import { DAY_LABELS, MONTH_LABELS, DAY_LABELS_TH, MONTH_LABELS_TH, TV_ROWS_PER_PAGE, TV_ROTATE_MS } from "./config.js";
 import { loadSavedName } from "./storage.js";
 import { supabaseEnabled } from "./api.js";
@@ -92,6 +92,33 @@ function pill(derived, t, now){
     txt = tr("status_done") + " · " + fmtHM((new Date(t.finishedAt)-new Date(t.startedAt))/60000);
   }
   return '<span class="pill '+derived+(soon?" duesoon":"")+(critical?" critical":"")+'">'+esc(txt)+"</span>";
+}
+/* Round 35: the pill above already shows an elapsed counter while unloading
+   ("Unloading · 00:45") and a duration once done ("Done · 1h05") -- useful
+   for "how long has this taken", but it doesn't answer "at what time did
+   this actually start/finish", which is what Theo asked for next ("faudra
+   peut etre aussi voir l'heure a laquelle ca a commencer ou finit"). This
+   reads the same t.startedAt/t.finishedAt (act_arrival/act_dept) the pill
+   already uses, just formatted as a clock time instead of a duration.
+   Deliberately ADDITIVE everywhere it's shown (card meta line, admin table,
+   TV table) -- next to the scheduled ETA, never replacing it, same reasoning
+   as cardHtml() keeping the ETA visible even once a truck goes late: the
+   scheduled time and the actual time answer two different questions. Empty
+   string (nothing rendered) for a truck that hasn't started yet, so a
+   pending/scheduled/late row looks exactly as before this round. */
+function actualTimesText(t){
+  if(t.status === "unloading" && t.startedAt) return "▶ "+hm(t.startedAt);
+  if(t.status === "done" && t.finishedAt){
+    return (t.startedAt ? "▶ "+hm(t.startedAt)+" " : "")+"⏹ "+hm(t.finishedAt);
+  }
+  return "";
+}
+/* Small second line under the ETA cell (admin desktop table/TV table) --
+   same ".hint" style already used for the sibling-ref product/qty line in
+   tableRowHtml(), so this doesn't need its own CSS rule. */
+function actualTimeHtml(t){
+  var txt = actualTimesText(t);
+  return txt ? '<div class="hint" style="font-weight:400">'+esc(txt)+'</div>' : "";
 }
 /* Round 26: a truck with a damage/claim remark (t.damageRemark, entered via
    damageRemarkHtml()'s textarea below) used to be visible only by opening
@@ -205,7 +232,11 @@ function tableRowHtml(t, now){
     // mirrors what the TV table already shows (tvColEta, its own separate
     // key/column since renderTv() is a different render path with its own
     // wording to tweak independently).
-    '<td>'+(t.eta || "—")+'</td>'+
+    // Round 35: actualTimesText() adds the real start/finish clock time
+    // (once the truck has actually arrived/departed) after the scheduled
+    // ETA, on its own line -- "—" is still shown when there's no ETA at all
+    // and nothing has started yet, exactly as before this round.
+    '<td>'+(t.eta || "—")+actualTimeHtml(t)+'</td>'+
   '</tr>';
 }
 /* Table-shaped view of the same day's trucks as listHtml()'s cards, for a
@@ -273,6 +304,9 @@ function cardHtml(t, now){
       // time (it switches to how many minutes late instead) — repeating the
       // ETA here means it's never hidden, however late the truck gets.
       (t.eta ? "<span>"+tr("pill_eta")+" "+esc(t.eta)+"</span>" : "")+
+      // Round 35: actual start/finish clock time, next to the scheduled ETA
+      // above rather than instead of it -- see actualTimesText() for why.
+      (actualTimesText(t) ? "<span>"+esc(actualTimesText(t))+"</span>" : "")+
       (t.lots && t.lots.length > 1 ? "<span>"+esc(tr("multiLotBadge").replace("{n}", t.lots.length))+"</span>" : "")+
       // Round 26 (Round 33: also a "#N"-suffixed po_no, see
       // looksLikeSiblingRef() above) -- product + qty shown only for a
@@ -1297,7 +1331,10 @@ function tvRowHtml(t, now){
     // never on the TV board at all).
     '<td>'+(t.carrierTh ? esc(t.carrierTh) : "—")+'</td>'+
     '<td>'+(t.plant ? esc(t.plant) : "—")+'</td>'+
-    '<td>'+etaText+'</td>'+
+    // Round 35: actual start/finish clock time on a second, smaller line
+    // under the scheduled ETA -- see actualTimeHtml()/actualTimesText()
+    // above (shared with the admin table's ETA cell).
+    '<td>'+etaText+actualTimeHtml(t)+'</td>'+
     // Round 26 (Round 33: also a "#N"-suffixed po_no, see
     // looksLikeSiblingRef() above): this column used to show a "N lots"
     // badge (only ever populated for the old merged-lots trucks); now shows
