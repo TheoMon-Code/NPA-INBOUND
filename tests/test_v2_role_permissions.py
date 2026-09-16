@@ -9,8 +9,8 @@ TODAY = date.today().isoformat()
 # Nestlé) instead of the old single "admin" role -- see js/state.js's
 # adminMonCode/adminItCode/nestleCode and the roleGateHtml() "pin"/"pin_it"/
 # "pin_nestle" steps in js/render.js. This test exercises the NEW Nestlé role
-# end to end: it should behave as "consultation + import + téléchargement
-# seulement" -- confirmed via AskUserQuestion during the design of this round --
+# end to end: it should behave as "view + import + download only"
+# -- confirmed via AskUserQuestion during the design of this round --
 # with no access at all to the damage remark, ETA edit, start/finish/cancel/
 # reopen, delete, photo upload, or the admin-only Reporting/app-settings
 # screens. A second truck (already "unloading") checks the lifecycle buttons
