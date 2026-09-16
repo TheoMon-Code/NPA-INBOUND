@@ -16,6 +16,16 @@ export function derive(t, now){
   if(!t.eta){
     return (t.date <= todayKey()) ? "urgent" : "pending";
   }
+  // Round 34: a truck with an ETA on a day strictly before today used to fall
+  // all the way through to "scheduled" -- the exact same status as a truck
+  // that isn't due for hours yet, which is how a truck from yesterday could
+  // sit there looking perfectly on-time. If its whole scheduled day has
+  // already passed and it's still not done/unloading, its grace period is
+  // obviously blown regardless of the clock, so it's "late" the same way a
+  // same-day truck past its grace period is -- this is what makes the TV
+  // board's carry-forward (renderTv()/tvTick() below) actually flag those
+  // trucks instead of showing them as calmly "scheduled".
+  if(t.date < todayKey()) return "late";
   if(t.date === todayKey()){
     var eta = dateTimeOf(t.date, t.eta);
     if(now.getTime() > eta.getTime() + getGraceMin()*60000) return "late";
