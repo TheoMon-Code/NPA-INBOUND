@@ -26,10 +26,10 @@ def eta_in(minutes):
     return (datetime.now() + timedelta(minutes=minutes)).strftime("%H:%M:00")
 
 MIXED_TRUCKS = [
-    {"id":"1","reference_id":"T-1","carrier":"Aurora Freight","plant":"AMATA","po_no":"PO-OPEN1",
+    {"id":"1","reference_id":"T-1","carrier":"Aurora Freight","carrier_th":"ออโรร่า","plant":"AMATA","po_no":"PO-OPEN1",
      "order_date":TODAY,"eta":TODAY+"T"+eta_in(120),"truck_state":"pending","photos":[]},
-    {"id":"2","reference_id":"T-2","carrier":"Meridian Cargo","plant":"AMATA","po_no":"PO-DONE1",
-     "order_date":TODAY,"eta":"08:00:00","truck_state":"completed",
+    {"id":"2","reference_id":"T-2","carrier":"Meridian Cargo","carrier_th":"เมอริเดียน","plant":"AMATA","po_no":"PO-DONE1",
+     "order_date":TODAY,"eta":TODAY+"T08:00:00","truck_state":"completed",
      "act_arrival":TODAY+"T08:05:00","act_dept":TODAY+"T08:40:00","photos":[]},
 ]
 
@@ -59,8 +59,14 @@ async def main():
 
         headers = await page.locator(".trucktable thead th").all_text_contents()
         print("TV column headers (lang=en):", headers)
-        assert headers == ["Status", "PO / Ref", "Carrier", "Plant", "ETA", "Product / Qty"], \
-            "expected English column headers with ?lang=en, regardless of this browser's stored ui.lang"
+        assert headers == ["Status", "PO / Ref", "Carrier", "Thai name", "Plant", "ETA", "Product / Qty"], \
+            "expected English column headers with ?lang=en (incl. the new Thai-name column), " \
+            "regardless of this browser's stored ui.lang"
+
+        # (not .first -- with both Ongoing/Completed present the very first
+        # tbody row is the "Ongoing" section divider, not a truck row)
+        open_row_text = await page.locator(".trucktable tbody tr", has_text="PO-OPEN1").text_content()
+        assert "ออโรร่า" in open_row_text, "expected the carrier's Thai name in its own column"
 
         section_rows = await page.locator(".trucktable tbody tr.tablesectionrow").all_text_contents()
         print("TV section rows (lang=en):", section_rows)
@@ -79,7 +85,7 @@ async def main():
         await page.wait_for_timeout(500)
         headers_th = await page.locator(".trucktable thead th").all_text_contents()
         print("TV column headers (lang=th):", headers_th)
-        assert headers_th[0] == "สถานะ" and headers_th[4] == "เวลานัด", \
+        assert headers_th[0] == "สถานะ" and headers_th[3] == "ชื่อภาษาไทย" and headers_th[5] == "เวลานัด", \
             "expected Thai column headers with ?lang=th"
 
         await browser.close()
