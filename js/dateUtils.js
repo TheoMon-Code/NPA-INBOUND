@@ -28,6 +28,13 @@ export function dateTimeOf(dateKeyStr, hm){
   return new Date(dp[0], dp[1]-1, dp[2], tp[0], tp[1], 0);
 }
 
+// Round 35: t.startedAt/t.finishedAt (act_arrival/act_dept in Supabase) are
+// stored as naive local timestamps by localNaiveTs() in js/actions.js --
+// "YYYY-MM-DDTHH:MM:SS", already in local time, never UTC -- so pulling out
+// just the "HH:MM" is a plain substring, no Date object/timezone math
+// needed (and none of the risk that would come with it).
+export function hm(iso){ return iso ? iso.slice(11,16) : ""; }
+
 export function fmtElapsed(ms){
   var s = Math.max(0, Math.floor(ms/1000));
   var h = Math.floor(s/3600); s -= h*3600;
