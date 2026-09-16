@@ -297,6 +297,12 @@ input, textarea{caret-color:var(--brand)}
   box-shadow:0 1px 3px var(--shadow); transition:transform .1s,background .15s;
 }
 .card:active{background:var(--surface-2); transform:scale(.99)}
+/* Round 34: a finished truck recedes rather than keeping the same visual
+   weight (and cheerful green stripe/pill) as one still being worked --
+   plain opacity so every child (stripe/pill/text/badges) mutes together
+   without re-deriving a separate "muted" color for each of them. Paired
+   with the Ongoing/Completed section split in listHtml() (js/render.js). */
+.card.completed{opacity:.6}
 .stripe{width:5px;flex:none}
 .stripe.pending{background:var(--ink-faint)}
 .stripe.urgent{background:var(--bad)}
@@ -393,6 +399,19 @@ input, textarea{caret-color:var(--brand)}
 .trucktable tbody tr.truckrow:hover{background:var(--surface-2)}
 .trucktable tbody tr.truckrow:active{background:var(--surface-3)}
 .trucktable tbody tr.truckrow:last-child td{border-bottom:none}
+/* Round 34: same muting as .card.completed above, for the desktop table --
+   opacity on the whole row so it fades together with whatever mat-type
+   tint (.matrm/.matpm/.matfz) it might also have. */
+.trucktable tbody tr.truckrow.completed-row{opacity:.6}
+/* The Ongoing/Completed divider row itself (listTableHtml() in
+   js/render.js) -- no data-open attribute, so it's neither clickable nor
+   caught by the hover/active rules above (those are scoped to .truckrow,
+   which this row deliberately isn't). */
+.trucktable tbody tr.tablesectionrow td{
+  padding:10px 14px 4px; border-bottom:none; cursor:default;
+  font-size:11px; font-weight:700; letter-spacing:1.6px; text-transform:uppercase;
+  color:var(--ink-faint);
+}
 
 /* Round 21 -- collapsed-by-default legend explaining each status color,
    closer to MON's Outbound admin tool (which shows one, always open, at the
