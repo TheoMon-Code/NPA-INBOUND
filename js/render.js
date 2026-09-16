@@ -1246,22 +1246,43 @@ function tvBannerLegendHtml(){
   }).join("")+'</div>';
 }
 
-/* Round 34: trucks the TV board shows -- today's, PLUS anything from an
-   earlier day that's still not "done" (a truck someone forgot to mark
-   finished, or one genuinely still in progress, must not just silently
-   vanish off the board the moment the date rolls over -- Theo's exact
-   worry: "si y a des trucks de la veille qui sont en retard on les voit pas
-   et ca peut etre un probleme"). No cutoff on HOW old -- a fixed
-   "yesterday only" window (the other option Theo considered) just moves the
-   same disappearing-truck problem two days back instead of one, and staff
-   already sometimes forget to update a truck for a while, so a truck stuck
-   open for 3 days needs to be exactly as visible as one stuck open for 1.
-   Shared by renderTv() and tvTick() so both agree on what's on the board and
-   how many pages that makes -- two different filters here would desync the
-   page count from what's actually rendered. */
-function tvVisibleTrucks(){
+/* Round 34: the board's main, rotating/paginated table -- strictly today's
+   trucks, same as before the carry-forward change below existed. Shared by
+   renderTv() and tvTick() so both agree on what's paginated and how many
+   pages that makes -- two different filters here would desync the page
+   count from what's actually rendered. */
+function tvTodayTrucks(){
+  return state.trucks.filter(function(t){ return t.date === todayKey(); });
+}
+
+/* Round 34 (carry-forward), REVISED after Theo saw it live: an earlier
+   day's truck that's still not "done" (someone forgot to mark it finished,
+   or it's genuinely still in progress) must not just silently vanish off
+   the board the moment the date rolls over -- Theo's original worry: "si y
+   a des trucks de la veille qui sont en retard on les voit pas et ca peut
+   etre un probleme". No cutoff on HOW old -- a fixed "yesterday only"
+   window just moves the same disappearing-truck problem back a day or two,
+   and staff already sometimes forget to update a truck for a while.
+   First version mixed these straight into the same rotating/paginated table
+   as today's trucks (sortWeight() put them at the very front, being
+   "late") -- Theo then found that made the board feel less "about today"
+   and confusing as it rotated ("la rotation doit etre plus focus sur la
+   journee d aujourdhui... si ca rotate avec les trucks late ca peut etre
+   confusing"). These are now kept OUT of the main table/pagination
+   entirely and shown in their own small always-visible strip instead (see
+   tvCarriedOverHtml() and renderTv() below) -- still impossible to miss,
+   but clearly set apart from today's own schedule rather than competing
+   with it for page 1. */
+function tvCarriedOverTrucks(){
   return state.trucks.filter(function(t){
-    return t.date === todayKey() || (t.date < todayKey() && t.status !== "done");
+    return t.date < todayKey() && t.status !== "done";
+  }).sort(function(a,b){
+    // Oldest first -- these are all "late" (see derive()), so sortWeight()
+    // alone would tie them at 0 and leave them in whatever order
+    // state.trucks happened to be in; reading oldest-to-newest is more
+    // useful than an arbitrary order on a strip meant to be scanned quickly.
+    if(a.date !== b.date) return a.date < b.date ? -1 : 1;
+    return (a.eta||"") < (b.eta||"") ? -1 : 1;
   });
 }
 
@@ -1296,6 +1317,11 @@ function tvRowHtml(t, now){
     '<td>'+pill(d,t,now)+damageBadge(t)+'</td>'+
     '<td class="mono">'+esc(t.truckLabel || t.poNo || t.ref || t.id)+'</td>'+
     '<td>'+esc(t.carrier||"—")+'</td>'+
+    // Round 34 follow-up: Theo asked for the Thai carrier name as its own
+    // column here too, same as the desktop admin table's tableColCarrierTh
+    // (this used to only show inline on the card view, "Carrier · ชื่อไทย" --
+    // never on the TV board at all).
+    '<td>'+(t.carrierTh ? esc(t.carrierTh) : "—")+'</td>'+
     '<td>'+(t.plant ? esc(t.plant) : "—")+'</td>'+
     '<td>'+etaText+'</td>'+
     // Round 26 (Round 33: also a "#N"-suffixed po_no, see
@@ -1316,13 +1342,39 @@ function tvRowHtml(t, now){
    This function only ever reads state.trucks (never ui.role, ui.openId,
    ui.searchQuery, etc.) and only ever builds today's table -- there is no
    card view here at all, and no click affordance on any row. */
+function tvTableHeadHtml(){
+  return '<tr>'+
+    '<th>'+tr("tableColStatus")+'</th>'+
+    '<th>'+tr("tableColPo")+'</th>'+
+    '<th>'+tr("tableColCarrier")+'</th>'+
+    '<th>'+tr("tableColCarrierTh")+'</th>'+
+    '<th>'+tr("tableColPlant")+'</th>'+
+    '<th>'+tr("tvColEta")+'</th>'+
+    '<th>'+tr("tableColLots")+'</th>'+
+  '</tr>';
+}
+/* Round 34 follow-up: the small, always-visible (never paginated, never
+   rotated) strip for trucks carried forward from an earlier day -- see
+   tvCarriedOverTrucks() above for why these no longer share the main
+   table/pagination with today's trucks. Absent entirely on the common day
+   (nothing carried over), same "don't show a section for nothing" rule as
+   everywhere else in this round. */
+function tvCarriedOverHtml(carriedOver, now){
+  if(!carriedOver.length) return "";
+  var rows = carriedOver.map(function(t){ return tvRowHtml(t, now); }).join("");
+  return '<div class="tvcarriedover">'+
+    '<div class="tvcarriedover-title">⚠️ '+esc(tr("tvCarriedOverTitle"))+'</div>'+
+    '<table class="trucktable"><thead>'+tvTableHeadHtml()+'</thead><tbody>'+rows+'</tbody></table>'+
+  '</div>';
+}
 function renderTv(){
   var now = new Date();
   document.documentElement.setAttribute("lang", ui.lang === "th" ? "th" : "en");
-  // Round 34: was strictly today's trucks (t.date === todayKey()) -- now
-  // includes any not-yet-done truck carried forward from an earlier day too.
-  // See tvVisibleTrucks() above for why there's no age cutoff.
-  var boardTrucks = tvVisibleTrucks();
+  // Round 34 follow-up: the main table/pagination is back to strictly
+  // today's trucks (see tvTodayTrucks() above) -- an earlier day's
+  // still-open truck is now shown separately (tvCarriedOverHtml() below)
+  // rather than mixed into this list, per Theo's "focus on today" request.
+  var boardTrucks = tvTodayTrucks();
   boardTrucks.sort(function(a,b){ return sortWeight(a,now) - sortWeight(b,now); });
   // Round 23: a busy day (30-40 trucks) would otherwise just run off the
   // bottom of a screen nobody is there to scroll -- rotate through
@@ -1350,21 +1402,14 @@ function renderTv(){
     var pageCompleted = pageTrucks.filter(function(t){ return t.status === "done"; });
     var rows;
     if(pageOngoing.length && pageCompleted.length){
-      rows = '<tr class="tablesectionrow"><td colspan="6">'+tr("sectionOngoing")+'</td></tr>'+
+      rows = '<tr class="tablesectionrow"><td colspan="7">'+tr("sectionOngoing")+'</td></tr>'+
         pageOngoing.map(function(t){ return tvRowHtml(t, now); }).join("")+
-        '<tr class="tablesectionrow"><td colspan="6">'+tr("sectionCompleted")+'</td></tr>'+
+        '<tr class="tablesectionrow"><td colspan="7">'+tr("sectionCompleted")+'</td></tr>'+
         pageCompleted.map(function(t){ return tvRowHtml(t, now); }).join("");
     } else {
       rows = pageTrucks.map(function(t){ return tvRowHtml(t, now); }).join("");
     }
-    tableHtml = '<table class="trucktable"><thead><tr>'+
-      '<th>'+tr("tableColStatus")+'</th>'+
-      '<th>'+tr("tableColPo")+'</th>'+
-      '<th>'+tr("tableColCarrier")+'</th>'+
-      '<th>'+tr("tableColPlant")+'</th>'+
-      '<th>'+tr("tvColEta")+'</th>'+
-      '<th>'+tr("tableColLots")+'</th>'+
-    '</tr></thead><tbody>'+rows+'</tbody></table>';
+    tableHtml = '<table class="trucktable"><thead>'+tvTableHeadHtml()+'</thead><tbody>'+rows+'</tbody></table>';
   } else {
     tableHtml = '<div class="empty"><span class="empty-icon">🚚</span><div>'+tr("noTrucksToday")+'</div></div>';
   }
@@ -1394,6 +1439,11 @@ function renderTv(){
     // row of this same banner rather than its own top-level block.
     tvBannerLegendHtml()+
     '</div>'+
+    // Round 34 follow-up: the carried-over strip sits between the banner and
+    // today's own table -- clearly a separate concern, never part of the
+    // rotation, and (being outside .tvtable) never affected by the
+    // pagination math above.
+    tvCarriedOverHtml(tvCarriedOverTrucks(), now)+
     '<div class="tvtable">'+pageInfoHtml+tableHtml+'</div>';
   document.body.classList.add("tvmode");
   document.getElementById("app").innerHTML = html;
@@ -1409,17 +1459,17 @@ function renderTv(){
 var tvPageChangedAt = 0;
 export function tvTick(now){
   if(!ui.tvMode) return;
-  // Round 34: must use the exact same truck source as renderTv() (see
-  // tvVisibleTrucks() above) -- this used to only count today's trucks,
-  // which would silently disagree with renderTv()'s page count the moment
-  // any carried-forward truck from an earlier day was on the board.
-  var total = tvVisibleTrucks().length;
+  // Round 34 follow-up: back to counting only today's trucks (tvTodayTrucks()
+  // above) -- carried-over trucks live in their own non-paginated strip now,
+  // so they must NOT factor into this page count, or it would desync from
+  // what renderTv() actually paginates.
+  var total = tvTodayTrucks().length;
   var totalPages = Math.max(1, Math.ceil(total / TV_ROWS_PER_PAGE));
   if(ui.tvPage >= totalPages) ui.tvPage = 0;
   if(totalPages <= 1){ tvPageChangedAt = now; return; }
   if(!tvPageChangedAt) tvPageChangedAt = now;
   // Round 34: ui.tvRotateMsOverride (set from ?rotateMs=, js/main.js) lets
-  // the test suite use a short rotation instead of the real 20s.
+  // the test suite use a short rotation instead of the real 30s.
   var rotateMs = ui.tvRotateMsOverride || TV_ROTATE_MS;
   if(now - tvPageChangedAt >= rotateMs){
     ui.tvPage = (ui.tvPage + 1) % totalPages;
