@@ -451,7 +451,7 @@ function sheetHtml(now){
   // Round 25: renamed from the old local `isAdmin` (which shadowed the new
   // module-level isAdmin() below) to avoid a naming collision, and split
   // into three branches everywhere in this sheet -- Admin (edit), Nestlé
-  // (read-only: "consultation + import + téléchargement seulement", no
+  // (read-only: "view + import + download only", no
   // ETA edit / start / finish / cancel / reopen / delete), Driver
   // (unchanged: no ETA edit, but can start/finish since that's their job).
   var adminMode = isAdmin();
@@ -1363,7 +1363,7 @@ export function render(){
   }
   var now = new Date();
   // Round 25: Nestlé gets the same day-by-day navigation as Admin
-  // ("consultation + import + téléchargement seulement" -- confirmed via
+  // ("view + import + download only" -- confirmed via
   // AskUserQuestion), just none of the admin-only actions below.
   var showTabs = isAdmin() || isNestle();
   // A truck pending deletion (tapped "Delete", inside the undo window --
