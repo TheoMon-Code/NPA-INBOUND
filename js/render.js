@@ -1220,6 +1220,51 @@ function tvLegendHtml(){
     '<div class="legendgrid">'+legendRowsHtml()+'</div></div>';
 }
 
+/* Round 34: Theo asked for the status legend to live in the top blue banner
+   instead of its own block below the table ("tu peux pas mettre dans le
+   bandeau bleu en haut"). The full descriptive version (title + sentence per
+   status, see legendRowsHtml() above) doesn't fit next to the brand/clock
+   row without the banner growing very tall, so this is a condensed version
+   for the banner only: one colored dot + short label per status, no
+   description -- same idea as the sync-status dot already in this banner,
+   just one per status. tvLegendHtml()/legendRowsHtml() above stay as they
+   are and stay unused now that renderTv() no longer calls tvLegendHtml() --
+   left in place rather than deleted in case a future round wants the
+   detailed version back somewhere. */
+function tvBannerLegendHtml(){
+  var entries = [
+    {cls:"pending", title:tr("status_pending")},
+    {cls:"urgent", title:tr("status_urgent")},
+    {cls:"scheduled", title:tr("status_scheduled")},
+    {cls:"duesoon", title:tr("legendDueSoonTitle")},
+    {cls:"late", title:tr("status_late")},
+    {cls:"unloading", title:tr("status_unloading")},
+    {cls:"done", title:tr("status_done")}
+  ];
+  return '<div class="tvbannerlegend">'+entries.map(function(e){
+    return '<span class="tvbannerlegend-item"><span class="tvbannerdot '+e.cls+'"></span>'+esc(e.title)+'</span>';
+  }).join("")+'</div>';
+}
+
+/* Round 34: trucks the TV board shows -- today's, PLUS anything from an
+   earlier day that's still not "done" (a truck someone forgot to mark
+   finished, or one genuinely still in progress, must not just silently
+   vanish off the board the moment the date rolls over -- Theo's exact
+   worry: "si y a des trucks de la veille qui sont en retard on les voit pas
+   et ca peut etre un probleme"). No cutoff on HOW old -- a fixed
+   "yesterday only" window (the other option Theo considered) just moves the
+   same disappearing-truck problem two days back instead of one, and staff
+   already sometimes forget to update a truck for a while, so a truck stuck
+   open for 3 days needs to be exactly as visible as one stuck open for 1.
+   Shared by renderTv() and tvTick() so both agree on what's on the board and
+   how many pages that makes -- two different filters here would desync the
+   page count from what's actually rendered. */
+function tvVisibleTrucks(){
+  return state.trucks.filter(function(t){
+    return t.date === todayKey() || (t.date < todayKey() && t.status !== "done");
+  });
+}
+
 /* One row of the TV-mode board (see renderTv() below) -- deliberately NOT
    tableRowHtml() from the wide-screen admin table above: that one carries
    data-open (opens the truck sheet) and a "truckrow" class styled to look
@@ -1235,13 +1280,24 @@ function tvRowHtml(t, now){
   // missed by whoever glances at the board a minute later. A continuous cue
   // is visible however long ago the truck actually went late. See
   // body.tvmode tr.tvalert in css/app.css.
-  var alertCls = (d === "late" || d === "urgent") ? ' class="tvalert"' : '';
-  return '<tr'+alertCls+'>'+
+  var alertCls = (d === "late" || d === "urgent") ? " tvalert" : "";
+  // Round 34: same muted treatment as the admin table/cards for a completed
+  // truck -- it can still show up here for the rest of the day (sortWeight()
+  // keeps it at the bottom), but shouldn't visually compete with what's
+  // still open.
+  var completedCls = t.status === "done" ? " tv-completed" : "";
+  var rowCls = (alertCls+completedCls).trim();
+  // Round 34 (carry-forward): a row for a truck from an earlier day needs its
+  // date next to the time, or it would silently look like a same-day truck
+  // running late -- shortDate() gives the compact "DD/MM" already used
+  // elsewhere in the app rather than a full date.
+  var etaText = t.eta ? ((t.date !== todayKey() ? shortDate(t.date)+" " : "")+t.eta) : "—";
+  return '<tr'+(rowCls ? ' class="'+rowCls+'"' : '')+'>'+
     '<td>'+pill(d,t,now)+damageBadge(t)+'</td>'+
     '<td class="mono">'+esc(t.truckLabel || t.poNo || t.ref || t.id)+'</td>'+
     '<td>'+esc(t.carrier||"—")+'</td>'+
     '<td>'+(t.plant ? esc(t.plant) : "—")+'</td>'+
-    '<td>'+(t.eta || "—")+'</td>'+
+    '<td>'+etaText+'</td>'+
     // Round 26 (Round 33: also a "#N"-suffixed po_no, see
     // looksLikeSiblingRef() above): this column used to show a "N lots"
     // badge (only ever populated for the old merged-lots trucks); now shows
@@ -1263,8 +1319,11 @@ function tvRowHtml(t, now){
 function renderTv(){
   var now = new Date();
   document.documentElement.setAttribute("lang", ui.lang === "th" ? "th" : "en");
-  var todayTrucks = state.trucks.filter(function(t){ return t.date === todayKey(); });
-  todayTrucks.sort(function(a,b){ return sortWeight(a,now) - sortWeight(b,now); });
+  // Round 34: was strictly today's trucks (t.date === todayKey()) -- now
+  // includes any not-yet-done truck carried forward from an earlier day too.
+  // See tvVisibleTrucks() above for why there's no age cutoff.
+  var boardTrucks = tvVisibleTrucks();
+  boardTrucks.sort(function(a,b){ return sortWeight(a,now) - sortWeight(b,now); });
   // Round 23: a busy day (30-40 trucks) would otherwise just run off the
   // bottom of a screen nobody is there to scroll -- rotate through
   // fixed-size pages instead (see tvTick() below, which advances ui.tvPage
@@ -1272,12 +1331,32 @@ function renderTv(){
   // count shrank (fewer pages now than ui.tvPage points at) between the last
   // page-flip and this particular render -- e.g. a render triggered by the
   // regular Supabase poll rather than by tvTick() itself.
-  var totalPages = Math.max(1, Math.ceil(todayTrucks.length / TV_ROWS_PER_PAGE));
+  var totalPages = Math.max(1, Math.ceil(boardTrucks.length / TV_ROWS_PER_PAGE));
   if(ui.tvPage >= totalPages) ui.tvPage = 0;
-  var pageTrucks = todayTrucks.slice(ui.tvPage*TV_ROWS_PER_PAGE, ui.tvPage*TV_ROWS_PER_PAGE + TV_ROWS_PER_PAGE);
+  var pageTrucks = boardTrucks.slice(ui.tvPage*TV_ROWS_PER_PAGE, ui.tvPage*TV_ROWS_PER_PAGE + TV_ROWS_PER_PAGE);
   var tableHtml;
-  if(todayTrucks.length){
-    var rows = pageTrucks.map(function(t){ return tvRowHtml(t, now); }).join("");
+  if(boardTrucks.length){
+    // Round 34: same ongoing/completed split as the admin table/cards
+    // (listTableHtml()/listHtml() above), just done per-PAGE rather than
+    // over the whole board -- sortWeight() already keeps every "done" truck
+    // at the bottom of the full sorted list, so within any one page the
+    // ongoing ones are still a contiguous run followed by a contiguous run
+    // of completed ones; splitting the current page is enough and avoids
+    // touching the pagination math (page N is still exactly rows
+    // N*10..N*10+10 of the same sorted list either way). Only shown when
+    // THIS page actually has both kinds, same "never a header with nothing
+    // to separate" rule as the admin views.
+    var pageOngoing = pageTrucks.filter(function(t){ return t.status !== "done"; });
+    var pageCompleted = pageTrucks.filter(function(t){ return t.status === "done"; });
+    var rows;
+    if(pageOngoing.length && pageCompleted.length){
+      rows = '<tr class="tablesectionrow"><td colspan="6">'+tr("sectionOngoing")+'</td></tr>'+
+        pageOngoing.map(function(t){ return tvRowHtml(t, now); }).join("")+
+        '<tr class="tablesectionrow"><td colspan="6">'+tr("sectionCompleted")+'</td></tr>'+
+        pageCompleted.map(function(t){ return tvRowHtml(t, now); }).join("");
+    } else {
+      rows = pageTrucks.map(function(t){ return tvRowHtml(t, now); }).join("");
+    }
     tableHtml = '<table class="trucktable"><thead><tr>'+
       '<th>'+tr("tableColStatus")+'</th>'+
       '<th>'+tr("tableColPo")+'</th>'+
@@ -1309,9 +1388,13 @@ function renderTv(){
       // updates it by id with no idea which render path built it, so the
       // countdown keeps working here for free.
       '<div class="syncrow"><span class="syncdot '+syncDotClass()+'"></span>'+syncLabel()+pollCountdownHtml(now)+'</div></div>'+
+    // Round 34: the legend used to be its own block below the table
+    // (tvLegendHtml()) -- Theo asked for it in the top banner instead, in a
+    // condensed dot+label form (see tvBannerLegendHtml() above), as the last
+    // row of this same banner rather than its own top-level block.
+    tvBannerLegendHtml()+
     '</div>'+
-    '<div class="tvtable">'+pageInfoHtml+tableHtml+'</div>'+
-    tvLegendHtml();
+    '<div class="tvtable">'+pageInfoHtml+tableHtml+'</div>';
   document.body.classList.add("tvmode");
   document.getElementById("app").innerHTML = html;
 }
@@ -1326,12 +1409,19 @@ function renderTv(){
 var tvPageChangedAt = 0;
 export function tvTick(now){
   if(!ui.tvMode) return;
-  var total = state.trucks.filter(function(t){ return t.date === todayKey(); }).length;
+  // Round 34: must use the exact same truck source as renderTv() (see
+  // tvVisibleTrucks() above) -- this used to only count today's trucks,
+  // which would silently disagree with renderTv()'s page count the moment
+  // any carried-forward truck from an earlier day was on the board.
+  var total = tvVisibleTrucks().length;
   var totalPages = Math.max(1, Math.ceil(total / TV_ROWS_PER_PAGE));
   if(ui.tvPage >= totalPages) ui.tvPage = 0;
   if(totalPages <= 1){ tvPageChangedAt = now; return; }
   if(!tvPageChangedAt) tvPageChangedAt = now;
-  if(now - tvPageChangedAt >= TV_ROTATE_MS){
+  // Round 34: ui.tvRotateMsOverride (set from ?rotateMs=, js/main.js) lets
+  // the test suite use a short rotation instead of the real 20s.
+  var rotateMs = ui.tvRotateMsOverride || TV_ROTATE_MS;
+  if(now - tvPageChangedAt >= rotateMs){
     ui.tvPage = (ui.tvPage + 1) % totalPages;
     tvPageChangedAt = now;
     render();
