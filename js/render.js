@@ -1247,43 +1247,17 @@ function tvBannerLegendHtml(){
 }
 
 /* Round 34: the board's main, rotating/paginated table -- strictly today's
-   trucks, same as before the carry-forward change below existed. Shared by
-   renderTv() and tvTick() so both agree on what's paginated and how many
-   pages that makes -- two different filters here would desync the page
-   count from what's actually rendered. */
+   trucks. Shared by renderTv() and tvTick() so both agree on what's
+   paginated and how many pages that makes -- two different filters here
+   would desync the page count from what's actually rendered.
+   Round 34 briefly tried carrying forward an earlier day's still-open truck
+   too (so a truck someone forgot to mark finished wouldn't just vanish),
+   first mixed into this same list, then pulled into its own separate strip
+   after Theo found either version confusing/cluttering -- he was clear he
+   only ever wants today's trucks on this board, full stop. Both attempts
+   were reverted; this board is strictly today, exactly like Round 22-33. */
 function tvTodayTrucks(){
   return state.trucks.filter(function(t){ return t.date === todayKey(); });
-}
-
-/* Round 34 (carry-forward), REVISED after Theo saw it live: an earlier
-   day's truck that's still not "done" (someone forgot to mark it finished,
-   or it's genuinely still in progress) must not just silently vanish off
-   the board the moment the date rolls over -- Theo's original worry: "si y
-   a des trucks de la veille qui sont en retard on les voit pas et ca peut
-   etre un probleme". No cutoff on HOW old -- a fixed "yesterday only"
-   window just moves the same disappearing-truck problem back a day or two,
-   and staff already sometimes forget to update a truck for a while.
-   First version mixed these straight into the same rotating/paginated table
-   as today's trucks (sortWeight() put them at the very front, being
-   "late") -- Theo then found that made the board feel less "about today"
-   and confusing as it rotated ("la rotation doit etre plus focus sur la
-   journee d aujourdhui... si ca rotate avec les trucks late ca peut etre
-   confusing"). These are now kept OUT of the main table/pagination
-   entirely and shown in their own small always-visible strip instead (see
-   tvCarriedOverHtml() and renderTv() below) -- still impossible to miss,
-   but clearly set apart from today's own schedule rather than competing
-   with it for page 1. */
-function tvCarriedOverTrucks(){
-  return state.trucks.filter(function(t){
-    return t.date < todayKey() && t.status !== "done";
-  }).sort(function(a,b){
-    // Oldest first -- these are all "late" (see derive()), so sortWeight()
-    // alone would tie them at 0 and leave them in whatever order
-    // state.trucks happened to be in; reading oldest-to-newest is more
-    // useful than an arbitrary order on a strip meant to be scanned quickly.
-    if(a.date !== b.date) return a.date < b.date ? -1 : 1;
-    return (a.eta||"") < (b.eta||"") ? -1 : 1;
-  });
 }
 
 /* One row of the TV-mode board (see renderTv() below) -- deliberately NOT
@@ -1353,27 +1327,12 @@ function tvTableHeadHtml(){
     '<th>'+tr("tableColLots")+'</th>'+
   '</tr>';
 }
-/* Round 34 follow-up: the small, always-visible (never paginated, never
-   rotated) strip for trucks carried forward from an earlier day -- see
-   tvCarriedOverTrucks() above for why these no longer share the main
-   table/pagination with today's trucks. Absent entirely on the common day
-   (nothing carried over), same "don't show a section for nothing" rule as
-   everywhere else in this round. */
-function tvCarriedOverHtml(carriedOver, now){
-  if(!carriedOver.length) return "";
-  var rows = carriedOver.map(function(t){ return tvRowHtml(t, now); }).join("");
-  return '<div class="tvcarriedover">'+
-    '<div class="tvcarriedover-title">⚠️ '+esc(tr("tvCarriedOverTitle"))+'</div>'+
-    '<table class="trucktable"><thead>'+tvTableHeadHtml()+'</thead><tbody>'+rows+'</tbody></table>'+
-  '</div>';
-}
 function renderTv(){
   var now = new Date();
   document.documentElement.setAttribute("lang", ui.lang === "th" ? "th" : "en");
-  // Round 34 follow-up: the main table/pagination is back to strictly
-  // today's trucks (see tvTodayTrucks() above) -- an earlier day's
-  // still-open truck is now shown separately (tvCarriedOverHtml() below)
-  // rather than mixed into this list, per Theo's "focus on today" request.
+  // Strictly today's trucks -- see tvTodayTrucks() above for why Round 34's
+  // two attempts at also carrying forward an earlier day's truck were both
+  // reverted.
   var boardTrucks = tvTodayTrucks();
   boardTrucks.sort(function(a,b){ return sortWeight(a,now) - sortWeight(b,now); });
   // Round 23: a busy day (30-40 trucks) would otherwise just run off the
@@ -1439,11 +1398,6 @@ function renderTv(){
     // row of this same banner rather than its own top-level block.
     tvBannerLegendHtml()+
     '</div>'+
-    // Round 34 follow-up: the carried-over strip sits between the banner and
-    // today's own table -- clearly a separate concern, never part of the
-    // rotation, and (being outside .tvtable) never affected by the
-    // pagination math above.
-    tvCarriedOverHtml(tvCarriedOverTrucks(), now)+
     '<div class="tvtable">'+pageInfoHtml+tableHtml+'</div>';
   document.body.classList.add("tvmode");
   document.getElementById("app").innerHTML = html;
