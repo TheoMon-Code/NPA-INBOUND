@@ -21,6 +21,13 @@ TOMORROW = (date.today() + timedelta(days=1)).isoformat()
 # description doit etre obligatoirement visible" -- unlike the collapsible
 # one in the normal admin/driver view, there's nobody around to tap it
 # open on a wall-mounted screen).
+#
+# Round 34: Theo asked for that legend to move into the top blue banner
+# itself ("tu peux pas mettre dans le bandeau bleu en haut"), as a condensed
+# dot+label row (no more per-status description sentence -- see
+# tvBannerLegendHtml() in js/render.js) rather than its own block below the
+# table. This test's legend checks were updated to match that new spot/shape;
+# everything else about the round-22/23 behaviour it checks is unchanged.
 
 TRUCKS = [
     {"id":"1","reference_id":"T-1","carrier":"Aurora Freight","plant":"AMATA","po_no":"PO-9101",
@@ -63,19 +70,23 @@ async def main():
 
         # ---- the status legend IS shown here, and it's permanently visible
         #      (a plain div, not a <details> someone would have to tap open --
-        #      there's nobody there to tap it) ----
-        legend = page.locator(".tvlegend")
-        assert await legend.count() == 1, "expected the status legend to be present on the TV board"
+        #      there's nobody there to tap it) -- Round 34: now inside the top
+        #      banner, condensed to a dot+label row rather than its own block
+        #      with descriptions ----
+        legend = page.locator(".tvbannerlegend")
+        assert await legend.count() == 1, "expected the condensed status legend inside the top banner"
         assert await legend.is_visible(), "the TV board's legend must be visible without any interaction"
-        assert await page.locator(".tvlegend details").count() == 0, "TV legend must not be a collapsible <details>"
+        assert await page.locator(".tvtopbar .tvbannerlegend").count() == 1, "legend must live inside the top banner"
+        assert await page.locator(".tvlegend").count() == 0, "the old below-table legend block should be gone"
         # There's no language toggle on the TV board (nothing is interactive),
         # so this stays language-agnostic (the app defaults to Thai) and just
-        # checks the structure: one row per status kind, same swatch classes
-        # used everywhere else (.pill/.stripe/.legendswatch all line up).
-        rows = await legend.locator(".legendrow").count()
-        assert rows == 7, "expected one legend row per status kind (incl. duesoon)"
+        # checks the structure: one item per status kind, same swatch classes
+        # used everywhere else in this banner (tvBannerLegendHtml() in
+        # js/render.js).
+        rows = await legend.locator(".tvbannerlegend-item").count()
+        assert rows == 7, "expected one legend item per status kind (incl. duesoon)"
         for cls in ["pending","urgent","scheduled","duesoon","late","unloading","done"]:
-            assert await legend.locator(".legendswatch."+cls).count() == 1, "missing legend swatch for "+cls
+            assert await legend.locator(".tvbannerdot."+cls).count() == 1, "missing legend dot for "+cls
 
         # ---- body carries the tvmode class the CSS scales up from ----
         has_class = await page.evaluate("document.body.classList.contains('tvmode')")
