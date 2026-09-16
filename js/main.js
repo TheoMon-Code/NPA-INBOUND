@@ -27,6 +27,27 @@ import { flushOfflineQueue } from "./offlineQueue.js";
 ui.tvMode = new URLSearchParams(window.location.search).get("tv") === "1";
 if(ui.tvMode) ui.roleGateOpen = false;
 
+// Round 34: ui.lang normally follows whatever this browser last saved
+// (loadLang() in js/storage.js, per-device -- fine for a personal phone
+// someone toggles EN/TH on). The TV board is a shared, unmanned screen where
+// the columns need to reliably match the printed/expected language
+// regardless of what an earlier admin happened to leave that device set to
+// ("il faut que les colonnes soient celle en thai aussi pour soucis de
+// concordance") -- so ?lang=th|en overrides it for this page load only, same
+// one-off-URL-flag pattern as ?tv=1/?pollMs= above. Never saved back to
+// localStorage, so it can't leak into this device's normal (non-TV) use or
+// affect any other device; the TV link is simply given as
+// "?tv=1&lang=th" going forward.
+var langOverride = new URLSearchParams(window.location.search).get("lang");
+if(langOverride === "th" || langOverride === "en") ui.lang = langOverride;
+
+// Round 34: `?rotateMs=<n>` -- same idea as ?pollMs= above, but for the TV
+// board's page-rotation timer (see ui.tvRotateMsOverride in js/state.js and
+// tvTick() in js/render.js) now that TV_ROTATE_MS itself is 20s instead of
+// 8s. Only ever set by the test suite; a real TV link never adds this.
+var rotateMsOverride = parseInt(new URLSearchParams(window.location.search).get("rotateMs"), 10);
+if(rotateMsOverride > 0) ui.tvRotateMsOverride = rotateMsOverride;
+
 // Round 33: SUPABASE_POLL_MS went from 15s to 120s (Theo's request -- 15s
 // made the app re-render "under your thumb" too often). The automated test
 // suite has several tests that specifically wait out real poll cycles
