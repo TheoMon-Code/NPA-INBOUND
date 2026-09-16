@@ -45,10 +45,10 @@ export const MAX_DAY_OFFSET = 5;
 // board meant to be read from across the room).
 export const TV_ROWS_PER_PAGE = 10;
 // Round 34: was 8000 (8s) -- Theo found the board flipping pages too fast to
-// actually read from across the room ("ca change de tab trop vite"); 20s
-// gives someone glancing over enough time to read a full page before it
-// rotates, confirmed via AskUserQuestion.
-export const TV_ROTATE_MS = 20000;
+// actually read from across the room ("ca change de tab trop vite"); briefly
+// 20s (confirmed via AskUserQuestion), then Theo asked for 30s once he'd
+// actually seen 20s in practice.
+export const TV_ROTATE_MS = 30000;
 // Round 25 follow-up: auto-logout after this long with no click/keydown/
 // input anywhere in the app (see js/state.js's touchActivity() and the check
 // in js/ticking.js's tick()) -- applies to every role (Admin MON, Admin MON
