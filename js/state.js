@@ -138,6 +138,14 @@ export const ui = {
   // instead of running off the bottom of an unwatched screen. Meaningless
   // outside TV mode.
   tvPage: 0,
+  // Round 34: lets the test suite ask tvTick() (js/render.js) to rotate pages
+  // much faster than the real TV_ROTATE_MS (js/config.js, now 20s for a real
+  // board) via a `?rotateMs=` URL param read in main.js -- otherwise
+  // test_v2_tv_pagination.py's real-time waits would balloon the same way
+  // the poll-interval tests did when SUPABASE_POLL_MS went from 15s to 2min
+  // (see ?pollMs= there). null outside of that override, meaning "use
+  // TV_ROTATE_MS" -- never set by anything reachable from the real app UI.
+  tvRotateMsOverride: null,
   // Fullscreen photo viewer (Round 23) — replaces the old "open the raw URL
   // in a new tab" behaviour with an in-app overlay that can step through a
   // truck's other photos and zoom in, without ever leaving the app. null
