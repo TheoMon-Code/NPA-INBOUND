@@ -38,6 +38,15 @@ export const STRINGS = {
   kpiToday:{en:"Today",th:"วันนี้"},
   kpiCompleted:{en:"Completed",th:"เสร็จแล้ว"},
   kpiInProgress:{en:"In progress",th:"กำลังดำเนินการ"},
+  // Round 34: Theo asked for a real visual split between a day's still-open
+  // trucks and its finished ones, rather than finished ones just quietly
+  // sorting to the bottom of the same list (sortWeight() in render.js
+  // already put them last, but with nothing marking the boundary) -- these
+  // are the two section headers (listHtml()/listTableHtml() in js/render.js),
+  // shown only when the day actually has BOTH kinds (no point in a header
+  // with nothing to separate it from).
+  sectionOngoing:{en:"Ongoing",th:"กำลังดำเนินการ"},
+  sectionCompleted:{en:"Completed",th:"เสร็จแล้ว"},
   kpiLate:{en:"Late",th:"ล่าช้า"},
   kpiAvgTime:{en:"Avg. time",th:"เวลาเฉลี่ย"},
   noTrucksToday:{en:"No trucks scheduled for this day",th:"ไม่มีรถบรรทุกในวันนี้"},
