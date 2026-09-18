@@ -176,14 +176,21 @@ export function sbFetchTrucksInRange(fromDate, toDate){
   // dedupes per TRIP (importTripKey()), which needs each existing truck's
   // truck_label ("<Route> - Trip N") since that's the only stable identity a
   // trip has (no PO, and its product mix can change between re-imports).
-  var q = "trucks?select=po_no,order_date,eta,carrier,sku_no,details,qtt,truck_label"+
+  // Round 36: id/truck_state added (at the end -- test_v2_date_window_query.py
+  // matches this query by its existing "select=po_no,..." prefix, kept as-is)
+  // -- client feedback ("please detect an already-uploaded shipment and
+  // UPDATE it with the latest data instead of creating a duplicate") needs a
+  // target id to PATCH, and the status check (importPlan.js's
+  // runImportPreview) so a truck already started/completed is never
+  // silently overwritten by a re-imported plan row.
+  var q = "trucks?select=po_no,order_date,eta,carrier,sku_no,details,qtt,truck_label,truck_state,id"+
     "&order_date=gte."+fromDate+"&order_date=lte."+toDate;
   return sbRest(q).then(function(rows){
     return (rows || []).map(function(row){
       return {
-        poNo: row.po_no || "", date: row.order_date || "", eta: row.eta ? row.eta.slice(11,16) : null,
+        id: row.id, poNo: row.po_no || "", date: row.order_date || "", eta: row.eta ? row.eta.slice(11,16) : null,
         carrier: row.carrier || "", skuNo: row.sku_no || "", details: row.details || "", qtt: row.qtt || "",
-        truckLabel: row.truck_label || ""
+        truckLabel: row.truck_label || "", truckState: row.truck_state || "pending"
       };
     });
   });
