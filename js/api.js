@@ -79,6 +79,12 @@ export function mapRowToTruck(row){
     finishedAt: row.act_dept || null,
     startedBy: row.started_by || "",
     finishedBy: row.finished_by || "",
+    // Round 37: true once an Admin has hand-corrected that time (see
+    // saveStartTime()/saveActualTimes() in actions.js) -- select=* above
+    // already returns these columns once supabase-schema.sql's ALTERs have
+    // run, so no explicit select-list change is needed here.
+    arrivalCorrected: !!row.arrival_corrected,
+    departureCorrected: !!row.departure_corrected,
     raw: row.raw || null,
     lots: row.lots || null,
     photos: (row.photos || []).map(function(p){
@@ -139,9 +145,17 @@ export function sbFetchTrucksForReport(fromDate, toDate){
   // follow-up, Theo: "ca serait bien d'avoir ca dans le rapport CSV") appended
   // last -- whoever's saved device name (js/storage.js's loadSavedName())
   // was in effect when that truck was started/finished.
-  var q = "trucks?select=order_date,eta,truck_state,act_arrival,act_dept,damage_remark,po_no,carrier,truck_label,started_by,finished_by"+
+  // Round 37: arrival_corrected/departure_corrected appended at the very
+  // end (same "append, never insert earlier" rule as every prior addition
+  // here -- see the comment above) so the Reporting screen's new
+  // "manually corrected" counter (js/reporting.js's statsForRows()) can
+  // tell a hand-corrected time apart from one the chauffeur actually
+  // tapped live, without disturbing this query's existing column order.
+  var qBase = "trucks?select=order_date,eta,truck_state,act_arrival,act_dept,damage_remark,po_no,carrier,truck_label,started_by,finished_by"+
     "&order_date=gte."+fromDate+"&order_date=lte."+toDate;
-  return sbRest(q).then(function(rows){
+  var qFull = "trucks?select=order_date,eta,truck_state,act_arrival,act_dept,damage_remark,po_no,carrier,truck_label,started_by,finished_by,arrival_corrected,departure_corrected"+
+    "&order_date=gte."+fromDate+"&order_date=lte."+toDate;
+  function toRows(rows){
     return (rows || []).map(function(row){
       return {
         date: row.order_date || "",
@@ -154,9 +168,25 @@ export function sbFetchTrucksForReport(fromDate, toDate){
         carrier: row.carrier || "",
         truckLabel: row.truck_label || "",
         startedBy: row.started_by || "",
-        finishedBy: row.finished_by || ""
+        finishedBy: row.finished_by || "",
+        arrivalCorrected: !!row.arrival_corrected,
+        departureCorrected: !!row.departure_corrected
       };
     });
+  }
+  return sbRest(qFull).then(toRows).catch(function(err){
+    // Same graceful-degradation reasoning as everywhere else in this file:
+    // the "arrival_corrected"/"departure_corrected" columns (supabase-
+    // schema.sql, Round 37) might not be migrated onto this Supabase
+    // project yet. Unlike an INSERT (importPlan.js can just drop the key
+    // and retry), a SELECT naming a column that doesn't exist fails the
+    // whole query -- so retry once without them rather than breaking the
+    // entire Reporting screen over two optional flag columns.
+    var msg = String((err && err.message) || "");
+    if(/arrival_corrected|departure_corrected/i.test(msg) && /(column|schema cache|does not exist)/i.test(msg)){
+      return sbRest(qBase).then(toRows);
+    }
+    throw err;
   });
 }
 
