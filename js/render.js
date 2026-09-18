@@ -58,6 +58,14 @@ function canStartOnText(dateStr){ return ui.lang==="th" ? ("เริ่มข�
 function startedAtText(hhmm){ return ui.lang==="th" ? ("เริ่มเมื่อ "+hhmm) : ("Started at "+hhmm); }
 function startedByText(name){ return ui.lang==="th" ? ("เริ่มโดย "+name) : ("Started by "+name); }
 function finishedByText(name){ return ui.lang==="th" ? ("เสร็จสิ้นโดย "+name) : ("Finished by "+name); }
+// Round 37: small inline pill shown next to a Start/End time that an Admin
+// hand-corrected (see saveStartTime()/saveActualTimes() in actions.js) --
+// distinguishes it from a time the chauffeur actually tapped live, which
+// matters for anyone reading the productivity/waiting-time numbers.
+function correctedBadge(flag){
+  if(!flag) return "";
+  return ' <span class="badge-corrected">'+tr("correctedBadge")+'</span>';
+}
 
 function longDate(d){
   if(ui.lang === "th"){
@@ -622,21 +630,41 @@ function sheetHtml(now){
   } else if(d==="unloading"){
     var elapsed = now - new Date(t.startedAt);
     body += '<div class="timer big-work" id="liveTimer">'+fmtElapsed(elapsed)+'</div>'+
-      '<div class="timer-sub">'+startedAtText(new Date(t.startedAt).toTimeString().slice(0,5))+'</div>';
+      '<div class="timer-sub">'+startedAtText(new Date(t.startedAt).toTimeString().slice(0,5))+correctedBadge(t.arrivalCorrected)+'</div>';
     if(!nestleMode){
       body += '<button class="btn stop" data-finish="'+esc(t.id)+'">'+tr("finishUnloading")+'</button>'+
         '<button class="linklike" data-cancel="'+esc(t.id)+'">'+tr("cancelStartLink")+'</button>';
     }
     if(t.startedBy) body += '<div class="hint" style="text-align:center;margin-top:8px">'+esc(startedByText(t.startedBy))+'</div>';
+    // Round 37: client feedback -- a chauffeur can forget to tap "Start
+    // unloading", leaving act_arrival wrong/late; Admin can hand-correct it
+    // here without needing to cancel and redo the whole start step.
+    if(adminMode){
+      body += '<div class="sheet-section"><div class="label">'+tr("editStartTimeLabel")+'</div>'+
+        '<input class="field" type="time" id="startTimeInput" value="'+esc(hm(t.startedAt))+'">'+
+        '<button class="btn primary" data-save-start="'+esc(t.id)+'">'+tr("updateTime")+'</button></div>';
+    }
   } else if(d==="done"){
     var durMin = (new Date(t.finishedAt)-new Date(t.startedAt))/60000;
     body += '<div class="done-summary">'+
-      '<div><b>'+new Date(t.startedAt).toTimeString().slice(0,5)+'</b><span>'+tr("lblStart")+'</span></div>'+
-      '<div><b>'+new Date(t.finishedAt).toTimeString().slice(0,5)+'</b><span>'+tr("lblEnd")+'</span></div>'+
+      '<div><b>'+new Date(t.startedAt).toTimeString().slice(0,5)+'</b><span>'+tr("lblStart")+correctedBadge(t.arrivalCorrected)+'</span></div>'+
+      '<div><b>'+new Date(t.finishedAt).toTimeString().slice(0,5)+'</b><span>'+tr("lblEnd")+correctedBadge(t.departureCorrected)+'</span></div>'+
       '<div><b>'+fmtHM(durMin)+'</b><span>'+tr("lblDuration")+'</span></div>'+
       '</div>';
     if(t.finishedBy) body += '<div class="hint" style="text-align:center;margin-top:2px">'+esc(finishedByText(t.finishedBy))+'</div>';
-    if(adminMode) body += '<button class="linklike" data-reopen="'+esc(t.id)+'">'+tr("reopenUnloading")+'</button>';
+    // Round 37: same client feedback as above -- once a truck is fully
+    // done, Admin can still go back and correct either (or both) actual
+    // times by hand, e.g. after noticing a wrong one on the Reporting
+    // screen's productivity numbers.
+    if(adminMode){
+      body += '<div class="sheet-section"><div class="label">'+tr("editActualTimesLabel")+'</div>'+
+        '<div class="timeeditrow">'+
+          '<div><input class="field" type="time" id="startTimeInput" value="'+esc(hm(t.startedAt))+'"></div>'+
+          '<div><input class="field" type="time" id="endTimeInput" value="'+esc(hm(t.finishedAt))+'"></div>'+
+        '</div>'+
+        '<button class="btn primary" data-save-actual="'+esc(t.id)+'">'+tr("updateTime")+'</button></div>';
+      body += '<button class="linklike" data-reopen="'+esc(t.id)+'">'+tr("reopenUnloading")+'</button>';
+    }
   }
 
   body += deleteControl(t.id);
@@ -860,7 +888,13 @@ function reportKpiTilesHtml(d){
     {v:pctStr, l:tr("reportKpiOnTime"), cls: d.onTimePct!=null && d.onTimePct<80 ? "bad" : "good"},
     {v:d.avgMin==null?"—":fmtHM(d.avgMin), l:tr("reportKpiAvgTime"), cls:""},
     {v:d.damageCount, l:tr("reportKpiDamage"), cls: d.damageCount ? "bad" : ""},
-    {v:d.noArrivalLogged, l:tr("reportKpiNoLog"), cls: d.noArrivalLogged ? "warn" : ""}
+    {v:d.noArrivalLogged, l:tr("reportKpiNoLog"), cls: d.noArrivalLogged ? "warn" : ""},
+    // Round 37: client feedback -- how many Start/End times in this range
+    // were hand-corrected by an Admin rather than tapped live (see
+    // statsForRows() in js/reporting.js), so a manager reading the on-time/
+    // avg-duration numbers above can tell how much of the range's data was
+    // touched by hand.
+    {v:d.correctedCount, l:tr("reportKpiCorrected"), cls: d.correctedCount ? "warn" : ""}
   ];
   return items.map(function(k){
     return '<div class="kpi '+k.cls+'"><div class="v mono">'+k.v+'</div><div class="l">'+k.l+"</div></div>";
@@ -909,7 +943,9 @@ function historyActionLabel(action){
     eta_changed: tr("histActionEtaChanged"),
     remark_updated: tr("histActionRemarkUpdated"),
     deleted: tr("histActionDeleted"),
-    signature_saved: tr("histActionSignatureSaved")
+    signature_saved: tr("histActionSignatureSaved"),
+    start_time_corrected: tr("histActionStartTimeCorrected"),
+    end_time_corrected: tr("histActionEndTimeCorrected")
   };
   return map[action] || action;
 }
