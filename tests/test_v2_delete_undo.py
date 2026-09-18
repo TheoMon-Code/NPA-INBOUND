@@ -50,6 +50,22 @@ async def main():
         await page.click("[data-delete]")
         await page.wait_for_timeout(150)
         await page.click("[data-delete-confirm]")
+        await page.wait_for_timeout(150)
+        # Round 36: client feedback added a PIN re-entry step here -- see
+        # promptDeletePin()/confirmDeleteWithPin() in actions.js. A wrong PIN
+        # first, to also confirm it blocks the delete outright, then the
+        # real one.
+        await page.fill("#deletePinInput", "000000")
+        await page.click("[data-delete-pin-confirm]")
+        await page.wait_for_timeout(150)
+        pin_error = await page.text_content(".sheet")
+        # default language is Thai (loadLang() in js/storage.js) -- this test
+        # never toggles it, so the error reads in Thai.
+        assert "ไม่ถูกต้อง" in pin_error, "a wrong PIN must not be allowed to delete"
+        assert await page.locator(".card").count() == 1, "truck must still be there after a wrong PIN"
+
+        await page.fill("#deletePinInput", "748231")
+        await page.click("[data-delete-pin-confirm]")
         await page.wait_for_timeout(200)
 
         # truck hidden from the list right away, but nothing sent yet
