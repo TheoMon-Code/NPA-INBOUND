@@ -83,6 +83,18 @@ export const STRINGS = {
   detRemark:{en:"Remark",th:"หมายเหตุ"},
   confirmDeleteQ:{en:"Confirm delete?",th:"ยืนยันการลบ?"},
   deleteThisTruck:{en:"Delete this truck",th:"ลบรถบรรทุกนี้"},
+  // Round 36: client feedback (Khun Badeeson) -- "please add a password
+  // confirmation step before the deletion is completed... if the password
+  // is incorrect, the system should not allow the deletion." This app's
+  // only credential is the role's own PIN (no separate password concept
+  // anywhere else -- see the PIN roles from Round 25), so "password" here
+  // means re-entering that PIN. Shown as a third step after the existing
+  // "Confirm delete?" tap (confirmDeleteQ above), before deleteTruck() in
+  // js/actions.js ever runs -- see deleteControl() in js/render.js and
+  // promptDeletePin()/confirmDeleteWithPin() in js/actions.js.
+  deletePinPromptLabel:{en:"Enter your PIN to confirm deletion",th:"กรอกรหัส PIN ของคุณเพื่อยืนยันการลบ"},
+  deletePinConfirmBtn:{en:"Confirm delete",th:"ยืนยันการลบ"},
+  deletePinCancelBtn:{en:"Cancel",th:"ยกเลิก"},
   newTruck:{en:"New Truck",th:"เพิ่มรถบรรทุกใหม่"},
   fieldCarrier:{en:"Carrier",th:"บริษัทขนส่ง"},
   fieldPlant:{en:"Plant",th:"โรงงาน"},
@@ -262,9 +274,18 @@ export const STRINGS = {
   importSummary:{en:"{n} new trucks ready to import ({dupe} already exist, {past} are before the start date).",th:"พร้อมนำเข้ารถบรรทุกใหม่ {n} คัน (มีอยู่แล้ว {dupe} คัน, ก่อนวันที่กำหนด {past} คัน)"},
   importNothingToImport:{en:"Nothing new to import with the current settings.",th:"ไม่มีรายการใหม่ให้นำเข้าในเงื่อนไขปัจจุบัน"},
   importMoreRows:{en:"…and {n} more.",th:"…และอีก {n} รายการ"},
+  // Round 36: client feedback -- re-uploading a plan with an updated
+  // quantity/remark for a shipment already imported (same PO/date/time/
+  // carrier) now updates that existing truck instead of creating a
+  // duplicate -- see importCoreKey()-based matching in importPlan.js. Shown
+  // on the preview screen so the admin sees it before confirming, same as
+  // the {dupe}/{past} counts above.
+  importUpdateNotice:{en:"{n} already-imported shipments will be updated with the latest data instead of duplicated.",th:"รถบรรทุกที่นำเข้าไปแล้ว {n} คันจะถูกอัปเดตด้วยข้อมูลล่าสุดแทนการนำเข้าซ้ำ"},
+  importUpdateChip:{en:"Update",th:"อัปเดต"},
   importConfirmBtn:{en:"Import {n} trucks",th:"นำเข้ารถบรรทุก {n} คัน"},
   importSaving:{en:"Importing…",th:"กำลังนำเข้า…"},
   importDoneToast:{en:"Imported {n} trucks.",th:"นำเข้ารถบรรทุก {n} คันแล้ว"},
+  importUpdatedToast:{en:"Updated {n} existing shipments.",th:"อัปเดตรถบรรทุกที่มีอยู่แล้ว {n} คัน"},
   importSaveFailed:{en:"Import failed partway through — check your connection and try again (trucks already imported won't be duplicated).",th:"นำเข้าล้มเหลวระหว่างทาง — ตรวจสอบการเชื่อมต่อแล้วลองใหม่ (รายการที่นำเข้าไปแล้วจะไม่ซ้ำ)"},
   importRawColumnMissing:{en:"(The extra source columns weren't saved — ask ISD to run the \"raw\" column update in supabase-schema.sql.)",th:"(ข้อมูลคอลัมน์อื่น ๆ ยังไม่ถูกบันทึก — แจ้งทีม ISD ให้รันคำสั่งเพิ่มคอลัมน์ \"raw\" ใน supabase-schema.sql)"},
   importLotsColumnMissing:{en:"(Some trucks have several lots, but that detail wasn't saved — ask ISD to run the \"lots\" column update in supabase-schema.sql.)",th:"(รถบางคันมีหลายล็อต แต่รายละเอียดนี้ยังไม่ถูกบันทึก — แจ้งทีม ISD ให้รันคำสั่งเพิ่มคอลัมน์ \"lots\" ใน supabase-schema.sql)"},
@@ -325,6 +346,19 @@ export const STRINGS = {
   // already shows (tvColEta, kept as its own key since that's a different
   // table with its own wording to tweak independently).
   tableColEta:{en:"ETA",th:"เวลานัด"},
+  // Round 36: client feedback (Khun Badeeson) -- "For the Inbound Dashboard,
+  // please add: Start Time / End Time / Duration... to help Operation
+  // monitor the actual processing time". Three dedicated columns on the
+  // desktop admin table, after ETA -- see actualStartCellHtml()/
+  // actualEndCellHtml()/actualDurationCellHtml() in js/render.js. Reuses
+  // t.startedAt/t.finishedAt (act_arrival/act_dept), the same fields Round
+  // 35's card/TV addition already reads, just as their own columns here
+  // instead of a second line under ETA -- kept off cards/TV (space is
+  // already tight there, and Round 35's compact "▶/⏹" marker answers the
+  // same question in less room).
+  tableColStartTime:{en:"Start Time",th:"เวลาเริ่ม"},
+  tableColEndTime:{en:"End Time",th:"เวลาสิ้นสุด"},
+  tableColDuration:{en:"Duration",th:"ระยะเวลา"},
   // TV mode (Round 22) shows only today's trucks, so a "Date" column would
   // always read the same value -- an ETA column is more useful on a board
   // meant to be read from across the room.
