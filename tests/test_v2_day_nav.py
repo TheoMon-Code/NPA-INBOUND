@@ -8,6 +8,20 @@ TODAY = date.today()
 def dkey(offset):
     return (TODAY + timedelta(days=offset)).isoformat()
 
+# Round 36: the date pill (.tab-dateinfo, shown for any offset beyond the
+# three quick tabs) used to be a plain "DD/MM" (shortDate() in
+# js/dateUtils.js) -- client feedback ("please change the current date tabs
+# ... to display the actual date, for example 16 Sep 2026") replaced that
+# everywhere in tabsHtml() with tabDateLabel() (js/render.js), which is
+# language-dependent -- the app defaults to Thai (loadLang() in
+# js/storage.js) and this test never toggles language, so the pill now
+# reads e.g. "19 ก.ย. 2569" (Buddhist year), not "19/09". Mirrors
+# MONTH_LABELS_TH_SHORT from js/config.js.
+MONTH_ABBR_TH = ["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."]
+def expected_pill(offset):
+    d = TODAY + timedelta(days=offset)
+    return "%d %s %d" % (d.day, MONTH_ABBR_TH[d.month-1], d.year+543)
+
 TRUCKS = [
     {"id":"1","reference_id":"T-1","carrier":"Carrier A","plant":"AMATA","po_no":"PO-1001",
      "order_date":dkey(0),"eta":dkey(0)+"T08:00:00","truck_state":"pending","photos":[]},
@@ -60,7 +74,7 @@ async def main():
                 assert await page.locator(".tab-dateinfo").count() == 0
             else:
                 pill = await page.text_content(".tab-dateinfo")
-                expected = dkey(step)[8:10] + "/" + dkey(step)[5:7]
+                expected = expected_pill(step)
                 print("date pill after +%d step:" % step, pill, "expected:", expected)
                 assert pill.strip() == expected, "must land on every intermediate day, offset %d" % step
                 assert await page.locator(".tab.active").count() == 0
@@ -73,7 +87,7 @@ async def main():
         await page.click("[data-day-nav='1']", force=True)
         await page.wait_for_timeout(120)
         pill_overshoot = await page.text_content(".tab-dateinfo")
-        assert pill_overshoot.strip() == dkey(5)[8:10] + "/" + dkey(5)[5:7], "must clamp at +5, not overshoot"
+        assert pill_overshoot.strip() == expected_pill(5), "must clamp at +5, not overshoot"
 
         # back to today via quick tab, then step backward one day at a time
         await page.click("[data-tab='0']")
@@ -88,7 +102,7 @@ async def main():
                 assert await page.locator(".tab-dateinfo").count() == 0
             else:
                 pill = await page.text_content(".tab-dateinfo")
-                expected = dkey(-step)[8:10] + "/" + dkey(-step)[5:7]
+                expected = expected_pill(-step)
                 print("date pill after -%d step:" % step, pill, "expected:", expected)
                 assert pill.strip() == expected, "must land on every intermediate day, offset -%d" % step
         minus_disabled = await page.get_attribute("[data-day-nav='-1']", "disabled")
