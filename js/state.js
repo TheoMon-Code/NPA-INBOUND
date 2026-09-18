@@ -51,6 +51,15 @@ export const ui = {
   addOpen: false,
   addDefaultDate: null,
   confirmDelete: null,
+  // Round 36: the PIN-confirmation step client feedback asked for between
+  // "Confirm delete?" and the actual deletion -- see deleteControl() in
+  // js/render.js and promptDeletePin()/confirmDeleteWithPin() in
+  // js/actions.js. deletePinPrompt holds the truck id currently showing the
+  // PIN input; deletePinError is the message shown after a wrong PIN
+  // (cleared on cancel/re-open/successful confirm, same lifecycle as
+  // confirmDelete above).
+  deletePinPrompt: null,
+  deletePinError: null,
   toast: null,
   role: loadRole(),
   roleGateOpen: false,
