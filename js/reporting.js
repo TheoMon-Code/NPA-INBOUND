@@ -53,6 +53,12 @@ function statsForRows(rows){
   var avgMin = durations.length ? (durations.reduce(function(a,b){ return a+b; }, 0) / durations.length) : null;
   var noArrivalLogged = rows.filter(function(r){ return r.truckState === "pending" && !r.actArrival; }).length;
   var damageCount = rows.filter(function(r){ return r.damageRemark && r.damageRemark.trim(); }).length;
+  // Round 37: client feedback -- how many trucks in this range had a
+  // Start and/or End time hand-corrected by an Admin (see
+  // saveStartTime()/saveActualTimes() in js/actions.js), rather than
+  // tapped live by the chauffeur. A truck with both flags set still
+  // counts once here (it's "how many trucks", not "how many edits").
+  var correctedCount = rows.filter(function(r){ return r.arrivalCorrected || r.departureCorrected; }).length;
   return {
     total: total,
     completed: completed.length,
@@ -60,7 +66,8 @@ function statsForRows(rows){
     onTimePct: onTimeRated ? Math.round((onTime/onTimeRated)*100) : null,
     avgMin: avgMin,
     noArrivalLogged: noArrivalLogged,
-    damageCount: damageCount
+    damageCount: damageCount,
+    correctedCount: correctedCount
   };
 }
 function computeReportStats(rows){ return statsForRows(rows); }
@@ -177,10 +184,14 @@ export function exportReportCsv(){
     // with nothing to tell the rows apart. started_by/finished_by appended
     // last (Round 26 follow-up, Theo asked for it alongside truck_label) --
     // sbFetchTrucksForReport() (js/api.js) already returns them.
-    var header = ["date","eta","po_no","carrier","truck_state","act_arrival","act_dept","damage_remark","truck_label","started_by","finished_by"];
+    // arrival_corrected/departure_corrected appended at the very end
+    // (Round 37, same "append, never insert earlier" rule as truck_label/
+    // started_by/finished_by above) -- 1/0 so a manager filtering/summing
+    // this in Excel doesn't have to deal with true/false text.
+    var header = ["date","eta","po_no","carrier","truck_state","act_arrival","act_dept","damage_remark","truck_label","started_by","finished_by","arrival_corrected","departure_corrected"];
     var lines = [header.join(",")];
     rows.forEach(function(r){
-      lines.push([r.date, r.eta, r.poNo, r.carrier, r.truckState, r.actArrival, r.actDept, r.damageRemark, r.truckLabel, r.startedBy, r.finishedBy].map(csvField).join(","));
+      lines.push([r.date, r.eta, r.poNo, r.carrier, r.truckState, r.actArrival, r.actDept, r.damageRemark, r.truckLabel, r.startedBy, r.finishedBy, r.arrivalCorrected?1:0, r.departureCorrected?1:0].map(csvField).join(","));
     });
     // Leading BOM so Excel (still the default on a manager's laptop) opens the
     // file as UTF-8 rather than guessing a local codepage -- harmless for the
