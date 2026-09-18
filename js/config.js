@@ -17,6 +17,14 @@ export const SUPABASE_BUCKET = "inbound-photos";
 // another admin's change or a new import within a couple of minutes.
 export const SUPABASE_POLL_MS = 120000;
 export const GRACE_MIN = 20;
+// Round 36: client feedback -- the MHE Worklist should show/process
+// previous-day and next-day shipments too (arrival doesn't always match the
+// planned date), but "date navigation should be simple", not the full
+// history reach Admin/Nestlé's day-nav arrows have (getMaxDayOffset() in
+// js/settings.js). MHE's own day tabs (effectiveDayOffset() in js/render.js,
+// the day-nav clamp in js/events.js) are capped to this many days either
+// side of today instead -- previous/current/next, exactly three days.
+export const MHE_DAY_WINDOW = 1;
 // A truck still "scheduled" (not late, not started) whose ETA falls within
 // this many minutes is flagged with a small "coming up soon" cue on its
 // card -- a heads-up before it tips over into "late", rather than only
@@ -80,3 +88,11 @@ export const DAY_LABELS = ["Sunday","Monday","Tuesday","Wednesday","Thursday","F
 export const MONTH_LABELS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 export const DAY_LABELS_TH = ["วันอาทิตย์","วันจันทร์","วันอังคาร","วันพุธ","วันพฤหัสบดี","วันศุกร์","วันเสาร์"];
 export const MONTH_LABELS_TH = ["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
+// Round 36: the day tabs (tabsHtml() in js/render.js) now show the actual
+// date on every tab instead of "Yesterday/Today/Tomorrow" (client feedback:
+// "please change the current date tabs... to display the actual date, for
+// example 16 Sep 2026") -- three tabs side by side on a phone don't have
+// room for the full month name MONTH_LABELS_TH carries, and Thai dates are
+// conventionally abbreviated with a period (not a truncated substring the
+// way "Sep" works for English) -- this is that standard short form.
+export const MONTH_LABELS_TH_SHORT = ["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
