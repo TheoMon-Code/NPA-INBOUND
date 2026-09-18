@@ -481,6 +481,25 @@ function importRowKey(poNo, date, eta, carrier, skuNo, details, qtt){
 function importTripKey(carrier, date, eta, truckLabel){
   return "trip:"+String(carrier||"").trim().toLowerCase()+"|"+(date||"")+"|"+(eta||"")+"|"+(truckLabel||"");
 }
+/* Round 36: client feedback -- "if the exact same shipment row appears more
+   than once in the same uploaded file (a pasted-twice row, a re-saved sheet
+   that duplicated a line), it should be deduped within that one upload, not
+   turned into two trucks." Only a BYTE-IDENTICAL row (same PO+date+time+
+   carrier *and* same sku/details/qty) is collapsed here -- two rows that
+   share a slot but differ on any of those (Round 30's confirmed case: two
+   genuinely separate containers under one PO) still produce two trucks,
+   unchanged. Runs before importAssignLabels() below, on the flat row list,
+   so its "Truck N" labeling never even sees the removed duplicate. */
+function dedupeExactRows(rows){
+  var seen = {}, out = [];
+  rows.forEach(function(r){
+    var k = importRowKey(r.po_no, r.order_date, r.eta, r.carrier, r.sku_no, r.details, r.qtt);
+    if(seen[k]) return;
+    seen[k] = true;
+    out.push(r);
+  });
+  return out;
+}
 function importAssignLabels(rows){
   var order = [], groups = {};
   rows.forEach(function(r){
@@ -497,7 +516,8 @@ function importAssignLabels(rows){
         carrier: r.carrier, carrierTh: r.carrierTh, matType: r.matType,
         po_no: r.po_no, order_date: r.order_date, eta: r.eta,
         details: r.details, qtt: r.qtt, sku_no: r.sku_no, remark: r.remark, raw: r.raw,
-        truckLabel: list.length > 1 ? ((r.po_no||"")+" - Truck "+(idx+1)) : null
+        truckLabel: list.length > 1 ? ((r.po_no||"")+" - Truck "+(idx+1)) : null,
+        _kind: "generic"
       });
     });
   });
@@ -533,7 +553,13 @@ function importGroupCallOffRows(rows){
       carrier: "MON", carrierTh: null, matType: "FZ",
       po_no: null, order_date: first.order_date, eta: first.eta,
       details: first.details, qtt: first.qtt, sku_no: first.sku_no, remark: first.remark, raw: first.raw,
-      truckLabel: truckLabel, lots: lots
+      truckLabel: truckLabel, lots: lots,
+      // Round 36: tagged (unlike importAssignLabels' "generic") so the
+      // update-instead-of-duplicate matching in runImportPreview only
+      // applies to the PO-based RM/PM/Indirect importer below, which is
+      // what the client's feedback actually described -- a "Call off" trip
+      // still only skips an exact re-import, same as before this round.
+      _kind: "calloff"
     };
   });
 }
@@ -611,6 +637,16 @@ export function runImportPreview(){
   var existingLookup = (minDate === null) ? Promise.resolve([]) : sbFetchTrucksInRange(minDate, maxDate);
   return existingLookup.then(function(existingTrucks){
     var existingKeys = {};
+    // Round 36: existing generic (RM/PM/Indirect) trucks also indexed by
+    // their PO-based *core* identity (po+date+time+carrier, no sku/qtt/
+    // details) -- client feedback: "detect an already-uploaded shipment by
+    // its PO/Shipment/Delivery No and update it with the latest data
+    // instead of creating a duplicate." Only collected when exactly one
+    // existing truck occupies that slot -- two DO legitimately share a slot
+    // (Round 30's confirmed separate-container case), and guessing which of
+    // two which a changed row belongs to would risk overwriting the wrong
+    // one, so that case is left exactly as before (skip only, no update).
+    var existingCoreMap = {};
     existingTrucks.forEach(function(t){
       // Both key shapes computed for every existing truck, regardless of
       // which importer originally created it — cheap, and each shape only
@@ -619,6 +655,10 @@ export function runImportPreview(){
       // selects truck_label too — see api.js).
       existingKeys[importRowKey(t.poNo, t.date, t.eta, t.carrier, t.skuNo, t.details, t.qtt)] = true;
       existingKeys[importTripKey(t.carrier, t.date, t.eta, t.truckLabel)] = true;
+      if(t.poNo){
+        var coreKey = importCoreKey(t.poNo, t.date, t.eta, t.carrier);
+        (existingCoreMap[coreKey] = existingCoreMap[coreKey] || []).push(t);
+      }
     });
     // Round 30 (reverts Round 28, restores Round 26): one skip decision per
     // source ROW again for the generic RM/PM importer (see
@@ -628,12 +668,35 @@ export function runImportPreview(){
     // key would miss it. Round 31: "Call off" rows are grouped by TRIP
     // instead (importGroupCallOffRows) — see importTripKey's own comment for
     // why that one still dedupes per-trip rather than per-row.
-    var genericRows = kept.filter(function(r){ return r._kind !== "calloff"; });
+    // Round 36: genericRows also passed through dedupeExactRows() first —
+    // client feedback: two byte-identical rows pasted twice in the same
+    // uploaded file must collapse into one truck, not two (see its comment).
+    var genericRows = dedupeExactRows(kept.filter(function(r){ return r._kind !== "calloff"; }));
     var calloffRows = kept.filter(function(r){ return r._kind === "calloff"; });
     var groups = importAssignLabels(genericRows).concat(importGroupCallOffRows(calloffRows));
-    var dupeCount = 0, toImport = [];
+    var dupeCount = 0, updateCount = 0, toImport = [], toUpdate = [];
     groups.forEach(function(g){
-      if(existingKeys[g.key]){ dupeCount++; return; }
+      if(existingKeys[g.key]){ dupeCount++; return; } // byte-identical to what's already there -- nothing to do
+      if(g._kind === "generic" && g.po_no){
+        var coreKey = importCoreKey(g.po_no, g.order_date, g.eta, g.carrier);
+        var candidates = existingCoreMap[coreKey];
+        if(candidates && candidates.length === 1){
+          if(candidates[0].truckState === "pending"){
+            // Same shipment (PO+date+time+carrier), something about it
+            // changed (qty/remark/sku/etc) -- update that truck in place
+            // instead of importing a second one for it.
+            toUpdate.push({ id: candidates[0].id, g: g });
+            updateCount++;
+          } else {
+            // Already started or completed elsewhere -- the shipment has
+            // clearly already arrived and is/was being handled; don't
+            // silently rewrite its real (in-progress/finished) record with
+            // stale plan data, and don't duplicate it either.
+            dupeCount++;
+          }
+          return;
+        }
+      }
       toImport.push(g);
     });
     toImport.sort(function(a,b){
@@ -641,7 +704,7 @@ export function runImportPreview(){
       var ae = a.eta || "99:99", be = b.eta || "99:99";
       return ae < be ? -1 : (ae > be ? 1 : 0);
     });
-    ui.importResult = { toImport: toImport, dupeCount: dupeCount, pastCount: pastCount };
+    ui.importResult = { toImport: toImport, toUpdate: toUpdate, dupeCount: dupeCount, updateCount: updateCount, pastCount: pastCount };
     ui.importBusy = false;
     ui.importError = hadHeaderError ? tr("importSomeSheetsSkipped") : null;
     ui.importStep = "preview";
@@ -658,7 +721,8 @@ export function runImportPreview(){
 
 export function runImportConfirm(){
   var r = ui.importResult;
-  if(!r || !r.toImport.length) return;
+  var updates = (r && r.toUpdate) || [];
+  if(!r || (!r.toImport.length && !updates.length)) return;
   ui.importBusy = true; ui.syncStatus = "saving"; render();
   // Round 30 (reverts Round 28, restores Round 26): one entry in r.toImport
   // is one truck again for the generic RM/PM importer, no `lots` merging —
@@ -720,23 +784,73 @@ export function runImportConfirm(){
       throw err;
     });
   }
-  function next(){
-    if(i >= rows.length){
-      return loadFromSupabase().then(function(){
-        ui.importBusy = false;
-        ui.importOpen = false;
-        importCtx = null;
-        var msg = tr("importDoneToast").replace("{n}", rows.length);
-        if(rawColumnMissing) msg += " " + tr("importRawColumnMissing");
-        if(truckLabelColumnMissing) msg += " " + tr("importTruckLabelColumnMissing");
-        if(lotsColumnMissing) msg += " " + tr("importLotsColumnMissing");
-        // Round 28: cosmetic-only columns (Thai carrier name, RM/PM type) --
-        // never worth their own toast on top of the two above; a silent
-        // fallback (raw still captures them under their original Thai
-        // header text either way) is enough until ISD migrates the schema.
-        showToast(msg);
-      });
+  // Round 36: PATCH for a shipment already imported once, whose details
+  // changed on re-upload (runImportPreview's existingCoreMap match) --
+  // reuses the exact same missing-column flags/fallback as attemptInsert
+  // above, since it's the same schema either way. One request per truck
+  // (each has its own `id` and its own changed fields -- there's no bulk
+  // "update N different rows with N different bodies" in PostgREST), which
+  // is fine at the scale a single re-imported plan realistically updates.
+  function updateFields(g){
+    return {
+      carrier_th: g.carrierTh || null, mat_type: g.matType || null,
+      sku_no: g.sku_no, qtt: g.qtt, remark: g.remark, details: g.details,
+      truck_label: g.truckLabel || null
+    };
+  }
+  function attemptUpdate(u){
+    var already = [];
+    if(truckLabelColumnMissing) already.push("truck_label");
+    if(carrierThColumnMissing) already.push("carrier_th");
+    if(matTypeColumnMissing) already.push("mat_type");
+    var body = stripKeys([updateFields(u.g)], already)[0];
+    return sbRest("trucks?id=eq."+encodeURIComponent(u.id), { method:"PATCH", headers:{ "Prefer":"return=minimal" }, body: body }).catch(function(err){
+      if(!truckLabelColumnMissing && isMissingColumnError(err, "truck_label")){
+        truckLabelColumnMissing = true;
+        return attemptUpdate(u);
+      }
+      if(!carrierThColumnMissing && isMissingColumnError(err, "carrier_th")){
+        carrierThColumnMissing = true;
+        return attemptUpdate(u);
+      }
+      if(!matTypeColumnMissing && isMissingColumnError(err, "mat_type")){
+        matTypeColumnMissing = true;
+        return attemptUpdate(u);
+      }
+      throw err;
+    });
+  }
+  function runUpdates(){
+    var j = 0;
+    function nextUpdate(){
+      if(j >= updates.length) return Promise.resolve();
+      var u = updates[j]; j += 1;
+      return attemptUpdate(u).then(nextUpdate);
     }
+    return nextUpdate();
+  }
+  function finish(){
+    return loadFromSupabase().then(function(){
+      ui.importBusy = false;
+      ui.importOpen = false;
+      importCtx = null;
+      var msg = rows.length ? tr("importDoneToast").replace("{n}", rows.length) : "";
+      if(updates.length){
+        var updMsg = tr("importUpdatedToast").replace("{n}", updates.length);
+        msg = msg ? (msg + " " + updMsg) : updMsg;
+      }
+      if(rawColumnMissing) msg += " " + tr("importRawColumnMissing");
+      if(truckLabelColumnMissing) msg += " " + tr("importTruckLabelColumnMissing");
+      if(lotsColumnMissing) msg += " " + tr("importLotsColumnMissing");
+      // Round 28: cosmetic-only columns (Thai carrier name, RM/PM type) --
+      // never worth their own toast on top of the two above; a silent
+      // fallback (raw still captures them under their original Thai
+      // header text either way) is enough until ISD migrates the schema.
+      showToast(msg);
+    });
+  }
+  function next(){
+    if(i >= rows.length) return runUpdates().then(finish);
     var already = [];
     if(rawColumnMissing) already.push("raw");
     if(truckLabelColumnMissing) already.push("truck_label");
