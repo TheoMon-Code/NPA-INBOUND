@@ -8,7 +8,7 @@ import { state, ui } from "./state.js";
 import { tr } from "./i18n.js";
 import { derive, lateMinutes, isDueSoon, isCriticallyLate, STATUS_KEYS } from "./status.js";
 import { esc, shortDate, fmtElapsed, dateTimeOf, clockStr, addDays, todayKey, hm } from "./dateUtils.js";
-import { DAY_LABELS, MONTH_LABELS, DAY_LABELS_TH, MONTH_LABELS_TH, TV_ROWS_PER_PAGE, TV_ROTATE_MS } from "./config.js";
+import { DAY_LABELS, MONTH_LABELS, DAY_LABELS_TH, MONTH_LABELS_TH, MONTH_LABELS_TH_SHORT, TV_ROWS_PER_PAGE, TV_ROTATE_MS, MHE_DAY_WINDOW } from "./config.js";
 import { loadSavedName } from "./storage.js";
 import { supabaseEnabled } from "./api.js";
 import { hasImportFile, importFileName, importSheetNames } from "./importPlan.js";
@@ -40,6 +40,17 @@ function roleLabel(r){
   if(r === "admin_it") return tr("roleAdminIt");
   if(r === "nestle") return tr("roleNestle");
   return tr("roleDriver");
+}
+/* Round 36: one of the topbar's Admin/Nestlé icon buttons (Import/Reports/
+   PIN/Settings/History/Archive/Logout) -- used to be an emoji with nothing
+   visible next to it (only an aria-label, for screen readers). Splits the
+   emoji into its own bigger ".rbicon" span and puts the existing label text
+   (the same string already used as the aria-label, so this isn't a new
+   translation) in ".rblabel" right beside it -- see the CSS for how these
+   two are sized differently within the same pill. */
+function iconBadge(dataAttr, icon, label){
+  return '<button class="rolebadge" '+dataAttr+'="1" aria-label="'+esc(label)+'">'+
+    '<span class="rbicon">'+icon+'</span><span class="rblabel">'+esc(label)+'</span></button>';
 }
 function lateHintAdminText(mins){ return ui.lang==="th" ? ("ล่าช้ากว่ากำหนด "+mins+" นาที") : ("Running "+mins+" min late against the scheduled time."); }
 function lateHintDriverText(mins){ return ui.lang==="th" ? ("ล่าช้ากว่ากำหนด "+mins+" นาที") : ("Running "+mins+" min late."); }
@@ -75,7 +86,35 @@ function markSvg(){
   return '<div class="mark-badge"><img class="mark" src="icons/mark-full.png" alt="MON"></div>';
 }
 
-function effectiveDayOffset(){ return ui.role === "driver" ? 0 : ui.dayOffset; }
+// Round 36: client feedback (Khun Badeeson) -- "the actual shipment arrival
+// may not always follow the planned date... MHE should be able to see and
+// process the shipment when it is physically available... the MHE Worklist
+// should not be restricted to the current day's planned shipments only."
+// The MHE Driver used to be pinned to offset 0 no matter what (locked out
+// of the same day tabs/arrows Admin and Nestlé already had) -- it now reads
+// ui.dayOffset like every other role, just clamped to the +/-1 window
+// MHE_DAY_WINDOW (js/config.js) describes (previous/current/next day,
+// exactly what was asked for -- not the full multi-day history Admin can
+// reach).
+function effectiveDayOffset(){
+  if(ui.role !== "driver") return ui.dayOffset;
+  return Math.max(-MHE_DAY_WINDOW, Math.min(MHE_DAY_WINDOW, ui.dayOffset));
+}
+/* Whether a truck scheduled for dateKeyStr can be started/processed right
+   now -- Round 22-35 this was strictly "only if it's scheduled for today",
+   which is exactly what client feedback said didn't match reality: a truck
+   planned for the 16th can genuinely show up on the 17th, or a truck
+   planned for the 18th can arrive early on the 17th. Both are still within
+   one day of today, so both should be startable -- a truck 4 days off
+   (visible to Admin/Nestlé via the day-nav arrows, but never to MHE) still
+   isn't, there's no feedback asking for that and it would make "late/no-
+   show" tracking meaningless. Shared by both the Admin and driver/Nestlé
+   branches of sheetBodyHtml() below so the same +/-1 day rule applies
+   everywhere "start" is offered, not just on the MHE worklist. */
+function canStartOnDate(dateKeyStr){
+  var diffKey = dateKeyStr === todayKey() ? 0 : (dateKeyStr === addDays(todayKey(),-1) ? -1 : (dateKeyStr === addDays(todayKey(),1) ? 1 : null));
+  return diffKey !== null;
+}
 
 function pill(derived, t, now){
   var txt = tr(STATUS_KEYS[derived]);
@@ -113,12 +152,37 @@ function actualTimesText(t){
   }
   return "";
 }
-/* Small second line under the ETA cell (admin desktop table/TV table) --
-   same ".hint" style already used for the sibling-ref product/qty line in
+/* Small second line under the ETA cell -- cardHtml()'s meta line and
+   tvRowHtml()'s ETA cell only as of Round 36 (the admin desktop table got
+   its own dedicated Start/End/Duration columns instead, see below), same
+   ".hint" style already used for the sibling-ref product/qty line in
    tableRowHtml(), so this doesn't need its own CSS rule. */
 function actualTimeHtml(t){
   var txt = actualTimesText(t);
   return txt ? '<div class="hint" style="font-weight:400">'+esc(txt)+'</div>' : "";
+}
+/* Round 36: client feedback -- "For the Inbound Dashboard, please add:
+   Start Time / End Time / Duration... If the process is still ongoing, the
+   End Time can remain blank or show 'In Progress'." Three small helpers
+   (rather than one that returns three values) so tableRowHtml() can put
+   each in its own <td> -- see tableColStartTime/tableColEndTime/
+   tableColDuration in js/i18n.js for the matching headers. */
+function actualStartCellText(t){
+  return t.startedAt ? hm(t.startedAt) : "—";
+}
+function actualEndCellText(t){
+  if(t.status === "done" && t.finishedAt) return hm(t.finishedAt);
+  if(t.status === "unloading") return tr("kpiInProgress");
+  return "—";
+}
+function actualDurationCellText(t, now){
+  if(t.status === "done" && t.startedAt && t.finishedAt){
+    return fmtHM((new Date(t.finishedAt)-new Date(t.startedAt))/60000);
+  }
+  if(t.status === "unloading" && t.startedAt){
+    return fmtElapsed(now - new Date(t.startedAt));
+  }
+  return "—";
 }
 /* Round 26: a truck with a damage/claim remark (t.damageRemark, entered via
    damageRemarkHtml()'s textarea below) used to be visible only by opening
@@ -232,11 +296,16 @@ function tableRowHtml(t, now){
     // mirrors what the TV table already shows (tvColEta, its own separate
     // key/column since renderTv() is a different render path with its own
     // wording to tweak independently).
-    // Round 35: actualTimesText() adds the real start/finish clock time
-    // (once the truck has actually arrived/departed) after the scheduled
-    // ETA, on its own line -- "—" is still shown when there's no ETA at all
-    // and nothing has started yet, exactly as before this round.
-    '<td>'+(t.eta || "—")+actualTimeHtml(t)+'</td>'+
+    '<td>'+(t.eta || "—")+'</td>'+
+    // Round 36: three dedicated columns (client feedback) instead of Round
+    // 35's second line under ETA on this table specifically -- see
+    // actualStartCellText()/actualEndCellText()/actualDurationCellText()
+    // below. Cards/TV keep Round 35's compact inline marker unchanged
+    // (there's no room here for three more columns on a phone or from
+    // across a room).
+    '<td>'+actualStartCellText(t)+'</td>'+
+    '<td>'+actualEndCellText(t)+'</td>'+
+    '<td>'+actualDurationCellText(t, now)+'</td>'+
   '</tr>';
 }
 /* Table-shaped view of the same day's trucks as listHtml()'s cards, for a
@@ -255,10 +324,11 @@ function listTableHtml(filtered, now){
   var completed = filtered.filter(function(t){ return t.status === "done"; });
   var rows;
   if(ongoing.length && completed.length){
-    // colspan must span every <th> below (8 at Round 33/34).
-    rows = '<tr class="tablesectionrow"><td colspan="8">'+tr("sectionOngoing")+'</td></tr>'+
+    // colspan must span every <th> below (11 as of Round 36 -- Start Time/
+    // End Time/Duration added three columns to the 8 from Round 33/34).
+    rows = '<tr class="tablesectionrow"><td colspan="11">'+tr("sectionOngoing")+'</td></tr>'+
       ongoing.map(function(t){ return tableRowHtml(t, now); }).join("")+
-      '<tr class="tablesectionrow"><td colspan="8">'+tr("sectionCompleted")+'</td></tr>'+
+      '<tr class="tablesectionrow"><td colspan="11">'+tr("sectionCompleted")+'</td></tr>'+
       completed.map(function(t){ return tableRowHtml(t, now); }).join("");
   } else {
     rows = filtered.map(function(t){ return tableRowHtml(t, now); }).join("");
@@ -272,6 +342,12 @@ function listTableHtml(filtered, now){
     '<th>'+tr("tableColPlant")+'</th>'+
     '<th>'+tr("tableColDate")+'</th>'+
     '<th>'+tr("tableColEta")+'</th>'+
+    // Round 36: client feedback -- dedicated Start Time/End Time/Duration
+    // columns (see actualStartCellText()/actualEndCellText()/
+    // actualDurationCellText() above) rather than folded into the ETA cell.
+    '<th>'+tr("tableColStartTime")+'</th>'+
+    '<th>'+tr("tableColEndTime")+'</th>'+
+    '<th>'+tr("tableColDuration")+'</th>'+
   '</tr></thead><tbody>'+rows+'</tbody></table>';
 }
 function sortWeight(t, now){
@@ -335,28 +411,51 @@ function kpiHtml(trucks, now){
     return '<div class="kpi '+k.cls+'"><div class="v mono">'+k.v+'</div><div class="l">'+k.l+"</div></div>";
   }).join("");
 }
+/* Round 36: client feedback -- "please change the current date tabs from
+   Yesterday/Today/Tomorrow to display the actual date, for example 16 Sep
+   2026... the selected date should be clearly highlighted... the date
+   displayed on the tab and the data shown below must always be
+   synchronized". Reads a plain "YYYY-MM-DD" dateKey (never a Date object --
+   see the rest of this file's date handling) and formats it the same short
+   day+month(+year) shape in both languages, just with the language's own
+   month form (MONTH_LABELS_TH_SHORT for Thai, see config.js for why that's
+   its own array rather than truncating MONTH_LABELS_TH). */
+function tabDateLabel(dateKeyStr){
+  var p = dateKeyStr.split("-").map(Number);
+  var day = p[2], monthIdx = p[1]-1, year = p[0];
+  if(ui.lang === "th") return day+" "+MONTH_LABELS_TH_SHORT[monthIdx]+" "+(year+543);
+  return day+" "+MONTH_LABELS[monthIdx].slice(0,3)+" "+year;
+}
 function tabsHtml(trucks){
-  // Three quick tabs (yesterday/today/tomorrow, offsets -1/0/+1) plus two
-  // nav arrows that step ONE day at a time (Round 15 -- the first version
-  // jumped straight to +/-5, which skipped every day in between; Theo
-  // pointed out he needed access to those in-between dates too, not just
-  // the two extremes), clamped to [-MAX_DAY_OFFSET, +MAX_DAY_OFFSET]
-  // overall. When the current offset lands outside -1/0/+1 none of the
-  // three quick tabs is "active", so a small date pill shows which day is
-  // actually selected.
-  var quick = [ {o:-1, label:tr("tabYesterday")}, {o:0, label:tr("tabToday")}, {o:1, label:tr("tabTomorrow")} ];
-  var cur = ui.dayOffset;
-  var maxOffset = getMaxDayOffset();
+  // Three quick tabs (still offsets -1/0/+1 -- "yesterday/today/tomorrow"
+  // relative to the actual selected day, Round 36 just changed what each
+  // tab DISPLAYS, not which days exist) plus two nav arrows that step ONE
+  // day at a time (Round 15 -- the first version jumped straight to +/-5,
+  // which skipped every day in between; Theo pointed out he needed access
+  // to those in-between dates too, not just the two extremes), clamped to
+  // [-MAX_DAY_OFFSET, +MAX_DAY_OFFSET] overall. When the current offset
+  // lands outside -1/0/+1 none of the three quick tabs is "active", so a
+  // small date pill (using the same tabDateLabel() shape) shows which day
+  // is actually selected -- this keeps the tab/data-below sync the client
+  // asked for even that far out.
+  var quick = [ {o:-1}, {o:0}, {o:1} ];
+  // Round 36: MHE (driver) reads through effectiveDayOffset() -- clamped to
+  // +/-MHE_DAY_WINDOW there -- rather than the raw ui.dayOffset every other
+  // role uses directly, and its own cap here instead of the Admin-configurable
+  // getMaxDayOffset() (a truck 4 days out was never what this feedback asked
+  // for; see effectiveDayOffset()/canStartOnDate() above).
+  var cur = effectiveDayOffset();
+  var maxOffset = ui.role === "driver" ? MHE_DAY_WINDOW : getMaxDayOffset();
   var atMin = cur <= -maxOffset, atMax = cur >= maxOffset;
   var quickHtml = quick.map(function(q){
     var key = addDays(todayKey(), q.o);
     var n = trucks.filter(function(t){ return t.date === key; }).length;
     return '<button class="tab'+(cur===q.o?" active":"")+'" data-tab="'+q.o+'">'+
-      '<span class="n mono">'+n+'</span>'+q.label+"</button>";
+      '<span class="n mono">'+n+'</span><span class="tab-datelabel">'+tabDateLabel(key)+'</span></button>';
   }).join("");
   var isQuickDay = quick.some(function(q){ return q.o === cur; });
   var dateInfo = isQuickDay ? "" :
-    '<div class="tab-dateinfo">'+shortDate(addDays(todayKey(), cur))+'</div>';
+    '<div class="tab-dateinfo">'+tabDateLabel(addDays(todayKey(), cur))+'</div>';
   return '<div class="tabs-row">'+
     '<button class="tab tab-nav" data-day-nav="-1" aria-label="'+tr("navPrevDay")+'"'+(atMin?" disabled":"")+'>◀</button>'+
     '<div class="tabs">'+quickHtml+'</div>'+
@@ -497,9 +596,9 @@ function sheetHtml(now){
         '<input class="field" type="time" id="etaInput" value="'+(t.eta||"")+'">'+
         '<button class="btn primary" data-save-eta="'+esc(t.id)+'">'+(t.eta?tr("updateTime"):tr("saveTime"))+'</button></div>';
       if(d==="late") body += '<div class="hint" style="color:var(--bad);text-align:center;margin-top:10px">'+lateHintAdminText(lateMinutes(t,now))+'</div>';
-      if(t.date === todayKey() && t.eta){
+      if(canStartOnDate(t.date) && t.eta){
         body += '<button class="btn go" data-start="'+esc(t.id)+'">'+tr("startUnloading")+'</button>';
-      } else if(t.date !== todayKey()){
+      } else if(!canStartOnDate(t.date)){
         body += '<div class="hint" style="text-align:center;margin-top:12px">'+canStartOnText(shortDate(t.date))+'</div>';
       }
     } else {
@@ -511,9 +610,9 @@ function sheetHtml(now){
         // Nestlé is consultation-only here -- no "Start unloading" button
         // (that stays Admin's and the MHE Driver's job), just the same
         // informational text the driver view already shows.
-        if(!nestleMode && t.date === todayKey()){
+        if(!nestleMode && canStartOnDate(t.date)){
           body += '<button class="btn go" data-start="'+esc(t.id)+'">'+tr("startUnloading")+'</button>';
-        } else if(nestleMode && t.date === todayKey()){
+        } else if(nestleMode && canStartOnDate(t.date)){
           body += '<div class="hint" style="text-align:center;margin-top:12px">'+tr("scheduledArrivalTime")+'</div>';
         } else {
           body += '<div class="hint" style="text-align:center;margin-top:12px">'+canStartOnText(shortDate(t.date))+'</div>';
@@ -608,6 +707,21 @@ function rawDetailsHtml(t){
 }
 function deleteControl(id){
   if(!isAdmin()) return "";
+  // Round 36: client feedback -- a third step now sits between "Confirm
+  // delete?" and the actual deletion, a small inline PIN input
+  // (promptDeletePin()/confirmDeleteWithPin() in js/actions.js) that blocks
+  // the delete outright on a wrong PIN (ui.deletePinError below).
+  if(ui.deletePinPrompt === id){
+    return '<div class="deletepinbox">'+
+      '<div class="label" style="margin-bottom:6px">'+tr("deletePinPromptLabel")+'</div>'+
+      '<input class="field" type="password" inputmode="numeric" id="deletePinInput">'+
+      (ui.deletePinError ? '<div class="hint" style="color:var(--bad);margin-top:6px">'+esc(ui.deletePinError)+'</div>' : '')+
+      '<div style="display:flex; gap:8px; margin-top:8px">'+
+        '<button class="btn primary" style="flex:1" data-delete-pin-confirm="'+esc(id)+'">'+tr("deletePinConfirmBtn")+'</button>'+
+        '<button class="btn" style="flex:1" data-delete-pin-cancel="1">'+tr("deletePinCancelBtn")+'</button>'+
+      '</div>'+
+    '</div>';
+  }
   if(ui.confirmDelete === id){
     return '<button class="linklike danger" data-delete-confirm="'+esc(id)+'">'+tr("confirmDeleteQ")+'</button>';
   }
@@ -991,30 +1105,42 @@ function importSheetHtml(){
         '<input class="field" type="file" id="importFileInput" accept=".xlsx,.xls,.csv" '+(busy?"disabled":"")+'>'+
       '</div>'+errHtml;
   } else if(ui.importStep === "preview"){
-    var r = ui.importResult || { toImport:[], dupeCount:0, pastCount:0 };
+    var r = ui.importResult || { toImport:[], toUpdate:[], dupeCount:0, updateCount:0, pastCount:0 };
+    var toUpdateList = r.toUpdate || [];
     // Round 30 (reverts Round 28, restores Round 26): each entry is its own
     // truck again (importAssignLabels in importPlan.js) — rows sharing a
     // PO+date+time+carrier slot show their "<PO> - Truck N" label instead of
     // a merged "N lots" badge, so it's clear at a glance they'll import as
     // separate trucks.
-    var rows = r.toImport.slice(0,12).map(function(g){
+    function importRowLine(g, isUpdate){
       var label = g.truckLabel ? (' <span class="chip">'+esc(g.truckLabel)+'</span>') : "";
       // Round 31: "Call off" entries carry `lots` again (importGroupCallOffRows)
       // -- shown here the same way the old Round 28 preview badge did, since
       // it's genuinely useful to see at a glance that a trip bundles several
       // batches before confirming the import.
       var lotsBadge = (g.lots && g.lots.length > 1) ? (' <span class="chip">'+esc(tr("multiLotBadge").replace("{n}", g.lots.length))+'</span>') : "";
+      // Round 36: a matched "will be updated instead of duplicated" row gets
+      // its own chip, so the admin can see which entries in the preview are
+      // brand-new trucks and which are corrections to something already
+      // imported, before confirming either.
+      var updChip = isUpdate ? (' <span class="chip">'+esc(tr("importUpdateChip"))+'</span>') : "";
       return '<div class="importrow"><b>'+esc(g.order_date)+(g.eta?(" "+esc(g.eta)):"")+'</b> · '+esc(g.carrier||"—")+
-        (g.details?(' · '+esc(g.details)):"")+(g.qtt?(' ('+esc(g.qtt)+')'):"")+label+lotsBadge+'</div>';
-    }).join("");
-    var more = r.toImport.length > 12 ? '<div class="hint" style="margin-top:4px">'+tr("importMoreRows").replace("{n}", r.toImport.length-12)+'</div>' : "";
+        (g.details?(' · '+esc(g.details)):"")+(g.qtt?(' ('+esc(g.qtt)+')'):"")+label+lotsBadge+updChip+'</div>';
+    }
+    var rows = r.toImport.slice(0,12).map(function(g){ return importRowLine(g, false); }).join("")+
+      toUpdateList.slice(0,12).map(function(u){ return importRowLine(u.g, true); }).join("");
+    var moreNew = r.toImport.length > 12 ? '<div class="hint" style="margin-top:4px">'+tr("importMoreRows").replace("{n}", r.toImport.length-12)+'</div>' : "";
+    var moreUpd = toUpdateList.length > 12 ? '<div class="hint" style="margin-top:4px">'+tr("importMoreRows").replace("{n}", toUpdateList.length-12)+'</div>' : "";
+    var more = moreNew + moreUpd;
+    var updateNotice = r.updateCount ? '<div class="hint" style="margin-top:4px">'+tr("importUpdateNotice").replace("{n}", r.updateCount)+'</div>' : "";
+    var totalCount = r.toImport.length + toUpdateList.length;
     body = '<div class="hint" style="margin-top:6px">'+
         tr("importSummary").replace("{n}", r.toImport.length).replace("{dupe}", r.dupeCount).replace("{past}", r.pastCount)+
-      '</div>'+
+      '</div>'+updateNotice+
       '<div class="importpreview">'+(rows || '<div class="hint">'+tr("importNothingToImport")+'</div>')+'</div>'+more+
       errHtml+
-      '<button class="btn primary" data-import-confirm="1" '+(busy || !r.toImport.length ? "disabled" : "")+'>'+
-        (busy ? tr("importSaving") : tr("importConfirmBtn").replace("{n}", r.toImport.length))+
+      '<button class="btn primary" data-import-confirm="1" '+(busy || !totalCount ? "disabled" : "")+'>'+
+        (busy ? tr("importSaving") : tr("importConfirmBtn").replace("{n}", totalCount))+
       '</button>'+
       '<button class="linklike" data-import-back="1" '+(busy?"disabled":"")+'>'+tr("back")+'</button>';
   } else {
@@ -1496,7 +1622,13 @@ export function render(){
   // Round 25: Nestlé gets the same day-by-day navigation as Admin
   // ("view + import + download only" -- confirmed via
   // AskUserQuestion), just none of the admin-only actions below.
-  var showTabs = isAdmin() || isNestle();
+  // Round 36: MHE (driver) now gets the same tabs too, per client feedback
+  // ("the MHE Worklist should not be restricted to the current day's
+  // planned shipments only... date navigation should be simple and easy
+  // for MHE users to operate") -- tabsHtml() below caps how far the arrows
+  // can go to +/-MHE_DAY_WINDOW for this role specifically, so the "simple"
+  // part holds: previous/current/next day, not Admin's full history reach.
+  var showTabs = isAdmin() || isNestle() || ui.role === "driver";
   // A truck pending deletion (tapped "Delete", inside the undo window --
   // see deleteTruck() in actions.js) is hidden from both the KPI strip and
   // the list right away, even though it hasn't actually been deleted yet.
@@ -1536,23 +1668,32 @@ export function render(){
       '</div>'+
       '<div class="topbar-row2">'+
         '<div class="rolebadgerow">'+
+          // Round 36: Khun Badeeson's client feedback ("the current icons
+          // are quite small and may not be easily recognizable... please
+          // also display the function/menu name together with each icon")
+          // -- these used to be emoji-only buttons (an aria-label existed
+          // for screen readers, but nothing was ever visible on screen).
+          // iconBadge() below now renders a bigger emoji plus its existing
+          // tr() string as a visible label right next to it, reusing the
+          // exact same aria-label text so nothing here is newly translated.
+          //
           // Round 25 capability matrix (locked in via AskUserQuestion):
           // Nestlé gets import + PIN self-service alongside Admin/Admin IT;
           // Reporting (KPIs/CSV) and the app-settings screen stay
           // Admin-only (isAdmin() covers both admin and admin_it).
-          ((isAdmin()||isNestle()) ? '<button class="rolebadge" data-open-import="1" aria-label="'+tr("importPlanAria")+'">📥</button>' : '')+
-          (isAdmin() ? '<button class="rolebadge" data-open-report="1" aria-label="'+tr("reportTitle")+'">📊</button>' : '')+
-          ((isAdmin()||isNestle()) ? '<button class="rolebadge" data-open-pin-settings="1" aria-label="'+tr("changePin")+'">⚙</button>' : '')+
-          (isAdmin() ? '<button class="rolebadge" data-open-app-settings="1" aria-label="'+tr("appSettingsTitle")+'">🔧</button>' : '')+
+          ((isAdmin()||isNestle()) ? iconBadge("data-open-import", "📥", tr("importPlanAria")) : '')+
+          (isAdmin() ? iconBadge("data-open-report", "📊", tr("reportTitle")) : '')+
+          ((isAdmin()||isNestle()) ? iconBadge("data-open-pin-settings", "⚙", tr("changePin")) : '')+
+          (isAdmin() ? iconBadge("data-open-app-settings", "🔧", tr("appSettingsTitle")) : '')+
           // Round 26: audit trail (who created/started/finished/cancelled/
           // reopened/edited/deleted which truck, and when) -- Admin-only,
           // same gate as Reports/app-settings above (isAdmin() covers both
           // Admin MON and Admin MON IT).
-          (isAdmin() ? '<button class="rolebadge" data-open-history="1" aria-label="'+tr("historyTitle")+'">📜</button>' : '')+
+          (isAdmin() ? iconBadge("data-open-history", "📜", tr("historyTitle")) : '')+
           // Round 27: browse actual past trucks over a picked date range
           // (read-only, see js/archiveList.js) -- Admin-only, same gate as
           // Reports/History/app-settings above.
-          (isAdmin() ? '<button class="rolebadge" data-open-archive-list="1" aria-label="'+tr("archiveListTitle")+'">🗄️</button>' : '')+
+          (isAdmin() ? iconBadge("data-open-archive-list", "🗄️", tr("archiveListTitle")) : '')+
           (ui.role==="driver" ? '<button class="rolebadge" data-open-name-settings="1">'+tr("setNamePill")+'</button>' : '')+
           // Round 25 follow-up: manual logout, alongside the 30-minute
           // inactivity auto-logout (js/ticking.js) -- available to every
@@ -1561,7 +1702,7 @@ export function render(){
           // outright). Only shown once a role is actually picked -- nothing
           // to log out of otherwise, and the role gate would already be
           // covering everything underneath it in that case anyway.
-          (ui.role ? '<button class="rolebadge" data-logout="1" aria-label="'+tr("logoutAria")+'">🚪</button>' : '')+
+          (ui.role ? iconBadge("data-logout", "🚪", tr("logoutAria")) : '')+
           '<button class="rolebadge langtoggle" data-toggle-lang="1" aria-label="Language / ภาษา">'+(ui.lang==="th"?"EN":"TH")+'</button>'+
         '</div>'+
         '<div class="syncrow"><span class="syncdot '+syncDotClass()+'"></span>'+syncLabel()+offlineQueueBadgeHtml()+pollCountdownHtml(now)+'</div>'+
