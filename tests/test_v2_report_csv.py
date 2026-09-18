@@ -73,7 +73,9 @@ async def main():
         # for either at the time, caught while running the full suite for
         # Round 27's unrelated changes; fixed here since it's a plain test-only
         # gap, not an app bug (the app's own header/rows were already correct).
-        assert rows[0] == ["date","eta","po_no","carrier","truck_state","act_arrival","act_dept","damage_remark","truck_label","started_by","finished_by"]
+        # Round 37 appended arrival_corrected/departure_corrected (indexes
+        # 11/12) the same way -- as "1"/"0", not true/false text.
+        assert rows[0] == ["date","eta","po_no","carrier","truck_state","act_arrival","act_dept","damage_remark","truck_label","started_by","finished_by","arrival_corrected","departure_corrected"]
         assert len(rows) == 3  # header + 2 trucks
         assert rows[1][0] == d(-2)
         assert rows[2][0] == d(-1)
@@ -85,6 +87,10 @@ async def main():
         # confirms the three new trailing columns are present but blank,
         # not just silently omitted.
         assert rows[1][8] == "" and rows[1][9] == "" and rows[1][10] == ""
+        # neither mocked truck was hand-corrected -- both trailing flag
+        # columns must come through as "0", not blank or "false".
+        assert rows[1][11] == "0" and rows[1][12] == "0"
+        assert rows[2][11] == "0" and rows[2][12] == "0"
 
         await browser.close()
         print("REPORT CSV EXPORT TEST PASSED")
