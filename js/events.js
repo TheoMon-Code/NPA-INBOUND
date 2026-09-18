@@ -6,11 +6,13 @@
 import { ui, touchActivity } from "./state.js";
 import { render } from "./render.js";
 import { getMaxDayOffset } from "./settings.js";
+import { MHE_DAY_WINDOW } from "./config.js";
 import { saveLangLocal } from "./storage.js";
 import {
   pickRole, submitPin, focusPin, savePin, saveName,
   openSheet, openAdd, closeSheet, saveEta, startUnload, finishUnload,
   cancelUnload, reopenUnload, deleteTruck, undoDeleteTruck, createTruck,
+  promptDeletePin, cancelDeletePin, confirmDeleteWithPin,
   addPhotos, removePhoto, saveDamageRemark, findTruck,
   openPhotoViewer, closePhotoViewer, photoViewerStep, togglePhotoZoom,
   saveAppSettings, logout, saveSignature
@@ -165,8 +167,15 @@ export function initEvents(){
     if(reopenEl){ reopenUnload(reopenEl.getAttribute("data-reopen")); return; }
     var delEl = el.closest("[data-delete]");
     if(delEl){ ui.confirmDelete = delEl.getAttribute("data-delete"); render(); return; }
+    // Round 36: this used to call deleteTruck() straight away -- now it
+    // opens the PIN-confirmation prompt instead (client feedback), and the
+    // actual deletion only happens once confirmDeleteWithPin() below has
+    // verified the PIN.
     var delConfirmEl = el.closest("[data-delete-confirm]");
-    if(delConfirmEl){ deleteTruck(delConfirmEl.getAttribute("data-delete-confirm")); return; }
+    if(delConfirmEl){ promptDeletePin(delConfirmEl.getAttribute("data-delete-confirm")); return; }
+    var delPinConfirmEl = el.closest("[data-delete-pin-confirm]");
+    if(delPinConfirmEl){ confirmDeleteWithPin(delPinConfirmEl.getAttribute("data-delete-pin-confirm")); return; }
+    if(el.closest("[data-delete-pin-cancel]")){ cancelDeletePin(); return; }
     if(el.closest("[data-undo-delete]")){ undoDeleteTruck(); return; }
     var createEl = el.closest("[data-create]");
     if(createEl){ createTruck(); return; }
@@ -175,7 +184,10 @@ export function initEvents(){
     var dayNavEl = el.closest("[data-day-nav]");
     if(dayNavEl){
       var delta = parseInt(dayNavEl.getAttribute("data-day-nav"), 10);
-      var maxOffset = getMaxDayOffset();
+      // Round 36: MHE (driver) gets its own day nav now too, capped to the
+      // +/-1 window client feedback asked for (previous/current/next day),
+      // not Admin/Nestlé's admin-configurable getMaxDayOffset() reach.
+      var maxOffset = ui.role === "driver" ? MHE_DAY_WINDOW : getMaxDayOffset();
       var next = ui.dayOffset + delta;
       ui.dayOffset = Math.max(-maxOffset, Math.min(maxOffset, next));
       render();
@@ -206,6 +218,13 @@ export function initEvents(){
   window.addEventListener("keydown", function(e){
     touchActivity();
     if(e.key === "Enter" && e.target && e.target.id === "pinInput"){ submitPin(); }
+    // Round 36: same "Enter submits" convenience as the login PIN input
+    // above, for the delete-confirmation PIN prompt (deleteControl() in
+    // js/render.js) -- ui.deletePinPrompt already holds the truck id this
+    // input is for, so there's nothing to read off the DOM for it.
+    if(e.key === "Enter" && e.target && e.target.id === "deletePinInput" && ui.deletePinPrompt){
+      confirmDeleteWithPin(ui.deletePinPrompt);
+    }
     // Photo viewer (Round 23) -- a manager reviewing photos on a desktop
     // (see Round 17.1: this app is also used from a Windows PC, not just a
     // phone) will reach for the keyboard before tapping tiny arrow buttons.
