@@ -386,7 +386,15 @@ export const STRINGS = {
   settingDueSoonMin:{en:"\"Due soon\" window (minutes)",th:"ช่วงเวลา \"ใกล้ถึงเวลา\" (นาที)"},
   settingDueSoonMinHint:{en:"A scheduled truck gets the ⏰ \"due soon\" cue this many minutes before its ETA.",th:"รถบรรทุกที่มีกำหนดการจะขึ้นสัญลักษณ์ ⏰ \"ใกล้ถึงเวลา\" กี่นาทีก่อนถึงเวลานัด"},
   settingUndoDeleteSec:{en:"Undo-delete window (seconds)",th:"ระยะเวลายกเลิกการลบ (วินาที)"},
-  settingUndoDeleteSecHint:{en:"How long the \"Undo\" toast stays up after deleting a truck before it's actually removed.",th:"ข้อความ \"ยกเลิก\" จะแสดงอยู่นานเท่าใดหลังลบรถบรรทุก ก่อนที่จะลบจริง"}
+  settingUndoDeleteSecHint:{en:"How long the \"Undo\" toast stays up after deleting a truck before it's actually removed.",th:"ข้อความ \"ยกเลิก\" จะแสดงอยู่นานเท่าใดหลังลบรถบรรทุก ก่อนที่จะลบจริง"},
+  // Round 37: client feedback -- Admin can hand-correct a truck's actual
+  // Start/End time (e.g. a chauffeur forgot to tap "Start unloading").
+  editStartTimeLabel:{en:"Correct start time",th:"แก้ไขเวลาเริ่ม"},
+  editActualTimesLabel:{en:"Correct start / end time",th:"แก้ไขเวลาเริ่ม / เวลาจบ"},
+  correctedBadge:{en:"Corrected",th:"แก้ไขแล้ว"},
+  reportKpiCorrected:{en:"Manually corrected",th:"แก้ไขด้วยมือ"},
+  histActionStartTimeCorrected:{en:"Start time corrected",th:"แก้ไขเวลาเริ่ม"},
+  histActionEndTimeCorrected:{en:"End time corrected",th:"แก้ไขเวลาจบ"}
 };
 
 export function tr(key){
