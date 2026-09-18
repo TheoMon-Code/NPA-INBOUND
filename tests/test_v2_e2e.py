@@ -150,14 +150,21 @@ async def main():
         print("Truck state after finish:", TRUCKS[0].get("truck_state"))
         assert TRUCKS[0].get("truck_state") == "completed"
 
-        # ---- delete it (need confirm double-tap); sheet is still open ----
+        # ---- delete it (confirm tap, then PIN re-entry, then Undo window);
+        #      sheet is still open ----
         # Round 17: deleting no longer removes the truck immediately -- it's
         # hidden right away but only actually sent to the mock backend after
         # an "Undo" window (UNDO_DELETE_MS in config.js), see deleteTruck()
         # in actions.js.
+        # Round 36: client feedback added a PIN re-entry step between the
+        # confirm tap and the actual (soft) delete -- see promptDeletePin()/
+        # confirmDeleteWithPin() in actions.js.
         await page.click("[data-delete]")
         await page.wait_for_timeout(150)
         await page.click("[data-delete-confirm]")
+        await page.wait_for_timeout(150)
+        await page.fill("#deletePinInput", "748231")
+        await page.click("[data-delete-pin-confirm]")
         await page.wait_for_timeout(300)
         undo_toast = await page.text_content(".toast")
         print("Toast right after delete (should offer Undo):", undo_toast)
