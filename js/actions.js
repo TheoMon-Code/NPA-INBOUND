@@ -262,6 +262,106 @@ function saveEta_retry(id, etaValue, label){
     queueDescriptor: { kind:"patchPlain", id: id, patch: { eta: etaValue } }
   });
 }
+/* Round 37: client feedback -- "l'admin devrait avoir la possibilité
+   d'edit les Start/End time" (e.g. a chauffeur forgot to tap "Start
+   unloading", so the live-tapped time is missing or wrong). Two entry
+   points: saveStartTime() (the truck is still "unloading" -- only the
+   start time is editable yet) and saveActualTimes() (the truck is "done"
+   -- both start and end are editable together, one Save button). Both:
+   - PATCH act_arrival/act_dept exactly like startUnload()/finishUnload()
+     already do (same naive-local timestamp shape, `t.date+"T"+v+":00"`);
+   - also set a boolean "arrival_corrected"/"departure_corrected" flag
+     (supabase-schema.sql) so the sheet's "corrected" badge and the
+     Reporting screen's counter (js/reporting.js) can tell a hand-corrected
+     time apart from one the chauffeur actually tapped live;
+   - log to the same audit trail as every other action here
+     (logTruckEvent, action names "start_time_corrected"/
+     "end_time_corrected", detail = "<old> -> <new>", same shape as
+     eta_changed's detail above);
+   - degrade gracefully (isMissingColumnError(), same pattern as
+     damage_remark/signature) if the new flag column hasn't been migrated
+     onto this Supabase project yet -- the corrected time itself still
+     saves, just without the flag/badge, via patchTimeField() below. */
+function patchTimeField(id, actField, correctedField, actionName, newValue, oldValue, v, label){
+  var withFlag = {}; withFlag[actField] = newValue; withFlag[correctedField] = true;
+  var withoutFlag = {}; withoutFlag[actField] = newValue;
+  return sbRest("trucks?id=eq."+encodeURIComponent(id), { method:"PATCH", headers:{"Prefer":"return=representation"}, body: withFlag })
+    .catch(function(err){
+      if(err && err.networkFailure) throw err;
+      if(isMissingColumnError(err, correctedField)){
+        return sbRest("trucks?id=eq."+encodeURIComponent(id), { method:"PATCH", headers:{"Prefer":"return=representation"}, body: withoutFlag });
+      }
+      throw err;
+    })
+    .then(function(){ logTruckEvent(id, label, actionName, oldValue+" -> "+v); });
+}
+export function saveStartTime(id){
+  var el = document.getElementById("startTimeInput");
+  var v = el ? el.value : "";
+  if(!v){ showToast(tr("chooseATime")); return; }
+  var t = findTruck(id);
+  if(!t) return;
+  var newValue = t.date+"T"+v+":00";
+  if(newValue === t.startedAt) return;
+  var oldValue = t.startedAt ? t.startedAt.slice(11,16) : "";
+  var label = truckLabelFor(id);
+  if(!supabaseEnabled()){
+    persist(function(){ t.startedAt = newValue; t.arrivalCorrected = true; });
+    showToast(tr("timeSaved"));
+    return;
+  }
+  patchTimeField(id, "act_arrival", "arrival_corrected", "start_time_corrected", newValue, oldValue, v, label)
+    .then(function(){ return loadFromSupabase().then(function(){ showToast(tr("timeSaved")); }); })
+    .catch(function(err){
+      if(err && err.networkFailure){
+        enqueueOfflineAction({ kind:"patchPlain", id: id, patch: { act_arrival: newValue, arrival_corrected: true } });
+        showToast(tr("queuedOffline"));
+        return;
+      }
+      showToast((err && err.message) || tr("couldNotSaveSheet"), true);
+    });
+}
+export function saveActualTimes(id){
+  var startEl = document.getElementById("startTimeInput");
+  var endEl = document.getElementById("endTimeInput");
+  var sv = startEl ? startEl.value : "";
+  var ev = endEl ? endEl.value : "";
+  if(!sv || !ev){ showToast(tr("chooseATime")); return; }
+  var t = findTruck(id);
+  if(!t) return;
+  var newStart = t.date+"T"+sv+":00";
+  var newEnd = t.date+"T"+ev+":00";
+  var startChanged = newStart !== t.startedAt;
+  var endChanged = newEnd !== t.finishedAt;
+  if(!startChanged && !endChanged) return;
+  var oldStart = t.startedAt ? t.startedAt.slice(11,16) : "";
+  var oldEnd = t.finishedAt ? t.finishedAt.slice(11,16) : "";
+  var label = truckLabelFor(id);
+  if(!supabaseEnabled()){
+    persist(function(){
+      if(startChanged){ t.startedAt = newStart; t.arrivalCorrected = true; }
+      if(endChanged){ t.finishedAt = newEnd; t.departureCorrected = true; }
+    });
+    showToast(tr("timeSaved"));
+    return;
+  }
+  var jobs = [];
+  if(startChanged) jobs.push(patchTimeField(id, "act_arrival", "arrival_corrected", "start_time_corrected", newStart, oldStart, sv, label));
+  if(endChanged) jobs.push(patchTimeField(id, "act_dept", "departure_corrected", "end_time_corrected", newEnd, oldEnd, ev, label));
+  Promise.all(jobs)
+    .then(function(){ return loadFromSupabase().then(function(){ showToast(tr("timeSaved")); }); })
+    .catch(function(err){
+      if(err && err.networkFailure){
+        var patch = {};
+        if(startChanged){ patch.act_arrival = newStart; patch.arrival_corrected = true; }
+        if(endChanged){ patch.act_dept = newEnd; patch.departure_corrected = true; }
+        enqueueOfflineAction({ kind:"patchPlain", id: id, patch: patch });
+        showToast(tr("queuedOffline"));
+        return;
+      }
+      showToast((err && err.message) || tr("couldNotSaveSheet"), true);
+    });
+}
 /* A single free-text remark per truck (not per photo) — requested to note,
    e.g., which layer of the container damaged product was found on, as
    evidence for a supplier claim. Editable by anyone, at any time, exactly
