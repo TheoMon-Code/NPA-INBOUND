@@ -10,7 +10,8 @@ import { MHE_DAY_WINDOW } from "./config.js";
 import { saveLangLocal } from "./storage.js";
 import {
   pickRole, submitPin, focusPin, savePin, saveName,
-  openSheet, openAdd, closeSheet, saveEta, startUnload, finishUnload,
+  openSheet, openAdd, closeSheet, saveEta, saveStartTime, saveActualTimes,
+  startUnload, finishUnload,
   cancelUnload, reopenUnload, deleteTruck, undoDeleteTruck, createTruck,
   promptDeletePin, cancelDeletePin, confirmDeleteWithPin,
   addPhotos, removePhoto, saveDamageRemark, findTruck,
@@ -109,6 +110,13 @@ export function initEvents(){
     }
     var saveEl = el.closest("[data-save-eta]");
     if(saveEl){ saveEta(saveEl.getAttribute("data-save-eta")); return; }
+    // Round 37: Admin hand-correcting a truck's actual Start time (while
+    // still "unloading") or both Start and End times together (once
+    // "done") -- see saveStartTime()/saveActualTimes() in actions.js.
+    var saveStartEl = el.closest("[data-save-start]");
+    if(saveStartEl){ saveStartTime(saveStartEl.getAttribute("data-save-start")); return; }
+    var saveActualEl = el.closest("[data-save-actual]");
+    if(saveActualEl){ saveActualTimes(saveActualEl.getAttribute("data-save-actual")); return; }
     var saveRemarkEl = el.closest("[data-save-remark]");
     if(saveRemarkEl){ saveDamageRemark(saveRemarkEl.getAttribute("data-save-remark")); return; }
     // Round 27: signature pad -- "Redo" switches the sheet from showing the
