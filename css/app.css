@@ -182,6 +182,18 @@ input, textarea{caret-color:var(--brand)}
   border-radius:999px; display:inline-block;
 }
 .rolebadge:active{background:rgba(255,255,255,.28)}
+/* Round 36: Khun Badeeson's feedback -- "the current icons are quite small
+   and may not be easily recognizable... please also display the function/
+   menu name together with each icon". iconBadge() (js/render.js) now wraps
+   the emoji and its label in their own spans instead of a bare emoji glyph,
+   so the icon itself can be bigger (.rbicon) while its label (.rblabel)
+   stays legible next to it -- flex/gap here instead of relying on default
+   inline spacing, still inside the same rounded pill as every other
+   .rolebadge (langtoggle/name-settings buttons keep their original plain-
+   text look, untouched). */
+.rolebadge:has(.rbicon){display:inline-flex; align-items:center; gap:5px; padding:6px 12px 6px 9px}
+.rbicon{font-size:17px; line-height:1}
+.rblabel{font-size:11px; font-weight:700}
 .rolebadge.langtoggle{background:rgba(255,255,255,.28);font-family:Arial,monospace;letter-spacing:.5px}
 .rolebadge.langtoggle:active{background:rgba(255,255,255,.42)}
 .clockbox{text-align:right}
@@ -226,6 +238,11 @@ input, textarea{caret-color:var(--brand)}
   display:flex; flex-direction:column; align-items:center; gap:2px;
 }
 .tab .n{font-family:Arial;font-size:15px;font-weight:600;color:var(--ink)}
+/* Round 36: replaces the old plain "Yesterday"/"Today"/"Tomorrow" word with
+   the actual date (tabDateLabel() in js/render.js, e.g. "16 Sep 2026") --
+   a touch smaller than the base .tab font so three of these plus the count
+   above still comfortably fit side by side on a phone-width screen. */
+.tab-datelabel{font-size:11px; line-height:1.15}
 .tab.active{background:var(--brand);border-color:var(--brand);color:#fff}
 .tab.active .n{color:#fff}
 .tab-nav{
