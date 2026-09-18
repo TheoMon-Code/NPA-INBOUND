@@ -124,6 +124,7 @@ function logTruckEvent(truckId, label, action, detail){
 export function findTruck(id){ return state.trucks.find(function(t){ return t.id === id; }); }
 export function openSheet(id){
   ui.openId = id; ui.addOpen = false; ui.confirmDelete = null;
+  ui.deletePinPrompt = null; ui.deletePinError = null;
   // Round 27: always start a freshly-opened sheet in "view" mode, not
   // whatever ui.signatureEditing happened to be left at from a previously
   // opened truck (a stray true here would show truck B's signature pad
@@ -137,11 +138,14 @@ export function closeSheet(){
   ui.settingsOpen = false; ui.settingsError = null; ui.historyOpen = false;
   ui.archiveListOpen = false; ui.archiveListError = null;
   ui.confirmDelete = null; ui.photoViewer = null; ui.signatureEditing = false;
+  ui.deletePinPrompt = null; ui.deletePinError = null;
   render();
 }
 export function openAdd(){
-  // Default the new-truck date to whichever day is currently shown (falls
-  // back to "today" for a driver, who never sees the day tabs at all).
+  // Default the new-truck date to whichever day is currently shown. Driver
+  // can't reach this at all (the "+" FAB is Admin-only, see render.js), so
+  // the ui.role check below is only ever exercised by a future role change,
+  // not by the MHE Worklist's own day tabs (Round 36).
   ui.addDefaultDate = addDays(todayKey(), ui.role === "driver" ? 0 : ui.dayOffset);
   ui.addOpen = true; ui.openId = null; render();
 }
@@ -181,6 +185,7 @@ export function logout(){
   ui.settingsOpen = false; ui.settingsError = null; ui.historyOpen = false;
   ui.archiveListOpen = false; ui.archiveListError = null;
   ui.confirmDelete = null; ui.photoViewer = null; ui.signatureEditing = false;
+  ui.deletePinPrompt = null; ui.deletePinError = null;
   render();
 }
 // Round 25: three roles now sit behind a PIN (Admin MON, Admin MON IT,
@@ -479,15 +484,72 @@ export function reopenUnload(id){
    practice given the sheet closes immediately below. */
 var pendingDeleteTimer = null;
 
+/* Round 36: client feedback (Khun Badeeson) -- "please add a password
+   confirmation step before the deletion is completed... require the Admin
+   to enter their password to confirm authorization... if the password is
+   incorrect, the system should not allow the deletion." Tapping the
+   existing "Confirm delete?" text (data-delete-confirm, see deleteControl()
+   in js/render.js) now lands here instead of calling deleteTruck() directly
+   -- it opens a small inline PIN input in its place and does nothing else
+   yet, so nothing is deleted until confirmDeleteWithPin() below actually
+   verifies it. */
+export function promptDeletePin(id){
+  ui.confirmDelete = null;
+  ui.deletePinPrompt = id;
+  ui.deletePinError = null;
+  render();
+  focusDeletePin();
+}
+/* Same "the whole-subtree render model doesn't run the plain HTML autofocus
+   attribute reliably" reasoning as focusPin() above (a fresh <input> only
+   ever gets it once, but this box can reopen after a wrong-PIN re-render
+   without a fresh element) -- clears any stray value and focuses it a beat
+   after render() rebuilds #app. */
+export function focusDeletePin(){
+  setTimeout(function(){
+    var el = document.getElementById("deletePinInput");
+    if(el){ el.value = ""; el.focus(); }
+  }, 30);
+}
+export function cancelDeletePin(){
+  ui.deletePinPrompt = null;
+  ui.deletePinError = null;
+  render();
+}
+/* Verifies the PIN typed into the prompt promptDeletePin() opened, against
+   the CURRENTLY LOGGED-IN role's own PIN (pinFieldForRole() below -- same
+   field submitPin()/savePin() already read/write, so there's no second
+   credential to manage). A match proceeds to the existing deleteTruck()
+   flow unchanged (still soft-deletes behind the Undo window, still logs the
+   "deleted" audit event with this same actor -- see logTruckEvent() above);
+   a mismatch sets ui.deletePinError (client's "if the password is incorrect,
+   the system should not allow the deletion") and leaves the truck
+   untouched, so it can be retried or canceled. */
+export function confirmDeleteWithPin(id){
+  var el = document.getElementById("deletePinInput");
+  var v = el ? el.value : "";
+  var field = pinFieldForRole(ui.role);
+  if(!v || v !== state[field]){
+    ui.deletePinError = tr("incorrectPin");
+    render();
+    focusDeletePin();
+    return;
+  }
+  ui.deletePinPrompt = null;
+  ui.deletePinError = null;
+  deleteTruck(id);
+}
 /* Deleting a truck is easy to do by accident (one mis-tap past the existing
    confirm step, on a phone at a busy dock) and, until this round, permanent
    the instant it happened. Now it's a short "Undo" window instead: the truck
    is hidden from the list/KPIs right away (see ui.pendingDeleteId in
    render.js) but nothing is actually sent to Supabase (or removed from local
    storage) until UNDO_DELETE_MS later, unless undoDeleteTruck() cancels it
-   first. */
+   first. Round 36: only ever reached once confirmDeleteWithPin() above has
+   verified the Admin's own PIN -- see that function's comment. */
 export function deleteTruck(id){
   ui.openId = null; ui.confirmDelete = null;
+  ui.deletePinPrompt = null; ui.deletePinError = null;
   var t = findTruck(id);
   ui.pendingDeleteId = id;
   ui.pendingDeleteLabel = t ? (t.truckLabel || t.poNo || t.ref || id) : id;
