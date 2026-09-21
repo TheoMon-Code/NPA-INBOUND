@@ -41,12 +41,13 @@ if(ui.tvMode) ui.roleGateOpen = false;
 var langOverride = new URLSearchParams(window.location.search).get("lang");
 if(langOverride === "th" || langOverride === "en") ui.lang = langOverride;
 
-// Round 34: `?rotateMs=<n>` -- same idea as ?pollMs= above, but for the TV
-// board's page-rotation timer (see ui.tvRotateMsOverride in js/state.js and
-// tvTick() in js/render.js) now that TV_ROTATE_MS itself is 20s instead of
-// 8s. Only ever set by the test suite; a real TV link never adds this.
-var rotateMsOverride = parseInt(new URLSearchParams(window.location.search).get("rotateMs"), 10);
-if(rotateMsOverride > 0) ui.tvRotateMsOverride = rotateMsOverride;
+// Round 38: `?scrollSpeed=<pxPerSec>` -- same idea as ?pollMs= above, but for
+// the TV board's auto-scroll speed (see ui.tvScrollSpeedOverride in
+// js/state.js and setupTvAutoScroll() in js/render.js), which replaced the
+// old page-rotation timer (?rotateMs=, Rounds 23-37). Only ever set by the
+// test suite; a real TV link never adds this.
+var scrollSpeedOverride = parseInt(new URLSearchParams(window.location.search).get("scrollSpeed"), 10);
+if(scrollSpeedOverride > 0) ui.tvScrollSpeedOverride = scrollSpeedOverride;
 
 // Round 33: SUPABASE_POLL_MS went from 15s to 120s (Theo's request -- 15s
 // made the app re-render "under your thumb" too often). The automated test
