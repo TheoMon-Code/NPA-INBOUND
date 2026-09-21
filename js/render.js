@@ -1546,6 +1546,24 @@ function tvTableHeadHtml(){
 // two can never quietly drift apart again the way they would have if this
 // round's two new columns had only been added in one of the two places.
 var TV_TABLE_COLS = 9;
+// Round 38 follow-up: Theo saw the auto-scroll loop and flagged it as odd --
+// "quand tu arrives a la fin de la liste ca devrait juste remonter au debut"
+// (should just jump back to the start). The first cut duplicated the WHOLE
+// <table> (thead included) to make the -50% loop seamless, so the column
+// header row itself scrolled past a second time in the middle of every
+// cycle, right before the list restarted -- reads as a stray/duplicate row
+// dropping in mid-list, not a clean wrap. Fix: the header now lives in its
+// own small, non-scrolling table sitting above .tvscrollviewport; only the
+// BODY table (just <tbody>, no header) is inside .tvscrollcontent and gets
+// duplicated for the loop -- so the loop only ever shows rows repeating,
+// never the header. A shared <colgroup> (percentages, sums to 100) keeps the
+// two tables' columns aligned since they're no longer one table that could
+// auto-size its columns together; table-layout:fixed (css/app.css) makes
+// both respect it. Order matches tvTableHeadHtml() above.
+var TV_COL_WIDTHS = [11, 12, 15, 10, 8, 8, 8, 8, 20];
+function tvColgroupHtml(){
+  return '<colgroup>'+TV_COL_WIDTHS.map(function(w){ return '<col style="width:'+w+'%">'; }).join("")+'</colgroup>';
+}
 function renderTv(){
   var now = new Date();
   document.documentElement.setAttribute("lang", ui.lang === "th" ? "th" : "en");
@@ -1574,16 +1592,22 @@ function renderTv(){
     } else {
       rows = boardTrucks.map(function(t){ return tvRowHtml(t, now); }).join("");
     }
-    var tableHtml = '<table class="trucktable"><thead>'+tvTableHeadHtml()+'</thead><tbody>'+rows+'</tbody></table>';
+    // Header table: fixed above the scroll viewport, never duplicated/
+    // animated -- see the TV_COL_WIDTHS comment above for why this is a
+    // separate table rather than the old single table's <thead>.
+    var colgroup = tvColgroupHtml();
+    var headTable = '<table class="trucktable tvheadtable">'+colgroup+'<thead>'+tvTableHeadHtml()+'</thead></table>';
+    var bodyTable = '<table class="trucktable tvbodytable">'+colgroup+'<tbody>'+rows+'</tbody></table>';
     // Round 38: client feedback -- replaces the old fixed-size page
     // rotation (Rounds 23-37) with a continuous auto-scroll, so the whole
     // list is visible without waiting for a page flip. .tvscrollviewport is
     // the fixed-height clipping window (CSS gives it the space left under
-    // the banner); .tvscrollcontent is what actually gets animated -- see
-    // setupTvAutoScroll(), called once this HTML is in the DOM below, which
-    // decides whether today's list is even tall enough to need scrolling at
-    // all (a quiet day just sits still, exactly like before this round).
-    bodyHtml = '<div class="tvscrollviewport"><div class="tvscrollcontent">'+tableHtml+'</div></div>';
+    // the banner, below the fixed header table above); .tvscrollcontent is
+    // what actually gets animated -- see setupTvAutoScroll(), called once
+    // this HTML is in the DOM below, which decides whether today's list is
+    // even tall enough to need scrolling at all (a quiet day just sits
+    // still, exactly like before this round).
+    bodyHtml = headTable+'<div class="tvscrollviewport"><div class="tvscrollcontent">'+bodyTable+'</div></div>';
   } else {
     bodyHtml = '<div class="empty"><span class="empty-icon">🚚</span><div>'+tr("noTrucksToday")+'</div></div>';
   }
