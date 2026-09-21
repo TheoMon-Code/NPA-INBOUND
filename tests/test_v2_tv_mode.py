@@ -109,7 +109,14 @@ async def main():
         rows = await page.locator(".trucktable tbody tr").count()
         print("TV board rows:", rows)
         assert rows == 2, "expected only today's trucks on the board"
-        table_text = await page.text_content(".trucktable")
+        # Round 38 follow-up: the header row now lives in its own small,
+        # non-scrolling table (.tvheadtable) sitting above the scrolling body
+        # table (.tvbodytable) -- both carry the "trucktable" class (for
+        # shared styling), so `.trucktable` alone now matches two elements
+        # and page.text_content() would only ever see the first (the header,
+        # no PO numbers at all). `.tvtable` is the shared wrapper around both,
+        # so it's what actually needs checking here.
+        table_text = await page.text_content(".tvtable")
         assert "PO-9101" in table_text and "PO-9102" in table_text
         assert "PO-9103" not in table_text, "tomorrow's truck must not appear on the board"
         assert "PO-9104" not in table_text, "yesterday's still-open truck must not appear either -- today only, no carry-forward"
