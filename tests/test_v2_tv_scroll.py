@@ -13,14 +13,26 @@ TODAY = date.today().isoformat()
 # things: (1) a quiet day (short list) never turns scrolling on at all --
 # same as before this round, nothing should move if everything already
 # fits; (2) a busy day (22 trucks, same fixture Round 23's pagination test
-# used) does turn it on, with the content duplicated for the seamless loop
-# and an animation-duration matching TV_SCROLL_PX_PER_SEC (or the
-# ?scrollSpeed= override used here to keep the test fast); (3) a re-render
-# (forced via a short ?pollMs=) resumes from wherever the animation already
-# was instead of jumping back to the top -- the animation-delay this second
-# check produces must be more negative than the first, and the visible
-# on-screen position must have moved on (not reset), otherwise every ~15s
-# periodic refresh would make the board visibly stutter back to the start.
+# used) does turn it on, scrolling down exactly as far as the content itself
+# (no duplication -- see the Round 38 follow-up below) with an animation-
+# duration matching TV_SCROLL_PX_PER_SEC (or the ?scrollSpeed= override used
+# here to keep the test fast); (3) a re-render (forced via a short ?pollMs=)
+# resumes from wherever the animation already was instead of jumping back to
+# the top -- the animation-delay this second check produces must be more
+# negative than the first, and the visible on-screen position must have
+# moved on (not reset), otherwise every ~15s periodic refresh would make the
+# board visibly stutter back to the start.
+#
+# Round 38 follow-up: the first cut duplicated the table markup once (so a
+# CSS translateY(0)->-50% animation could loop with no visible seam) -- but
+# Theo saw that as the board showing "Ongoing / Completed / Ongoing /
+# Completed" back to back and asked for the opposite: once the list
+# finishes, it should jump back to the top, not carry on into a second copy.
+# setupTvAutoScroll() no longer duplicates anything -- it animates down by
+# exactly the real content's scroll distance and lets a plain CSS animation
+# loop snap back to "from" on its own. This test's row-count check below now
+# expects exactly the real 22 rows (not 44), and a new check confirms the
+# table markup itself was never duplicated in the DOM.
 
 def eta_in(minutes):
     return (datetime.now() + timedelta(minutes=minutes)).strftime("%H:%M:00")
@@ -102,7 +114,7 @@ async def main():
         # js/main.js) is set here too, from the very first load, so a
         # Supabase re-poll -- and the full renderTv() rebuild that comes with
         # it -- happens well inside this same page's lifetime below: the
-        # resume logic being tested (tvScrollStartedAt/tvScrollLastHeight in
+        # resume logic being tested (tvScrollStartedAt/tvScrollLastDistance in
         # js/render.js) is module-level JS state that a fresh page.goto()
         # would itself reset, so this has to stay one page load throughout,
         # not a second navigation.
@@ -111,12 +123,12 @@ async def main():
         state1 = await scroll_state(page)
         print("busy day scroll state (1st render):", state1)
         assert state1["scrolling"], "a 22-truck list must not fit and should auto-scroll"
-        # Once scrolling kicks in, setupTvAutoScroll() duplicates the whole
-        # table markup once (content.innerHTML += content.innerHTML) so the
-        # loop from -50% back to 0% is seamless -- twice as many <tr> as
-        # boardTrucks (all 22 are "pending" today, so there's no
-        # Ongoing/Completed section-header row to also count).
-        assert state1["rowCount"] == 44, "expected the table markup duplicated once for the seamless scroll loop"
+        # Round 38 follow-up: no more duplication -- exactly the real 22 rows
+        # (all "pending" today, so there's no Ongoing/Completed section-header
+        # row to also count), and exactly one body table in the DOM, never two.
+        assert state1["rowCount"] == 22, "expected the real row count, not a duplicated copy"
+        body_table_count = await page.locator(".tvbodytable").count()
+        assert body_table_count == 1, "the table markup must never be duplicated in the DOM"
 
         def delay_seconds(s):
             return float(s["delay"].rstrip("s"))
