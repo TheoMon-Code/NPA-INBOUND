@@ -8,7 +8,7 @@ import { state, ui } from "./state.js";
 import { tr } from "./i18n.js";
 import { derive, lateMinutes, isDueSoon, isCriticallyLate, STATUS_KEYS } from "./status.js";
 import { esc, shortDate, fmtElapsed, dateTimeOf, clockStr, addDays, todayKey, hm } from "./dateUtils.js";
-import { DAY_LABELS, MONTH_LABELS, DAY_LABELS_TH, MONTH_LABELS_TH, MONTH_LABELS_TH_SHORT, TV_ROWS_PER_PAGE, TV_ROTATE_MS, MHE_DAY_WINDOW } from "./config.js";
+import { DAY_LABELS, MONTH_LABELS, DAY_LABELS_TH, MONTH_LABELS_TH, MONTH_LABELS_TH_SHORT, TV_SCROLL_PX_PER_SEC, MHE_DAY_WINDOW } from "./config.js";
 import { loadSavedName } from "./storage.js";
 import { supabaseEnabled } from "./api.js";
 import { hasImportFile, importFileName, importSheetNames } from "./importPlan.js";
@@ -1477,7 +1477,15 @@ function tvRowHtml(t, now){
   // keeps it at the bottom), but shouldn't visually compete with what's
   // still open.
   var completedCls = t.status === "done" ? " tv-completed" : "";
-  var rowCls = (alertCls+completedCls).trim();
+  // Round 38: client feedback -- a truck with a damage/claim remark gets the
+  // same kind of persistent, glanceable highlight as a late/urgent truck
+  // (tvalert above), just its own color (see .tvproblem in css/app.css), so
+  // a problem is noticeable on an unwatched board without relying on anyone
+  // reading the small chip text in the status cell. Same damageRemark field
+  // damageBadge() already reads below -- no new "problem" flag, just a
+  // second, bigger way of showing the same thing.
+  var problemCls = (t.damageRemark && t.damageRemark.trim()) ? " tvproblem" : "";
+  var rowCls = (alertCls+completedCls+problemCls).trim();
   // Round 34 (carry-forward): a row for a truck from an earlier day needs its
   // date next to the time, or it would silently look like a same-day truck
   // running late -- shortDate() gives the compact "DD/MM" already used
@@ -1493,10 +1501,15 @@ function tvRowHtml(t, now){
     // never on the TV board at all).
     '<td>'+(t.carrierTh ? esc(t.carrierTh) : "—")+'</td>'+
     '<td>'+(t.plant ? esc(t.plant) : "—")+'</td>'+
-    // Round 35: actual start/finish clock time on a second, smaller line
-    // under the scheduled ETA -- see actualTimeHtml()/actualTimesText()
-    // above (shared with the admin table's ETA cell).
-    '<td>'+etaText+actualTimeHtml(t)+'</td>'+
+    '<td>'+etaText+'</td>'+
+    // Round 38: client feedback -- dedicated Start Time / End Time columns,
+    // same actualStartCellText()/actualEndCellText() helpers the admin
+    // desktop table already uses (Round 36) rather than reinventing a
+    // display for the same data -- replaces the small "▶ HH:MM ⏹ HH:MM"
+    // subtext this board used to show under the ETA cell (actualTimeHtml()),
+    // which is now redundant with these two columns.
+    '<td>'+esc(actualStartCellText(t))+'</td>'+
+    '<td>'+esc(actualEndCellText(t))+'</td>'+
     // Round 26 (Round 33: also a "#N"-suffixed po_no, see
     // looksLikeSiblingRef() above): this column used to show a "N lots"
     // badge (only ever populated for the old merged-lots trucks); now shows
@@ -1523,9 +1536,16 @@ function tvTableHeadHtml(){
     '<th>'+tr("tableColCarrierTh")+'</th>'+
     '<th>'+tr("tableColPlant")+'</th>'+
     '<th>'+tr("tvColEta")+'</th>'+
+    '<th>'+tr("tableColStartTime")+'</th>'+
+    '<th>'+tr("tableColEndTime")+'</th>'+
     '<th>'+tr("tableColLots")+'</th>'+
   '</tr>';
 }
+// Round 38: number of columns tvTableHeadHtml() prints above -- kept as one
+// constant rather than a literal "9" repeated at every colspan below, so the
+// two can never quietly drift apart again the way they would have if this
+// round's two new columns had only been added in one of the two places.
+var TV_TABLE_COLS = 9;
 function renderTv(){
   var now = new Date();
   document.documentElement.setAttribute("lang", ui.lang === "th" ? "th" : "en");
@@ -1534,101 +1554,119 @@ function renderTv(){
   // reverted.
   var boardTrucks = tvTodayTrucks();
   boardTrucks.sort(function(a,b){ return sortWeight(a,now) - sortWeight(b,now); });
-  // Round 23: a busy day (30-40 trucks) would otherwise just run off the
-  // bottom of a screen nobody is there to scroll -- rotate through
-  // fixed-size pages instead (see tvTick() below, which advances ui.tvPage
-  // every TV_ROTATE_MS). Clamped here too, defensively, in case the truck
-  // count shrank (fewer pages now than ui.tvPage points at) between the last
-  // page-flip and this particular render -- e.g. a render triggered by the
-  // regular Supabase poll rather than by tvTick() itself.
-  var totalPages = Math.max(1, Math.ceil(boardTrucks.length / TV_ROWS_PER_PAGE));
-  if(ui.tvPage >= totalPages) ui.tvPage = 0;
-  var pageTrucks = boardTrucks.slice(ui.tvPage*TV_ROWS_PER_PAGE, ui.tvPage*TV_ROWS_PER_PAGE + TV_ROWS_PER_PAGE);
-  var tableHtml;
+  var bodyHtml;
   if(boardTrucks.length){
     // Round 34: same ongoing/completed split as the admin table/cards
-    // (listTableHtml()/listHtml() above), just done per-PAGE rather than
-    // over the whole board -- sortWeight() already keeps every "done" truck
-    // at the bottom of the full sorted list, so within any one page the
-    // ongoing ones are still a contiguous run followed by a contiguous run
-    // of completed ones; splitting the current page is enough and avoids
-    // touching the pagination math (page N is still exactly rows
-    // N*10..N*10+10 of the same sorted list either way). Only shown when
-    // THIS page actually has both kinds, same "never a header with nothing
-    // to separate" rule as the admin views.
-    var pageOngoing = pageTrucks.filter(function(t){ return t.status !== "done"; });
-    var pageCompleted = pageTrucks.filter(function(t){ return t.status === "done"; });
+    // (listTableHtml()/listHtml() above) -- sortWeight() already keeps every
+    // "done" truck at the bottom of the sorted list, so this is a plain
+    // split of that one list, not a per-page one anymore (Round 38 dropped
+    // pagination -- see setupTvAutoScroll() below). Only shown when there
+    // actually is both kinds today, same "never a header with nothing to
+    // separate" rule as the admin views.
+    var ongoing = boardTrucks.filter(function(t){ return t.status !== "done"; });
+    var completed = boardTrucks.filter(function(t){ return t.status === "done"; });
     var rows;
-    if(pageOngoing.length && pageCompleted.length){
-      rows = '<tr class="tablesectionrow"><td colspan="7">'+tr("sectionOngoing")+'</td></tr>'+
-        pageOngoing.map(function(t){ return tvRowHtml(t, now); }).join("")+
-        '<tr class="tablesectionrow"><td colspan="7">'+tr("sectionCompleted")+'</td></tr>'+
-        pageCompleted.map(function(t){ return tvRowHtml(t, now); }).join("");
+    if(ongoing.length && completed.length){
+      rows = '<tr class="tablesectionrow"><td colspan="'+TV_TABLE_COLS+'">'+tr("sectionOngoing")+'</td></tr>'+
+        ongoing.map(function(t){ return tvRowHtml(t, now); }).join("")+
+        '<tr class="tablesectionrow"><td colspan="'+TV_TABLE_COLS+'">'+tr("sectionCompleted")+'</td></tr>'+
+        completed.map(function(t){ return tvRowHtml(t, now); }).join("");
     } else {
-      rows = pageTrucks.map(function(t){ return tvRowHtml(t, now); }).join("");
+      rows = boardTrucks.map(function(t){ return tvRowHtml(t, now); }).join("");
     }
-    tableHtml = '<table class="trucktable"><thead>'+tvTableHeadHtml()+'</thead><tbody>'+rows+'</tbody></table>';
+    var tableHtml = '<table class="trucktable"><thead>'+tvTableHeadHtml()+'</thead><tbody>'+rows+'</tbody></table>';
+    // Round 38: client feedback -- replaces the old fixed-size page
+    // rotation (Rounds 23-37) with a continuous auto-scroll, so the whole
+    // list is visible without waiting for a page flip. .tvscrollviewport is
+    // the fixed-height clipping window (CSS gives it the space left under
+    // the banner); .tvscrollcontent is what actually gets animated -- see
+    // setupTvAutoScroll(), called once this HTML is in the DOM below, which
+    // decides whether today's list is even tall enough to need scrolling at
+    // all (a quiet day just sits still, exactly like before this round).
+    bodyHtml = '<div class="tvscrollviewport"><div class="tvscrollcontent">'+tableHtml+'</div></div>';
   } else {
-    tableHtml = '<div class="empty"><span class="empty-icon">🚚</span><div>'+tr("noTrucksToday")+'</div></div>';
+    bodyHtml = '<div class="empty"><span class="empty-icon">🚚</span><div>'+tr("noTrucksToday")+'</div></div>';
   }
-  // Only shown once there's more than one page -- on a normal/quiet day
-  // (the common case) this stays entirely absent, exactly like before this
-  // round. data-tv-page/data-tv-total-pages give tests (and any future
-  // debugging) a language-agnostic hook, since the visible text is
-  // translated and the numbers alone aren't enough to search for reliably.
-  var pageInfoHtml = totalPages > 1
-    ? '<div class="tvpageinfo" data-tv-page="'+(ui.tvPage+1)+'" data-tv-total-pages="'+totalPages+'">'+
-        esc(tr("tvPageIndicator").replace("{cur}", ui.tvPage+1).replace("{total}", totalPages))+
-      '</div>'
-    : '';
   var html =
     '<div class="topbar tvtopbar">'+
-      '<div class="brand-row">'+markSvg()+
-        '<div class="brand-word"><span class="tagline">INBOUND</span></div></div>'+
-      '<div class="clockbox"><div class="clock" id="clockEl">'+clockStr(now)+'</div>'+
-      '<div class="clockdate">'+longDate(now)+'</div>'+
-      // Same #pollCountdownEl id as the normal view -- tick() (js/ticking.js)
-      // updates it by id with no idea which render path built it, so the
-      // countdown keeps working here for free.
-      '<div class="syncrow"><span class="syncdot '+syncDotClass()+'"></span>'+syncLabel()+pollCountdownHtml(now)+'</div></div>'+
+      // Round 38: client feedback -- the banner was taking up too much of
+      // the screen. brand-row and clockbox used to each sit on their own
+      // full-width row (this whole element is flex-direction:column, see
+      // .topbar); reusing .topbar-row1 (the exact same "logo left, clock/
+      // date right, one line" wrapper the normal mobile/admin header
+      // already uses for the same two pieces) puts them side by side here
+      // too, instead of introducing a new layout just for this screen.
+      '<div class="topbar-row1">'+
+        '<div class="brand-row">'+markSvg()+
+          '<div class="brand-word"><span class="tagline">INBOUND</span></div></div>'+
+        '<div class="clockbox"><div class="clock" id="clockEl">'+clockStr(now)+'</div>'+
+        '<div class="clockdate">'+longDate(now)+'</div>'+
+        // Same #pollCountdownEl id as the normal view -- tick() (js/ticking.js)
+        // updates it by id with no idea which render path built it, so the
+        // countdown keeps working here for free.
+        '<div class="syncrow"><span class="syncdot '+syncDotClass()+'"></span>'+syncLabel()+pollCountdownHtml(now)+'</div></div>'+
+      '</div>'+
     // Round 34: the legend used to be its own block below the table
     // (tvLegendHtml()) -- Theo asked for it in the top banner instead, in a
     // condensed dot+label form (see tvBannerLegendHtml() above), as the last
     // row of this same banner rather than its own top-level block.
     tvBannerLegendHtml()+
     '</div>'+
-    '<div class="tvtable">'+pageInfoHtml+tableHtml+'</div>';
+    '<div class="tvtable">'+bodyHtml+'</div>';
   document.body.classList.add("tvmode");
   document.getElementById("app").innerHTML = html;
+  setupTvAutoScroll();
 }
 
-/* Advances the TV board to its next page every TV_ROTATE_MS (js/config.js),
-   wrapping back to the first page after the last -- called once a second
-   from tick() (js/ticking.js), the same lightweight pattern already used for
-   the header clock, an open truck's live timer, and the refresh countdown.
-   A no-op outside TV mode, and a no-op whenever today's trucks all fit on
-   one page (nothing to rotate to), so this costs nothing on every other
-   screen or on a quiet day. */
-var tvPageChangedAt = 0;
-export function tvTick(now){
-  if(!ui.tvMode) return;
-  // Round 34 follow-up: back to counting only today's trucks (tvTodayTrucks()
-  // above) -- carried-over trucks live in their own non-paginated strip now,
-  // so they must NOT factor into this page count, or it would desync from
-  // what renderTv() actually paginates.
-  var total = tvTodayTrucks().length;
-  var totalPages = Math.max(1, Math.ceil(total / TV_ROWS_PER_PAGE));
-  if(ui.tvPage >= totalPages) ui.tvPage = 0;
-  if(totalPages <= 1){ tvPageChangedAt = now; return; }
-  if(!tvPageChangedAt) tvPageChangedAt = now;
-  // Round 34: ui.tvRotateMsOverride (set from ?rotateMs=, js/main.js) lets
-  // the test suite use a short rotation instead of the real 30s.
-  var rotateMs = ui.tvRotateMsOverride || TV_ROTATE_MS;
-  if(now - tvPageChangedAt >= rotateMs){
-    ui.tvPage = (ui.tvPage + 1) % totalPages;
-    tvPageChangedAt = now;
-    render();
+/* Round 38: replaces the old page-rotation timer (tvTick(), driven every
+   second from tick() in js/ticking.js) with a plain CSS animation -- no per-
+   second JS needed to keep it moving. Called once at the end of every
+   renderTv() (every ~15s periodic refresh, every poll, and on first load).
+   A no-op outside TV mode implicitly (renderTv() is the only caller), and a
+   no-op whenever today's list already fits the screen -- same "a quiet day
+   looks exactly like before" guarantee the old pagination gave. */
+var tvScrollStartedAt = null;
+var tvScrollLastHeight = 0;
+function setupTvAutoScroll(){
+  var viewport = document.querySelector(".tvscrollviewport");
+  var content = document.querySelector(".tvscrollcontent");
+  if(!viewport || !content) return;
+  var naturalHeight = content.scrollHeight;
+  var viewportHeight = viewport.clientHeight;
+  if(naturalHeight <= viewportHeight){
+    tvScrollStartedAt = null;
+    tvScrollLastHeight = 0;
+    return;
   }
+  var pxPerSec = ui.tvScrollSpeedOverride || TV_SCROLL_PX_PER_SEC;
+  var durationMs = (naturalHeight / pxPerSec) * 1000;
+  var now = Date.now();
+  // render() rebuilds this whole table from scratch on every periodic
+  // refresh/poll (see the top comment on render() below) -- restarting the
+  // CSS animation from 0 each time would make the board visibly jump back
+  // to the top every ~15 seconds instead of ever completing a full pass.
+  // Keeping a running start time across renders and resuming with a
+  // matching *negative* animation-delay (mod the cycle length, so it never
+  // grows unbounded) makes each rebuild pick up exactly where the last one
+  // left off, invisibly. Only reset when the content's actual height
+  // changed by more than a couple pixels (a truck was added/finished/
+  // removed, or the page count changed today), not on every trivial
+  // sub-pixel layout difference between two otherwise-identical renders.
+  if(tvScrollStartedAt == null || Math.abs(naturalHeight - tvScrollLastHeight) > 2){
+    tvScrollStartedAt = now;
+  }
+  tvScrollLastHeight = naturalHeight;
+  var elapsedMs = (now - tvScrollStartedAt) % durationMs;
+  // Seamless infinite loop: duplicate the content once (so the element is
+  // exactly 2x its natural height) and animate translateY from 0 to -50% --
+  // the instant one cycle completes, the second (identical) copy is exactly
+  // where the first one started, so the loop point is invisible. Measuring
+  // naturalHeight above, before this duplication, is what keeps the scroll
+  // speed/duration correct regardless of how many trucks are on the board.
+  content.innerHTML += content.innerHTML;
+  content.style.animationDuration = (durationMs/1000)+"s";
+  content.style.animationDelay = (-elapsedMs/1000)+"s";
+  content.classList.add("tvscrolling");
 }
 
 export function render(){
