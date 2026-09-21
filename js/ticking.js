@@ -6,7 +6,7 @@
    open, so it can't wipe out something the admin/driver is mid-typing. */
 import { state, ui, incrementTickCount, lastActivityAt } from "./state.js";
 import { clockStr, fmtElapsed } from "./dateUtils.js";
-import { render, tvTick } from "./render.js";
+import { render } from "./render.js";
 import { logout } from "./actions.js";
 import { INACTIVITY_LOGOUT_MS } from "./config.js";
 
@@ -77,10 +77,9 @@ export function tick(){
   if(pollEl && ui.nextPollAt != null){
     pollEl.textContent = fmtElapsed(ui.nextPollAt - Date.now());
   }
-  // TV board page rotation (Round 23) -- a no-op outside TV mode, and a
-  // no-op whenever today's trucks all fit on one page, so this costs nothing
-  // on every other screen/day. See tvTick() in render.js.
-  tvTick(Date.now());
+  // Round 38: the TV board's page rotation (Round 23-37, driven from here)
+  // is gone -- it's a continuous CSS auto-scroll now (setupTvAutoScroll() in
+  // render.js, set up once per render(), nothing to drive every second).
   if(!isInputSheetOpen() && count % 15 === 0){
     render();
   }
