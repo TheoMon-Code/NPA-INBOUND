@@ -811,6 +811,16 @@ body.tvmode .trucktable tbody tr.tvproblem{animation:tvproblempulse 2s ease-in-o
    render time whether today's list is even tall enough to need this at all
    -- a quiet day's list just sits still inside the same viewport, exactly
    like a plain (non-scrolling) block would. */
+/* Round 38 follow-up: the header used to be part of the same <table> that
+   got duplicated/scrolled (see the loop bug this replaced -- js/render.js,
+   TV_COL_WIDTHS comment), so it flashed past a second time mid-list every
+   cycle. Now .tvheadtable is a separate, non-scrolling table sitting above
+   .tvscrollviewport, and only .tvbodytable (inside .tvscrollcontent) moves.
+   table-layout:fixed + the shared <colgroup> (tvColgroupHtml() in
+   js/render.js) is what keeps the two tables' columns lined up, since
+   they're no longer one table whose columns size together automatically. */
+body.tvmode .tvheadtable{table-layout:fixed; margin:0}
+body.tvmode .tvbodytable{table-layout:fixed; margin:0}
 body.tvmode .tvscrollviewport{flex:1; min-height:0; overflow:hidden; position:relative}
 body.tvmode .tvscrollcontent{will-change:transform}
 @keyframes tvautoscroll{
