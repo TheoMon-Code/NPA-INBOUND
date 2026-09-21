@@ -115,7 +115,12 @@ async def main():
         #      the admin desktop table checked above, just without Duration. ----
         await page.goto(BASE+"?tv=1")
         await page.wait_for_timeout(500)
-        tv_text = await page.text_content(".trucktable")
+        # Round 38 follow-up: the TV header now lives in its own small,
+        # non-scrolling table (.tvheadtable) above the scrolling body table
+        # (.tvbodytable) -- both carry the "trucktable" class, so `.trucktable`
+        # alone matches two elements now. `.tvtable` is the shared wrapper
+        # around both and is what this needs to check.
+        tv_text = await page.text_content(".tvtable")
         print("TV table text:", tv_text)
         assert "▶" not in tv_text and "⏹" not in tv_text, \
             "the old inline ▶/⏹ marker should be gone from the TV board -- superseded by dedicated columns"
