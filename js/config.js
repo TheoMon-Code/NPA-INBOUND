@@ -47,16 +47,16 @@ export const MAX_DAY_OFFSET = 5;
 // TV mode (Round 22) shows every one of today's trucks in a single table with
 // nothing clickable and no scrollbar anyone will ever use — fine on a quiet
 // day, but a busy one (30-40 trucks) would just run off the bottom of a
-// screen nobody is there to scroll. Round 23: rotate through fixed-size pages
-// automatically instead, like a real airport departures board, rather than
-// try to shrink everything to fit (which would fight the whole point of a
-// board meant to be read from across the room).
-export const TV_ROWS_PER_PAGE = 10;
-// Round 34: was 8000 (8s) -- Theo found the board flipping pages too fast to
-// actually read from across the room ("ca change de tab trop vite"); briefly
-// 20s (confirmed via AskUserQuestion), then Theo asked for 30s once he'd
-// actually seen 20s in practice.
-export const TV_ROTATE_MS = 30000;
+// screen nobody is there to scroll. Round 23-37 rotated through fixed-size
+// pages automatically instead, like a real airport departures board. Round
+// 38: client feedback -- replaced with a continuous auto-scroll instead (see
+// setupTvAutoScroll() in js/render.js) so the whole list is visible without
+// waiting for a page flip; TV_ROWS_PER_PAGE/TV_ROTATE_MS are gone with it.
+// Pixels per second the board scrolls at once today's trucks no longer fit
+// the screen — deliberately slow/steady (a "departures board" pace, not a
+// stock ticker) so every row stays readable while it passes. A busier day
+// just takes longer to scroll through, not a faster scroll.
+export const TV_SCROLL_PX_PER_SEC = 32;
 // Round 25 follow-up: auto-logout after this long with no click/keydown/
 // input anywhere in the app (see js/state.js's touchActivity() and the check
 // in js/ticking.js's tick()) -- applies to every role (Admin MON, Admin MON
