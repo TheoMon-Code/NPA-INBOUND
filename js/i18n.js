@@ -363,10 +363,10 @@ export const STRINGS = {
   // always read the same value -- an ETA column is more useful on a board
   // meant to be read from across the room.
   tvColEta:{en:"ETA",th:"เวลานัด"},
-  // Round 23: TV board pagination (a busy day rotates through fixed-size
-  // pages instead of running off the bottom of the screen), photo viewer,
-  // and the admin settings screen.
-  tvPageIndicator:{en:"Page {cur} of {total}",th:"หน้า {cur} จาก {total}"},
+  // Round 23: photo viewer and admin settings screen labels. (The TV board's
+  // old page-rotation indicator that used to live here, tvPageIndicator, was
+  // removed in Round 38 along with the pagination it labelled -- see
+  // setupTvAutoScroll() in js/render.js.)
   closeViewerAria:{en:"Close",th:"ปิด"},
   prevPhotoAria:{en:"Previous photo",th:"รูปก่อนหน้า"},
   nextPhotoAria:{en:"Next photo",th:"รูปถัดไป"},
