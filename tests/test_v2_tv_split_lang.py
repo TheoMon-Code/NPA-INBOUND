@@ -59,9 +59,12 @@ async def main():
 
         headers = await page.locator(".trucktable thead th").all_text_contents()
         print("TV column headers (lang=en):", headers)
-        assert headers == ["Status", "PO / Ref", "Carrier", "Thai name", "Plant", "ETA", "Product / Qty"], \
-            "expected English column headers with ?lang=en (incl. the new Thai-name column), " \
-            "regardless of this browser's stored ui.lang"
+        # Round 38: two new columns (Start Time / End Time) inserted between
+        # ETA and Product/Qty -- see tvTableHeadHtml() in js/render.js.
+        assert headers == ["Status", "PO / Ref", "Carrier", "Thai name", "Plant", "ETA",
+                            "Start Time", "End Time", "Product / Qty"], \
+            "expected English column headers with ?lang=en (incl. the new Thai-name column " \
+            "and Round 38's Start/End Time columns), regardless of this browser's stored ui.lang"
 
         # (not .first -- with both Ongoing/Completed present the very first
         # tbody row is the "Ongoing" section divider, not a truck row)
