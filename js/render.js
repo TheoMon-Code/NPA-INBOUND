@@ -1648,22 +1648,44 @@ function renderTv(){
    renderTv() (every ~15s periodic refresh, every poll, and on first load).
    A no-op outside TV mode implicitly (renderTv() is the only caller), and a
    no-op whenever today's list already fits the screen -- same "a quiet day
-   looks exactly like before" guarantee the old pagination gave. */
+   looks exactly like before" guarantee the old pagination gave.
+   Round 38 follow-up: the first cut duplicated the content once (so a CSS
+   translateY(0)->-50% animation could loop with no visible seam) -- but
+   Theo saw that as the board showing "Ongoing / Completed / Ongoing /
+   Completed" back to back and said the opposite: once it finishes
+   Completed, it should go back to the top ("apres completed faut que ca
+   remonte en haut"), not carry straight on into a second copy of Ongoing.
+   That's a plain "scroll to the bottom, then jump back to the top" loop,
+   which is simpler than the seamless version: animate translateY(0) to
+   -<scrollDistance>px (exactly far enough that the last row clears the
+   bottom of the viewport, no more), with no content duplication at all --
+   a native CSS animation on animation-iteration-count:infinite already
+   snaps straight back to its "from" state the instant one pass finishes,
+   which IS the top-of-list jump Theo asked for. The distance is only known
+   at render time (depends on today's row count), so it's passed to the
+   shared @keyframes (css/app.css) via a CSS custom property rather than a
+   hardcoded percentage. */
 var tvScrollStartedAt = null;
-var tvScrollLastHeight = 0;
+var tvScrollLastDistance = 0;
 function setupTvAutoScroll(){
   var viewport = document.querySelector(".tvscrollviewport");
   var content = document.querySelector(".tvscrollcontent");
   if(!viewport || !content) return;
   var naturalHeight = content.scrollHeight;
   var viewportHeight = viewport.clientHeight;
-  if(naturalHeight <= viewportHeight){
+  // How far the content needs to move up for its last row to just clear the
+  // bottom of the viewport -- not the full content height, or the list would
+  // keep scrolling well past the point everything's already been shown.
+  var scrollDistance = naturalHeight - viewportHeight;
+  if(scrollDistance <= 0){
     tvScrollStartedAt = null;
-    tvScrollLastHeight = 0;
+    tvScrollLastDistance = 0;
+    content.classList.remove("tvscrolling");
+    content.style.removeProperty("--tv-scroll-distance");
     return;
   }
   var pxPerSec = ui.tvScrollSpeedOverride || TV_SCROLL_PX_PER_SEC;
-  var durationMs = (naturalHeight / pxPerSec) * 1000;
+  var durationMs = (scrollDistance / pxPerSec) * 1000;
   var now = Date.now();
   // render() rebuilds this whole table from scratch on every periodic
   // refresh/poll (see the top comment on render() below) -- restarting the
@@ -1672,22 +1694,16 @@ function setupTvAutoScroll(){
   // Keeping a running start time across renders and resuming with a
   // matching *negative* animation-delay (mod the cycle length, so it never
   // grows unbounded) makes each rebuild pick up exactly where the last one
-  // left off, invisibly. Only reset when the content's actual height
+  // left off, invisibly. Only reset when the scroll distance actually
   // changed by more than a couple pixels (a truck was added/finished/
-  // removed, or the page count changed today), not on every trivial
-  // sub-pixel layout difference between two otherwise-identical renders.
-  if(tvScrollStartedAt == null || Math.abs(naturalHeight - tvScrollLastHeight) > 2){
+  // removed today), not on every trivial sub-pixel layout difference
+  // between two otherwise-identical renders.
+  if(tvScrollStartedAt == null || Math.abs(scrollDistance - tvScrollLastDistance) > 2){
     tvScrollStartedAt = now;
   }
-  tvScrollLastHeight = naturalHeight;
+  tvScrollLastDistance = scrollDistance;
   var elapsedMs = (now - tvScrollStartedAt) % durationMs;
-  // Seamless infinite loop: duplicate the content once (so the element is
-  // exactly 2x its natural height) and animate translateY from 0 to -50% --
-  // the instant one cycle completes, the second (identical) copy is exactly
-  // where the first one started, so the loop point is invisible. Measuring
-  // naturalHeight above, before this duplication, is what keeps the scroll
-  // speed/duration correct regardless of how many trucks are on the board.
-  content.innerHTML += content.innerHTML;
+  content.style.setProperty("--tv-scroll-distance", scrollDistance+"px");
   content.style.animationDuration = (durationMs/1000)+"s";
   content.style.animationDelay = (-elapsedMs/1000)+"s";
   content.classList.add("tvscrolling");
