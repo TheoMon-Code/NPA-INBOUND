@@ -11,6 +11,15 @@ TODAY = date.today().isoformat()
 # instant it happens, precisely because nobody is watching the board
 # continuously (see the .tvalert CSS/tvRowHtml() comments in render.js/
 # css/app.css for why a continuous cue was chosen over a transition flash).
+#
+# Round 38: same idea, second trigger -- "Si y a un order qui a un probleme"
+# (Theo, from a screenshot of the live board). Clarified via follow-up
+# question that "problem" means a damage/claim remark is set on the truck
+# (damage_remark -> t.damageRemark, the same field damageBadge()'s "Issue"
+# chip already reads elsewhere) -- not, say, a missing arrival. Gets its own
+# color (.tvproblem, amber) so it reads as a different kind of attention-flag
+# than the existing red late/urgent .tvalert, and the two are independent:
+# either, both, or neither can apply to a given row.
 
 def eta_in(minutes):
     return (datetime.now() + timedelta(minutes=minutes)).strftime("%H:%M:00")
@@ -24,6 +33,14 @@ TRUCKS = [
      "order_date":TODAY,"eta":None,"truck_state":"pending","photos":[]},
     # Comfortably on schedule -- should NOT pulse.
     {"id":"3","reference_id":"T-3","carrier":"OnTime Co","plant":"AMATA","po_no":"PO-ONTIME",
+     "order_date":TODAY,"eta":TODAY+"T"+eta_in(180),"truck_state":"pending","photos":[]},
+    # On schedule but with a damage/claim remark set -- should pulse .tvproblem
+    # (amber), NOT .tvalert (red): the two flags are independent.
+    {"id":"4","reference_id":"T-4","carrier":"Damaged Co","plant":"AMATA","po_no":"PO-PROBLEM",
+     "order_date":TODAY,"eta":TODAY+"T"+eta_in(180),"truck_state":"pending",
+     "damage_remark":"2 pallets crushed on arrival","photos":[]},
+    # Neither late/urgent NOR a problem -- should have no highlight at all.
+    {"id":"5","reference_id":"T-5","carrier":"Clean Co","plant":"AMATA","po_no":"PO-CLEAN",
      "order_date":TODAY,"eta":TODAY+"T"+eta_in(180),"truck_state":"pending","photos":[]},
 ]
 
@@ -54,12 +71,13 @@ async def main():
           () => Array.from(document.querySelectorAll('.trucktable tbody tr')).map(tr => ({
             text: tr.textContent,
             hasAlert: tr.classList.contains('tvalert'),
+            hasProblem: tr.classList.contains('tvproblem'),
             animationName: getComputedStyle(tr).animationName
           }))
         """)
         by_po = {}
         for r in rows:
-            for po in ("PO-LATE", "PO-URGENT", "PO-ONTIME"):
+            for po in ("PO-LATE", "PO-URGENT", "PO-ONTIME", "PO-PROBLEM", "PO-CLEAN"):
                 if po in r["text"]:
                     by_po[po] = r
         print("rows:", by_po)
@@ -70,6 +88,15 @@ async def main():
         assert by_po["PO-URGENT"]["animationName"] == "tvalertpulse"
         assert not by_po["PO-ONTIME"]["hasAlert"], "an on-schedule truck must not pulse"
         assert by_po["PO-ONTIME"]["animationName"] == "none"
+
+        # Round 38: a damage/claim remark pulses .tvproblem instead, even
+        # though this truck is otherwise on schedule (not late/urgent).
+        assert by_po["PO-PROBLEM"]["hasProblem"], "a truck with a damage remark should carry the tvproblem class"
+        assert not by_po["PO-PROBLEM"]["hasAlert"], "a problem truck that's on schedule must not also carry tvalert"
+        assert by_po["PO-PROBLEM"]["animationName"] == "tvproblempulse"
+        assert not by_po["PO-CLEAN"]["hasProblem"], "a truck with no damage remark must not carry tvproblem"
+        assert not by_po["PO-CLEAN"]["hasAlert"]
+        assert by_po["PO-CLEAN"]["animationName"] == "none"
 
         await browser.close()
         print("TV ALERT TEST PASSED")
