@@ -141,20 +141,15 @@ export const ui = {
   // below (so nothing admin-only can ever leak onto a public screen through
   // a shared code path, and this stays unaffected by future changes there).
   tvMode: false,
-  // Round 23: which page of today's trucks the TV board is currently showing
-  // (0-based), advanced automatically by tvTick() in render.js every
-  // TV_ROTATE_MS (js/config.js) so a busy day's full list is still readable
-  // instead of running off the bottom of an unwatched screen. Meaningless
-  // outside TV mode.
-  tvPage: 0,
-  // Round 34: lets the test suite ask tvTick() (js/render.js) to rotate pages
-  // much faster than the real TV_ROTATE_MS (js/config.js, now 20s for a real
-  // board) via a `?rotateMs=` URL param read in main.js -- otherwise
-  // test_v2_tv_pagination.py's real-time waits would balloon the same way
-  // the poll-interval tests did when SUPABASE_POLL_MS went from 15s to 2min
-  // (see ?pollMs= there). null outside of that override, meaning "use
-  // TV_ROTATE_MS" -- never set by anything reachable from the real app UI.
-  tvRotateMsOverride: null,
+  // Round 38: lets the test suite ask setupTvAutoScroll() (js/render.js) to
+  // scroll much faster than the real TV_SCROLL_PX_PER_SEC (js/config.js) via
+  // a `?scrollSpeed=` URL param read in main.js -- otherwise a scroll test
+  // would need real-time waits long enough to actually watch a slow, steady
+  // board-paced scroll finish a cycle. null outside of that override,
+  // meaning "use TV_SCROLL_PX_PER_SEC" -- never set by anything reachable
+  // from the real app UI. Replaces the old tvPage/tvRotateMsOverride
+  // (Rounds 23-37's page-rotation TV board, now a continuous scroll).
+  tvScrollSpeedOverride: null,
   // Fullscreen photo viewer (Round 23) — replaces the old "open the raw URL
   // in a new tab" behaviour with an in-app overlay that can step through a
   // truck's other photos and zoom in, without ever leaving the app. null
