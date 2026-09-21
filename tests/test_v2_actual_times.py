@@ -20,8 +20,13 @@ TODAY = date.today().isoformat()
 # with End Time reading "In Progress" while a truck is still unloading. That
 # table's ETA cell no longer carries the Round 35 ▶/⏹ marker at all (see
 # tableRowHtml() in js/render.js) -- superseded by the three new columns.
-# Cards and the TV board are unchanged from Round 35 (no room there for three
-# more columns), so this checks both surfaces with their own expectations.
+# Cards are unchanged from Round 35 (no room there for three more columns).
+#
+# Round 38: the TV board also got its own dedicated Start Time/End Time
+# columns (no Duration -- not asked for there), so its ETA cell lost the
+# Round 35 ▶/⏹ marker too (see tvRowHtml() in js/render.js) -- same migration
+# Round 36 already did for the admin desktop table above. Only the card view
+# still carries the inline marker at this point.
 
 def eta_in(minutes):
     return (datetime.now() + timedelta(minutes=minutes)).strftime("%H:%M:00")
@@ -94,23 +99,41 @@ async def main():
             "done truck should show both its actual start and finish time"
         assert done_cells[10].strip() == "1h35", "done truck's duration should be the finish-minus-start gap"
 
-        # ---- same "▶/⏹" marker check as Round 35, but only on the card/TV
-        #      surfaces now -- the admin table above no longer carries it. ----
+        # ---- same "▶/⏹" marker check as Round 35, but only on the card
+        #      surface now -- the admin table above no longer carries it,
+        #      and (Round 38) neither does the TV board any more. ----
         await page.set_viewport_size({"width":390,"height":800})
         await page.wait_for_timeout(150)
         cards_text = await page.text_content(".list")
         assert "▶ 09:15" in cards_text
         assert "▶ 08:05" in cards_text and "⏹ 09:40" in cards_text
 
+        # ---- TV board: Round 38 replaced the inline ▶/⏹ marker with its own
+        #      dedicated Start Time/End Time columns (tvTableHeadHtml() order:
+        #      Status(0), PO(1), Carrier(2), Thai name(3), Plant(4), ETA(5),
+        #      Start Time(6), End Time(7), Product/Qty(8)) -- same shape as
+        #      the admin desktop table checked above, just without Duration. ----
         await page.goto(BASE+"?tv=1")
         await page.wait_for_timeout(500)
         tv_text = await page.text_content(".trucktable")
         print("TV table text:", tv_text)
-        assert "▶ 09:15" in tv_text
-        assert "▶ 08:05" in tv_text and "⏹ 09:40" in tv_text
-        tv_pend_row = page.locator(".trucktable tbody tr", has_text="PO-PEND")
-        tv_pend_text = await tv_pend_row.text_content()
-        assert "▶" not in tv_pend_text and "⏹" not in tv_pend_text
+        assert "▶" not in tv_text and "⏹" not in tv_text, \
+            "the old inline ▶/⏹ marker should be gone from the TV board -- superseded by dedicated columns"
+
+        tv_pend_cells = await row_cells(page.locator(".trucktable tbody tr", has_text="PO-PEND"))
+        print("TV pending row cells:", tv_pend_cells)
+        assert tv_pend_cells[6].strip() == "—" and tv_pend_cells[7].strip() == "—", \
+            "a not-yet-arrived truck must show no Start/End time on the TV board"
+
+        tv_unld_cells = await row_cells(page.locator(".trucktable tbody tr", has_text="PO-UNLD"))
+        print("TV unloading row cells:", tv_unld_cells)
+        assert tv_unld_cells[6].strip() == "09:15", "TV board should show the actual start time"
+        assert tv_unld_cells[7].strip() == "กำลังดำเนินการ", "TV board's End Time should read In Progress (default Thai)"
+
+        tv_done_cells = await row_cells(page.locator(".trucktable tbody tr", has_text="PO-DONE"))
+        print("TV done row cells:", tv_done_cells)
+        assert tv_done_cells[6].strip() == "08:05" and tv_done_cells[7].strip() == "09:40", \
+            "TV board should show both the actual start and finish time once done"
 
         await browser.close()
         print("ACTUAL TIMES TEST PASSED")
