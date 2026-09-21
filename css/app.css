@@ -699,13 +699,25 @@ input, textarea{caret-color:var(--brand)}
 /* Round 34 follow-up: Theo found the whole banner (logo/clock row + the
    condensed legend row added this round) taking up too much of the screen
    -- shrunk across the board so more of the screen goes to the actual
-   truck table, which is the point of the board. */
-body.tvmode .tvtopbar{padding:12px 24px 8px}
-body.tvmode .mark-badge{height:36px}
-body.tvmode .clock{font-size:19px}
-body.tvmode .clockdate{font-size:11px}
-body.tvmode .syncrow{font-size:11px}
-body.tvmode .tvtable{padding:10px 28px 40px}
+   truck table, which is the point of the board. Round 38: shrunk further
+   (client feedback) -- brand-row/clockbox now share one row (.topbar-row1,
+   see renderTv() in js/render.js) instead of stacking as two, on top of
+   tighter padding/font-sizes here, cutting the banner down noticeably more
+   without losing legibility from across the room. body.tvmode/#app also
+   become a fixed-height flex column here so .tvtable below has a real,
+   measurable height to clip the auto-scrolling content against (see
+   .tvscrollviewport below and setupTvAutoScroll() in js/render.js) --
+   harmless outside TV mode since these rules are all scoped to
+   body.tvmode. */
+body.tvmode{height:100dvh; overflow:hidden}
+body.tvmode #app{height:100%; display:flex; flex-direction:column}
+body.tvmode .tvtopbar{padding:8px 24px 6px; flex:none; gap:4px}
+body.tvmode .mark-badge{height:28px; padding:3px 8px; border-radius:8px}
+body.tvmode .brand-word .tagline{font-size:9px}
+body.tvmode .clock{font-size:15px}
+body.tvmode .clockdate{font-size:10px}
+body.tvmode .syncrow{font-size:10px}
+body.tvmode .tvtable{padding:10px 28px 14px; flex:1; min-height:0; display:flex; flex-direction:column}
 body.tvmode .trucktable{font-size:20px}
 body.tvmode .trucktable thead th{font-size:14px;padding:14px 18px}
 body.tvmode .trucktable tbody td{padding:16px 18px}
@@ -728,12 +740,6 @@ body.tvmode .tvlegend{margin:18px 28px 0;padding:16px 20px}
 body.tvmode .tvlegend-title{font-size:15px;font-weight:700;color:var(--ink-dim);margin-bottom:12px}
 body.tvmode .legendtext b{font-size:15px}
 body.tvmode .legendtext span{font-size:13px}
-/* Page rotation (Round 23) -- a busy day's full truck list no longer runs
-   off the bottom of the screen; it's shown a page at a time instead (see
-   tvTick() in render.js), with this small "N of M" indicator so someone who
-   does glance at the board understands why the rows just changed. Absent
-   entirely on a quiet day (one page), same as before this round. */
-body.tvmode .tvpageinfo{font-size:14px;font-weight:700;color:var(--ink-dim);margin-bottom:10px;text-align:right}
 /* Round 34: condensed legend moved into the top banner (tvBannerLegendHtml()
    in js/render.js) -- a colored dot + short label per status, wrapped onto
    its own row under the brand/clock row, with a faint divider so it doesn't
@@ -743,14 +749,16 @@ body.tvmode .tvpageinfo{font-size:14px;font-weight:700;color:var(--ink-dim);marg
    a couple of them (a plain blue "scheduled" dot especially) would nearly
    vanish against this banner's own blue gradient. These instead reuse the
    handful of colors already proven to read against this exact banner -- the
-   same set .syncdot already uses a few lines up. */
+   same set .syncdot already uses a few lines up. Round 38: margin/padding/
+   font/dot size all trimmed a bit further as part of the overall banner
+   shrink above. */
 body.tvmode .tvbannerlegend{
-  display:flex; flex-wrap:wrap; gap:4px 12px;
-  margin-top:6px; padding-top:6px; border-top:1px solid rgba(255,255,255,.22);
-  font-size:11.5px;
+  display:flex; flex-wrap:wrap; gap:3px 10px;
+  margin-top:4px; padding-top:4px; border-top:1px solid rgba(255,255,255,.22);
+  font-size:10.5px;
 }
 .tvbannerlegend-item{display:flex; align-items:center; gap:5px; color:#fff; white-space:nowrap}
-.tvbannerdot{width:9px; height:9px; border-radius:3px; flex:none; box-shadow:0 0 0 1px rgba(255,255,255,.4)}
+.tvbannerdot{width:8px; height:8px; border-radius:3px; flex:none; box-shadow:0 0 0 1px rgba(255,255,255,.4)}
 .tvbannerdot.pending{background:#C7D2EB}
 .tvbannerdot.urgent{background:#F17683}
 .tvbannerdot.scheduled{background:#BFD0FF}
@@ -778,6 +786,45 @@ body.tvmode .trucktable tbody tr.tv-completed{opacity:.6}
 body.tvmode .trucktable tbody tr.tvalert{animation:tvalertpulse 2s ease-in-out infinite}
 @media (prefers-reduced-motion:reduce){
   body.tvmode .trucktable tbody tr.tvalert{animation:none;background:rgba(211,26,43,.18)}
+}
+/* Round 38: client feedback -- a truck with a damage/claim remark set gets
+   the same kind of persistent, glanceable highlight as a late/urgent truck
+   above, just its own color (amber, not --bad's red, so the two are never
+   confused at a glance) -- see the problemCls check in tvRowHtml() in
+   js/render.js. The small "⚠ Issue" chip (damageBadge()) already showed
+   this in the status cell; this makes it noticeable on an unwatched board
+   without anyone needing to read that chip's text. */
+@keyframes tvproblempulse{
+  0%,100%{background:transparent}
+  50%{background:rgba(246,173,64,.22)}
+}
+body.tvmode .trucktable tbody tr.tvproblem{animation:tvproblempulse 2s ease-in-out infinite}
+@media (prefers-reduced-motion:reduce){
+  body.tvmode .trucktable tbody tr.tvproblem{animation:none;background:rgba(246,173,64,.22)}
+}
+/* Round 38: client feedback -- replaces the old page-by-page rotation
+   (Rounds 23-37, tvTick()) with a continuous auto-scroll so every truck on
+   the board is visible without waiting for a page flip. .tvscrollviewport
+   is the fixed-height clipping window (it fills whatever space .tvtable's
+   flex:1 leaves under the banner, see above); .tvscrollcontent is what
+   actually gets animated. setupTvAutoScroll() (js/render.js) decides at
+   render time whether today's list is even tall enough to need this at all
+   -- a quiet day's list just sits still inside the same viewport, exactly
+   like a plain (non-scrolling) block would. */
+body.tvmode .tvscrollviewport{flex:1; min-height:0; overflow:hidden; position:relative}
+body.tvmode .tvscrollcontent{will-change:transform}
+@keyframes tvautoscroll{
+  from{transform:translateY(0)}
+  to{transform:translateY(-50%)}
+}
+body.tvmode .tvscrollcontent.tvscrolling{animation-name:tvautoscroll; animation-timing-function:linear; animation-iteration-count:infinite}
+@media (prefers-reduced-motion:reduce){
+  /* A viewer who's asked for reduced motion still needs to see every truck
+     somehow -- falling back to plain scrolling (a real, if unstyled,
+     scrollbar) rather than freezing on whatever the first screenful happens
+     to be. */
+  body.tvmode .tvscrollcontent.tvscrolling{animation:none}
+  body.tvmode .tvscrollviewport{overflow-y:auto}
 }
 
 /* toast */
