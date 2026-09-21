@@ -823,9 +823,21 @@ body.tvmode .tvheadtable{table-layout:fixed; margin:0}
 body.tvmode .tvbodytable{table-layout:fixed; margin:0}
 body.tvmode .tvscrollviewport{flex:1; min-height:0; overflow:hidden; position:relative}
 body.tvmode .tvscrollcontent{will-change:transform}
+/* Round 38 follow-up: client feedback -- the seamless version of this loop
+   (duplicate the content once, animate 0 -> -50%) made the board look like
+   it was showing "Ongoing / Completed / Ongoing / Completed" back to back,
+   which read as a bug rather than a smooth wrap. Theo wants the opposite:
+   once the list finishes Completed, it should go back to the top -- so this
+   now animates 0 -> the exact distance needed for the last row to clear the
+   viewport (--tv-scroll-distance, set per render by setupTvAutoScroll() in
+   js/render.js, since it depends on how many trucks are on the board today)
+   and relies on a plain CSS animation loop's own default behavior: with no
+   fill-mode tricks, animation-iteration-count:infinite snaps straight back
+   to the "from" transform the instant one pass completes -- exactly the
+   top-of-list jump requested, with no content duplication needed at all. */
 @keyframes tvautoscroll{
   from{transform:translateY(0)}
-  to{transform:translateY(-50%)}
+  to{transform:translateY(calc(-1 * var(--tv-scroll-distance, 0px)))}
 }
 body.tvmode .tvscrollcontent.tvscrolling{animation-name:tvautoscroll; animation-timing-function:linear; animation-iteration-count:infinite}
 @media (prefers-reduced-motion:reduce){
