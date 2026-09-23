@@ -942,6 +942,12 @@ body.tvmode .tvscrollcontent.tvscrolling{animation-name:tvautoscroll; animation-
 .trendbarzero{fill:var(--line-strong); opacity:.55}
 .trendline{stroke:var(--brand); stroke-width:2; stroke-linejoin:round; stroke-linecap:round}
 .trenddot{fill:var(--brand)}
+/* Round 40: CSV export and the new Excel report button sit side by side
+   instead of stacked full-width -- both are secondary/"ghost" actions, so
+   there's no reason for either to claim the whole row to itself the way a
+   primary action (like "Generate" above) does. */
+.reportexportrow{display:flex; gap:10px; margin-top:14px}
+.reportexportrow .btn{width:auto; flex:1; margin-top:0}
 .trendtable-details{margin-top:16px}
 .trendtable{width:100%; border-collapse:collapse; font-size:12.5px}
 .trendtable th, .trendtable td{padding:6px 8px; text-align:right; border-bottom:1px solid var(--line)}

@@ -1141,7 +1141,10 @@ function reportSheetHtml(){
         tr("reportRatedNote").replace("{n}", d.onTimeRated)+
       '</div>'+
       '<div class="kpis" style="margin-top:8px">'+reportKpiTilesHtml(d)+'</div>'+
-      '<button class="btn ghost" data-export-report-csv="1">⬇️ '+tr("reportExportCsvBtn")+'</button>'+
+      '<div class="reportexportrow">'+
+        '<button class="btn ghost" data-export-report-csv="1">⬇️ '+tr("reportExportCsvBtn")+'</button>'+
+        '<button class="btn ghost" data-export-report-excel="1">📊 '+tr("reportExportExcelBtn")+'</button>'+
+      '</div>'+
       reportTrendChartsHtml(ui.reportTrend)+
       carrierRankingHtml(ui.reportRows);
   }

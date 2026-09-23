@@ -20,6 +20,7 @@ import {
 } from "./actions.js";
 import { openImportPlan, runImportPreview, runImportConfirm, handleImportFile } from "./importPlan.js";
 import { openReport, runReport, exportReportCsv, runPhotoArchive } from "./reporting.js";
+import { exportReportExcel } from "./excelReport.js";
 import { openHistory, runHistory } from "./history.js";
 import { openArchiveList, runArchiveList, toggleArchiveListRow, toggleArchiveListSelectAll, runArchiveBulkUpdate } from "./archiveList.js";
 import { downloadTruckPhotos } from "./photoDownload.js";
@@ -72,6 +73,7 @@ export function initEvents(){
     if(el.closest("[data-open-report]")){ openReport(); return; }
     if(el.closest("[data-run-report]")){ runReport(); return; }
     if(el.closest("[data-export-report-csv]")){ exportReportCsv(); return; }
+    if(el.closest("[data-export-report-excel]")){ exportReportExcel(); return; }
     // Round 25: Admin MON IT-only bulk photo download (see archiveBlockHtml()
     // in render.js -- the button itself only ever renders for that role, so
     // no extra role check is needed here).

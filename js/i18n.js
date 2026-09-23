@@ -333,6 +333,33 @@ export const STRINGS = {
   undo:{en:"Undo",th:"ยกเลิก"},
   reportExportCsvBtn:{en:"Export CSV",th:"ส่งออกเป็น CSV"},
   reportExportFailed:{en:"Export failed: {err}",th:"ส่งออกไม่สำเร็จ: {err}"},
+  // Round 40: Theo -- "je voulais un vrai fichier excel du type [MON OPL
+  // Skill Matrix example]... je veux le meme type" (a real Excel workbook
+  // in the same polished style as another MON report he already has, not
+  // just a flat CSV). See exportReportExcel() in js/excelReport.js.
+  reportExportExcelBtn:{en:"Export Excel report",th:"ส่งออกเป็นรายงาน Excel"},
+  reportExcelPreparing:{en:"Building the Excel report…",th:"กำลังสร้างรายงาน Excel…"},
+  reportExcelReady:{en:"Excel report downloaded.",th:"ดาวน์โหลดรายงาน Excel แล้ว"},
+  reportExcelFailed:{en:"Could not build the Excel report.",th:"ไม่สามารถสร้างรายงาน Excel ได้"},
+  reportExcelKeyFigures:{en:"KEY FIGURES",th:"ตัวเลขสำคัญ"},
+  reportExcelAttentionTitle:{en:"TRUCKS NEEDING ATTENTION",th:"รถบรรทุกที่ต้องให้ความสนใจ"},
+  reportExcelAttentionNone:{en:"Nothing needs attention in this range.",th:"ไม่มีรายการที่ต้องให้ความสนใจในช่วงนี้"},
+  reportExcelAttentionMore:{en:"+{n} more — see the Trucks sheet",th:"+{n} รายการเพิ่มเติม — ดูที่ชีท Trucks"},
+  reportExcelWhyLate:{en:"Late",th:"มาสาย"},
+  reportExcelWhyDamage:{en:"Damage remark",th:"มีหมายเหตุความเสียหาย"},
+  reportExcelWhyNoArrival:{en:"No arrival logged",th:"ไม่มีบันทึกเวลาเข้า"},
+  reportExcelColPo:{en:"PO",th:"PO"},
+  reportExcelColCarrier:{en:"Carrier",th:"ผู้ขนส่ง"},
+  reportExcelColDate:{en:"Date",th:"วันที่"},
+  reportExcelColEta:{en:"ETA",th:"เวลานัด"},
+  reportExcelColWhy:{en:"Why",th:"เหตุผล"},
+  reportExcelColTotal:{en:"Total",th:"รวม"},
+  reportExcelColLate:{en:"Late",th:"สาย"},
+  reportExcelColRated:{en:"Rated",th:"มีข้อมูลตรงเวลา"},
+  reportExcelTabReport:{en:"Report",th:"รายงาน"},
+  reportExcelTabTrucks:{en:"Trucks",th:"รถบรรทุก"},
+  reportExcelTabCarriers:{en:"Carriers",th:"ผู้ขนส่ง"},
+  reportExcelTabTrend:{en:"Trend",th:"แนวโน้ม"},
   // Round 21: visually closer to MON's Outbound admin tool -- a visible
   // auto-refresh countdown, solid colored status badges (CSS only, no new
   // keys needed there), a collapsible status legend, and a table view of
