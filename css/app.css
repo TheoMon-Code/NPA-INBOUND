@@ -894,4 +894,57 @@ body.tvmode .tvscrollcontent.tvscrolling{animation-name:tvautoscroll; animation-
   display:block; max-width:300px; width:100%; background:#fff;
   border:1px solid var(--line-strong); border-radius:11px; margin:0 auto;
 }
+
+/* ---------- Round 39: branded header on the Reporting screen ----------
+   Theo: "Il faut aussi que ca reprennes toute la DA de ma compagnie + logo"
+   (this needs to fully carry my company's visual identity + logo). Arial
+   and the official corporate colour palette were already applied app-wide
+   (see the --brand/--bad/--good/--warn variables above and the Arial
+   font-family rules), but .sheet is a fullscreen page (Round 15) that sits
+   on top of .topbar -- so the topbar's own logo (markSvg(), .mark-badge)
+   is completely hidden behind it whenever the Reports sheet is open, which
+   is the concrete gap this fixes. Same blue gradient as .topbar, with the
+   same white logo badge, so the report itself reads as MON-branded even
+   though the topbar underneath it is covered. Negative margins cancel out
+   exactly the top/side padding .sheet already has, so this band sits flush
+   against the very top/left/right edges of the fullscreen page, then its
+   own padding recreates that same spacing (now inside the coloured band)
+   before the rest of the sheet's content resumes at its usual left margin. */
+.report-brand-band{
+  margin:calc(-14px - env(safe-area-inset-top)) -20px 16px;
+  padding:calc(14px + env(safe-area-inset-top)) 20px 14px;
+  background:linear-gradient(160deg,var(--brand-surface),#006EAF 65%,var(--brand-surface));
+  display:flex; align-items:center; gap:12px;
+}
+.report-brand-band .mark-badge{margin:0}
+.report-brand-name{font-family:Arial;font-weight:700;font-size:14.5px;letter-spacing:.5px;color:#fff}
+.report-brand-sub{font-size:11px;color:#BFD0FF;margin-top:1px}
+
+/* ---------- Round 39: inbound trend charts (Reporting screen) ----------
+   Theo: "un rapport detaillé des ibounds... avec des trends pour observer
+   les trends, improvments etc." Four small-multiple charts (volume,
+   on-time %, avg. unloading time, damage incidents over the picked range
+   -- see reportTrendChartsHtml() in render.js and computeTrendBuckets() in
+   reporting.js) rather than one combined chart, since the four measures
+   are on different scales (trucks/day vs. % vs. minutes) and a dual-axis
+   chart is exactly the mistake to avoid. Deliberately plain inline SVG, no
+   chart library, same "kept deliberately simple" reasoning as the rest of
+   this screen -- thin marks, a single recessive baseline, text in the
+   normal ink tokens (never the bar/line colour), and a native <title> on
+   every mark for a hover tooltip instead of any custom JS tooltip
+   machinery. */
+.trendgrid{display:grid; grid-template-columns:1fr; gap:18px}
+@media (min-width:640px){.trendgrid{grid-template-columns:1fr 1fr}}
+.trendcard-title{font-size:12.5px;font-weight:600;color:var(--ink-dim);margin-bottom:4px}
+.trendchart{width:100%; height:auto; display:block}
+.trendbaseline{stroke:var(--line-strong); stroke-width:1; opacity:.7}
+.trendaxislabel{font-size:9px; fill:var(--ink-faint); font-family:Arial}
+.trendbarzero{fill:var(--line-strong); opacity:.55}
+.trendline{stroke:var(--brand); stroke-width:2; stroke-linejoin:round; stroke-linecap:round}
+.trenddot{fill:var(--brand)}
+.trendtable-details{margin-top:16px}
+.trendtable{width:100%; border-collapse:collapse; font-size:12.5px}
+.trendtable th, .trendtable td{padding:6px 8px; text-align:right; border-bottom:1px solid var(--line)}
+.trendtable th:first-child, .trendtable td:first-child{text-align:left}
+.trendtable thead th{color:var(--ink-faint); font-weight:600; font-size:10.5px; text-transform:uppercase; letter-spacing:.5px}
 @keyframes rise{from{transform:translateY(10px);opacity:0}to{transform:translateY(0);opacity:1}}

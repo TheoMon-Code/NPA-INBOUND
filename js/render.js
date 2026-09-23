@@ -900,6 +900,237 @@ function reportKpiTilesHtml(d){
     return '<div class="kpi '+k.cls+'"><div class="v mono">'+k.v+'</div><div class="l">'+k.l+"</div></div>";
   }).join("");
 }
+/* Round 39: Theo -- "ca reprennes toute la DA de ma compagnie + logo" (this
+   needs to fully carry my company's visual identity + logo). Arial and the
+   official corporate palette are already app-wide (see css/app.css); the
+   Reports screen specifically has no logo visible at all, since it's a
+   fullscreen .sheet that covers the .topbar (and its markSvg() logo)
+   underneath it. Reuses that same logo + the topbar's own blue gradient,
+   see .report-brand-band in css/app.css. */
+function reportBrandBandHtml(){
+  return '<div class="report-brand-band">'+markSvg()+
+    '<div><div class="report-brand-name">MON LOGISTICS</div><div class="report-brand-sub">'+tr("reportTitle")+'</div></div>'+
+  '</div>';
+}
+
+/* ---------- Round 39: inbound trend charts ----------
+   Theo: "un rapport detaillé des ibounds... avec des trends pour observer
+   les trends, improvments etc." (a real report with trends to watch
+   trends/improvements). The KPI tiles above are one aggregate number per
+   metric for the whole picked range; these plot the same four metrics
+   (Theo's own list, confirmed via the clarifying question: truck volume,
+   on-time rate, avg. unloading time, damage incidents) bucket-by-bucket
+   over that range instead -- see computeTrendBuckets() in reporting.js for
+   how rows are grouped into the buckets these read.
+
+   Four separate small-multiple charts, never one combined chart -- the
+   measures are on different scales (trucks/day, a %, minutes), and mixing
+   them onto one dual-axis chart is the #1 chart mistake per the dataviz
+   skill. Plain inline SVG (viewBox-scaled, no chart library), consistent
+   with this whole screen's "kept deliberately simple" design. Color
+   choices reuse this app's own existing conventions rather than inventing
+   a new palette: --brand (neutral/informational) for volume and the
+   duration line, the same onTimePct>=80 good/bad split reportKpiTilesHtml()/
+   carrierRankingHtml() already use for on-time, and --bad reserved for
+   buckets that actually had a damage incident (a bucket with zero stays a
+   neutral, recessive bar -- red is a status colour, not a chart series
+   colour, so it's never used for "no incidents"). A muted flat stub marks
+   a bucket with no ratable data at all (e.g. no arrivals yet, so no
+   on-time%%), distinct from a real measured zero. */
+var TREND_W = 600, TREND_H = 150, TREND_PAD = 14, TREND_TOP_Y = 12, TREND_BASE_Y = 116, TREND_LABEL_Y = 138;
+
+function trendSlotCenters(n){
+  var usable = TREND_W - TREND_PAD*2;
+  var slot = usable / n;
+  var centers = [];
+  for(var i=0;i<n;i++) centers.push(TREND_PAD + slot*i + slot/2);
+  return centers;
+}
+// Thins x-axis labels to at most ~7 so they never overlap on a long range
+// (a 90-day daily-turned-weekly report can still be a dozen+ buckets).
+function trendLabelIndexes(n){
+  var maxLabels = 7;
+  if(n <= maxLabels){
+    var all = []; for(var i=0;i<n;i++) all.push(i); return all;
+  }
+  var step = Math.ceil(n/maxLabels);
+  var idxs = [];
+  for(var i=0;i<n;i+=step) idxs.push(i);
+  var last = n-1;
+  if(idxs[idxs.length-1] !== last){
+    // The last bucket always gets a label (so the range's own end is
+    // always visible) -- but if the regular step already left it within
+    // one step of the final regular tick, appending a 9th label there
+    // would crowd right up against its neighbour, so it replaces that
+    // last regular tick instead of sitting beside it.
+    if(idxs.length > 1 && (last - idxs[idxs.length-1]) < step){
+      idxs[idxs.length-1] = last;
+    } else {
+      idxs.push(last);
+    }
+  }
+  return idxs;
+}
+function trendAxisLabelsHtml(buckets){
+  var centers = trendSlotCenters(buckets.length);
+  return trendLabelIndexes(buckets.length).map(function(i){
+    return '<text x="'+centers[i]+'" y="'+TREND_LABEL_Y+'" text-anchor="middle" class="trendaxislabel">'+esc(buckets[i].label)+'</text>';
+  }).join("");
+}
+function trendBaselineHtml(){
+  return '<line x1="'+TREND_PAD+'" y1="'+TREND_BASE_Y+'" x2="'+(TREND_W-TREND_PAD)+'" y2="'+TREND_BASE_Y+'" class="trendbaseline"/>';
+}
+// A bar's far end is rounded (4px), the end anchored to the baseline stays
+// square -- per the dataviz skill's mark spec -- built as an explicit path
+// (arcs on the top two corners only) rather than a plain rounded <rect>,
+// which would round the baseline corners too.
+function roundedTopBarPath(cx, w, base, top){
+  var x = cx - w/2;
+  var r = Math.min(4, (base-top)/2, w/2);
+  if(r <= 0.5){
+    return 'M'+x+','+base+' L'+x+','+top+' L'+(x+w)+','+top+' L'+(x+w)+','+base+' Z';
+  }
+  return 'M'+x+','+base+
+    ' L'+x+','+(top+r)+
+    ' Q'+x+','+top+' '+(x+r)+','+top+
+    ' L'+(x+w-r)+','+top+
+    ' Q'+(x+w)+','+top+' '+(x+w)+','+(top+r)+
+    ' L'+(x+w)+','+base+' Z';
+}
+/* valueFn(bucket) -> a number, or null for "no data at all" (drawn as a
+   short muted stub instead of a coloured bar). colorFn(bucket, value) picks
+   the fill for a real value. opts.maxVal fixes the scale (e.g. 100 for a
+   percentage) instead of auto-scaling from the tallest bar in view. */
+function trendBarChartSvg(buckets, valueFn, colorFn, titleFn, opts){
+  opts = opts || {};
+  var n = buckets.length;
+  var centers = trendSlotCenters(n);
+  var barW = Math.max(3, Math.min(22, (TREND_W - TREND_PAD*2)/n * 0.6));
+  var autoMax = Math.max.apply(null, [1].concat(buckets.map(function(b){ var v=valueFn(b); return v==null?0:v; })));
+  var maxVal = opts.maxVal || autoMax;
+  var plotH = TREND_BASE_Y - TREND_TOP_Y;
+  var bars = buckets.map(function(b,i){
+    var v = valueFn(b);
+    var title = titleFn(b);
+    if(v == null){
+      return '<rect x="'+(centers[i]-barW/2)+'" y="'+(TREND_BASE_Y-2)+'" width="'+barW+'" height="2" rx="1" class="trendbarzero"><title>'+esc(title)+'</title></rect>';
+    }
+    var h = Math.max(2, (v/maxVal) * plotH);
+    var top = TREND_BASE_Y - h;
+    return '<path d="'+roundedTopBarPath(centers[i], barW, TREND_BASE_Y, top)+'" fill="'+colorFn(b,v)+'"><title>'+esc(title)+'</title></path>';
+  }).join("");
+  return '<svg viewBox="0 0 '+TREND_W+' '+TREND_H+'" class="trendchart" role="img">'+trendBaselineHtml()+bars+trendAxisLabelsHtml(buckets)+'</svg>';
+}
+// Line chart for avg. unloading time -- breaks into a fresh subpath at any
+// bucket with no completed trucks, instead of drawing a misleading straight
+// line across a gap in the data.
+function trendLineChartSvg(buckets, valueFn, titleFn){
+  var n = buckets.length;
+  var centers = trendSlotCenters(n);
+  var vals = buckets.map(valueFn);
+  var known = vals.filter(function(v){ return v != null; });
+  var maxVal = known.length ? Math.max.apply(null, known) : 1;
+  if(maxVal <= 0) maxVal = 1;
+  var plotH = TREND_BASE_Y - TREND_TOP_Y;
+  var paths = [];
+  var current = "";
+  vals.forEach(function(v, i){
+    if(v == null){
+      if(current){ paths.push(current); current = ""; }
+      return;
+    }
+    var y = TREND_BASE_Y - (v/maxVal)*plotH;
+    current += (current ? " L" : "M") + centers[i] + "," + y;
+  });
+  if(current) paths.push(current);
+  var lines = paths.map(function(d){ return '<path d="'+d+'" fill="none" class="trendline"/>'; }).join("");
+  var dots = vals.map(function(v, i){
+    if(v == null) return "";
+    var y = TREND_BASE_Y - (v/maxVal)*plotH;
+    return '<circle cx="'+centers[i]+'" cy="'+y+'" r="4" class="trenddot"><title>'+esc(titleFn(buckets[i]))+'</title></circle>';
+  }).join("");
+  return '<svg viewBox="0 0 '+TREND_W+' '+TREND_H+'" class="trendchart" role="img">'+trendBaselineHtml()+lines+dots+trendAxisLabelsHtml(buckets)+'</svg>';
+}
+
+function reportTrendVolumeChartHtml(buckets){
+  return trendBarChartSvg(buckets,
+    function(b){ return b.stats.total; },
+    function(){ return "var(--brand)"; },
+    function(b){ return tr("reportTrendTipVolume").replace("{period}", b.label).replace("{n}", b.stats.total); }
+  );
+}
+function reportTrendOnTimeChartHtml(buckets){
+  return trendBarChartSvg(buckets,
+    function(b){ return b.stats.onTimePct; },
+    function(b, v){ return v < 80 ? "var(--bad)" : "var(--good)"; },
+    function(b){
+      return b.stats.onTimePct == null
+        ? tr("reportTrendTipOnTimeNoData").replace("{period}", b.label)
+        : tr("reportTrendTipOnTime").replace("{period}", b.label).replace("{pct}", b.stats.onTimePct).replace("{on}", b.stats.onTime).replace("{rated}", b.stats.onTimeRated);
+    },
+    { maxVal: 100 }
+  );
+}
+function reportTrendAvgDurationChartHtml(buckets){
+  return trendLineChartSvg(buckets,
+    function(b){ return b.stats.avgMin; },
+    function(b){
+      return b.stats.avgMin == null
+        ? tr("reportTrendTipAvgDurationNoData").replace("{period}", b.label)
+        : tr("reportTrendTipAvgDuration").replace("{period}", b.label).replace("{v}", fmtHM(b.stats.avgMin));
+    }
+  );
+}
+function reportTrendDamageChartHtml(buckets){
+  return trendBarChartSvg(buckets,
+    function(b){ return b.stats.damageCount; },
+    function(b, v){ return v > 0 ? "var(--bad)" : "var(--line-strong)"; },
+    function(b){ return tr("reportTrendTipDamage").replace("{period}", b.label).replace("{n}", b.stats.damageCount); }
+  );
+}
+function reportTrendChartCardHtml(titleKey, svgHtml){
+  return '<div class="trendcard"><div class="trendcard-title">'+tr(titleKey)+'</div>'+svgHtml+'</div>';
+}
+// Accessible alternative to the four charts above -- same raw numbers, one
+// row per bucket, collapsed behind a <details> disclosure (same pattern
+// already used for "all source fields" elsewhere on this screen).
+function reportTrendTableHtml(buckets){
+  var rows = buckets.map(function(b){
+    var s = b.stats;
+    return '<tr><td>'+esc(b.label)+'</td>'+
+      '<td>'+s.total+'</td>'+
+      '<td>'+(s.onTimePct==null?"—":s.onTimePct+"%")+'</td>'+
+      '<td>'+(s.avgMin==null?"—":fmtHM(s.avgMin))+'</td>'+
+      '<td>'+s.damageCount+'</td></tr>';
+  }).join("");
+  return '<details class="trendtable-details">'+
+    '<summary class="label" style="cursor:pointer">'+tr("reportTrendTableToggle")+'</summary>'+
+    '<div style="overflow-x:auto;margin-top:10px"><table class="trendtable"><thead><tr>'+
+      '<th>'+tr("reportTrendColPeriod")+'</th>'+
+      '<th>'+tr("reportTrendColVolume")+'</th>'+
+      '<th>'+tr("reportTrendColOnTime")+'</th>'+
+      '<th>'+tr("reportTrendColAvgDuration")+'</th>'+
+      '<th>'+tr("reportTrendColDamage")+'</th>'+
+    '</tr></thead><tbody>'+rows+'</tbody></table></div>'+
+  '</details>';
+}
+function reportTrendChartsHtml(trend){
+  if(!trend || !trend.buckets || !trend.buckets.length) return "";
+  var buckets = trend.buckets;
+  var hint = trend.granularity === "week" ? tr("reportTrendHintWeek") : tr("reportTrendHintDay");
+  return '<div class="sheet-section" style="border-top:1px solid var(--line);margin-top:16px;padding-top:16px">'+
+    '<div class="label">'+tr("reportTrendTitle")+'</div>'+
+    '<div class="hint" style="margin-top:4px">'+esc(hint)+'</div>'+
+    '<div class="trendgrid" style="margin-top:10px">'+
+      reportTrendChartCardHtml("reportTrendVolume", reportTrendVolumeChartHtml(buckets))+
+      reportTrendChartCardHtml("reportTrendOnTime", reportTrendOnTimeChartHtml(buckets))+
+      reportTrendChartCardHtml("reportTrendAvgDuration", reportTrendAvgDurationChartHtml(buckets))+
+      reportTrendChartCardHtml("reportTrendDamage", reportTrendDamageChartHtml(buckets))+
+    '</div>'+
+    reportTrendTableHtml(buckets)+
+  '</div>';
+}
+
 function reportSheetHtml(){
   var busy = !!ui.reportBusy;
   var errHtml = ui.reportError ? '<div class="hint" style="color:var(--bad);margin-top:10px">'+esc(ui.reportError)+'</div>' : "";
@@ -911,9 +1142,11 @@ function reportSheetHtml(){
       '</div>'+
       '<div class="kpis" style="margin-top:8px">'+reportKpiTilesHtml(d)+'</div>'+
       '<button class="btn ghost" data-export-report-csv="1">⬇️ '+tr("reportExportCsvBtn")+'</button>'+
+      reportTrendChartsHtml(ui.reportTrend)+
       carrierRankingHtml(ui.reportRows);
   }
   return '<div class="scrim" data-scrim="1"><div class="sheet">'+
+    reportBrandBandHtml()+
     '<div class="sheet-handle"></div>'+
     '<div class="sheet-head"><div><div class="sheet-id title-lg">'+tr("reportTitle")+'</div></div>'+
     '<button class="sheet-close" data-close="1">✕</button></div>'+

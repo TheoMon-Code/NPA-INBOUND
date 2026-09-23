@@ -18,11 +18,12 @@ import { sbFetchTrucksForReport, sbFetchTrucksForArchive } from "./api.js";
 import { GRACE_MIN } from "./config.js";
 import { showToast } from "./actions.js";
 import { downloadPhotosArchive } from "./photoDownload.js";
+import { addDays, dateKey, shortDate } from "./dateUtils.js";
 
 export function openReport(){
   ui.reportOpen = true;
   ui.openId = null; ui.addOpen = false;
-  ui.reportError = null; ui.reportData = null; ui.reportRows = null;
+  ui.reportError = null; ui.reportData = null; ui.reportRows = null; ui.reportTrend = null;
   render();
 }
 
@@ -115,6 +116,9 @@ export function runReport(){
     // (below) has the actual rows to write out without a second Supabase
     // round trip for what was already just fetched.
     ui.reportRows = rows;
+    // Round 39: same rows, regrouped into per-day/per-week buckets for the
+    // trend charts -- see computeTrendBuckets() below.
+    ui.reportTrend = computeTrendBuckets(rows, from, to);
     ui.reportBusy = false;
     render();
   }).catch(function(err){
@@ -122,6 +126,62 @@ export function runReport(){
     ui.reportError = (err && err.message) || tr("reportLoadFailed");
     render();
   });
+}
+
+/* Round 39: Theo -- "un vrai rapport comme dans une compagnie de logistic
+   avec des trends... genre on peut voir ce qui il se passe between X to X"
+   (a real logistics-company report with trends, not just one aggregate for
+   the whole picked range). Regroups the same rows runReport() already
+   fetched into buckets across the picked range and reuses statsForRows()
+   (same math as the KPI tiles/carrier ranking above) per bucket, so
+   reportTrendChartsHtml() (js/render.js) can plot volume/on-time%/avg-
+   duration/damage over time instead of one number each.
+
+   Bucketing is by calendar day for anything reasonably short (<=45 days,
+   comfortably covers "last week"/"last month"), and by Monday-start
+   calendar week beyond that -- a 90-day or full-quarter range plotted
+   daily would just be 90+ unreadable slivers, and weekly is the shape a
+   plant manager actually thinks in for "improving over time" ("Volume de
+   camions (par jour/semaine)" was Theo's own phrasing). Every day/week in
+   the range gets its own bucket even when it had zero trucks, so a quiet
+   stretch shows as a real zero rather than silently disappearing from the
+   chart -- the same "don't skip gaps" reasoning as the day tabs elsewhere
+   in this app. */
+export function computeTrendBuckets(rows, from, to){
+  var totalDays = 1;
+  for(var probe = from; probe < to; probe = addDays(probe, 1)) totalDays++;
+  var granularity = totalDays > 45 ? "week" : "day";
+  var buckets = [];
+  if(granularity === "day"){
+    for(var k = from; k <= to; k = addDays(k, 1)){
+      buckets.push({ key:k, label:shortDate(k), from:k, to:k });
+    }
+  } else {
+    var cursor = mondayOf(from);
+    while(cursor <= to){
+      var weekEnd = addDays(cursor, 6);
+      var clippedEnd = weekEnd > to ? to : weekEnd;
+      buckets.push({ key:cursor, label:shortDate(cursor)+"–"+shortDate(clippedEnd), from:cursor, to:clippedEnd });
+      cursor = addDays(cursor, 7);
+    }
+  }
+  buckets.forEach(function(b){
+    var bucketRows = rows.filter(function(r){ return r.date >= b.from && r.date <= b.to; });
+    b.stats = statsForRows(bucketRows);
+  });
+  return { granularity:granularity, buckets:buckets };
+}
+
+// Monday of the calendar week a "YYYY-MM-DD" key falls in -- so weekly
+// buckets always line up on real week boundaries regardless of which day
+// of the week the picked "from" date happens to land on.
+function mondayOf(key){
+  var p = key.split("-").map(Number);
+  var d = new Date(p[0], p[1]-1, p[2]);
+  var dow = d.getDay(); // 0=Sun..6=Sat
+  var back = dow === 0 ? 6 : dow - 1;
+  d.setDate(d.getDate() - back);
+  return dateKey(d);
 }
 
 /* Round 25: Admin MON IT-only bulk photo download, reusing this same

@@ -96,6 +96,13 @@ export const ui = {
   // aggregated reportData above purely so "Export CSV" has something to
   // write out without a second Supabase round trip.
   reportRows: null,
+  // Round 39: Theo asked for "un vrai rapport... avec des trends" -- the
+  // KPI tiles above are one aggregate for the whole picked range; this is
+  // the same rows regrouped into per-day (or per-week, for a long range)
+  // buckets so the trend charts (reportTrendChartsHtml() in render.js) can
+  // show volume/on-time%/avg-duration/damage over time instead of a single
+  // number. See computeTrendBuckets() in reporting.js.
+  reportTrend: null,
   // Quick list-level search (PO/reference/carrier/plant, case-insensitive)
   // and a one-tap "late only" filter (Round 17) -- both purely client-side,
   // filtering what's already loaded rather than re-querying Supabase; empty

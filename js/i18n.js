@@ -249,6 +249,29 @@ export const STRINGS = {
   reportCarrierTitle:{en:"On-time ranking by carrier",th:"อันดับความตรงเวลาตามผู้ขนส่ง"},
   reportCarrierHint:{en:"Same date range as above. Sorted worst on-time % first.",th:"ช่วงวันที่เดียวกับด้านบน เรียงจาก % ตรงเวลาต่ำสุดก่อน"},
   reportCarrierMeta:{en:"{total} truck(s) · {damage} damage remark(s)",th:"{total} คัน · หมายเหตุความเสียหาย {damage} รายการ"},
+  // Round 39: trend charts (volume/on-time%/avg duration/damage over time)
+  // under the KPI tiles above, see computeTrendBuckets() (reporting.js) and
+  // reportTrendChartsHtml() (render.js). Theo: "un vrai rapport... avec des
+  // trends pour observer les trends, improvments etc."
+  reportTrendTitle:{en:"Trends",th:"แนวโน้ม"},
+  reportTrendHintDay:{en:"Grouped by day.",th:"จัดกลุ่มตามวัน"},
+  reportTrendHintWeek:{en:"Range longer than 45 days — grouped by week (Monday–Sunday).",th:"ช่วงวันที่ยาวกว่า 45 วัน — จัดกลุ่มตามสัปดาห์ (จันทร์–อาทิตย์)"},
+  reportTrendVolume:{en:"Truck volume",th:"ปริมาณรถบรรทุก"},
+  reportTrendOnTime:{en:"On-time rate",th:"อัตราตรงเวลา"},
+  reportTrendAvgDuration:{en:"Avg. unloading time",th:"เวลาขนถ่ายเฉลี่ย"},
+  reportTrendDamage:{en:"Damage incidents",th:"เหตุการณ์ความเสียหาย"},
+  reportTrendTableToggle:{en:"View as table",th:"ดูแบบตาราง"},
+  reportTrendColPeriod:{en:"Period",th:"ช่วงเวลา"},
+  reportTrendColVolume:{en:"Trucks",th:"รถบรรทุก"},
+  reportTrendColOnTime:{en:"On time",th:"ตรงเวลา"},
+  reportTrendColAvgDuration:{en:"Avg. unload",th:"เวลาเฉลี่ย"},
+  reportTrendColDamage:{en:"Damage",th:"ความเสียหาย"},
+  reportTrendTipVolume:{en:"{period}: {n} truck(s)",th:"{period}: รถบรรทุก {n} คัน"},
+  reportTrendTipOnTime:{en:"{period}: {pct}% on time ({on}/{rated})",th:"{period}: ตรงเวลา {pct}% ({on}/{rated})"},
+  reportTrendTipOnTimeNoData:{en:"{period}: no rated arrivals",th:"{period}: ไม่มีข้อมูลตรงเวลา"},
+  reportTrendTipAvgDuration:{en:"{period}: avg. {v}",th:"{period}: เฉลี่ย {v}"},
+  reportTrendTipAvgDurationNoData:{en:"{period}: no completed trucks",th:"{period}: ไม่มีรถบรรทุกที่เสร็จสิ้น"},
+  reportTrendTipDamage:{en:"{period}: {n} damage remark(s)",th:"{period}: หมายเหตุความเสียหาย {n} รายการ"},
   // Round 27: Admin "Archive" screen (read-only browse of past trucks).
   archiveListTitle:{en:"Archive",th:"คลังข้อมูลย้อนหลัง"},
   archiveListIntro:{en:"Browse actual trucks over a date range, further back than the day-by-day view. Read-only — tap a truck's own list day to edit it.",th:"ดูรายการรถบรรทุกจริงในช่วงวันที่ที่เลือก ย้อนหลังได้ไกลกว่าหน้าหลักรายวัน — ดูอย่างเดียว หากต้องการแก้ไขให้ไปที่วันนั้นในหน้าหลัก"},
